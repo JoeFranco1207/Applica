@@ -1,0 +1,28 @@
+import mongoose from 'mongoose';
+import User from './UserSchema.js';
+
+export const employerSchema = new mongoose.Schema({
+    companyName: { type: String, required: true },
+    companyDescription: String,
+    companyLocation: {
+        region: String,
+        city: String,
+        barangay: String,
+        otherDetails: String
+    },
+    companySize: {
+        type: String,
+        enum: ["1-10", "11-50", "51-200", "201-500", "501-1000", "1001+"]
+    },
+    industry: String,
+    website: String,
+    contactNumber: String,
+    companyLogo: String
+},
+ {
+    timestamps: true,
+ }
+ 
+);
+
+export default User.discriminator("employer", employerSchema);

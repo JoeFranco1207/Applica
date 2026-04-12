@@ -1,0 +1,6 @@
+{
+    "name": "Joe Franco",
+    "email" : "Francomartnabung@gmail.com",
+    "password": " Franco@07",
+    "matchpassword": "Franco@07"
+}

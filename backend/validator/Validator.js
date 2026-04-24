@@ -16,3 +16,12 @@ export const LoginValidation = Joi.object({
 
     password: Joi.string().min(6).required()
 });
+
+export const phoneNumberValidation = Joi.object({
+    phoneNumber: Joi.string().
+       pattern(/((\+63)|0)[.\- ]?9[0-9]{2}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}/).
+       required().
+        messages({'string.pattern.base': 'Invalid mobile number format. Please use 09XXXXXXXXX or +639XXXXXXXXX.'
+    })
+})
+

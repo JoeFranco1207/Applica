@@ -1,6 +1,36 @@
 {
-    "name": "Joe Franco",
+  "citizenShip": "Filipino",
+  "location": {
+    "region": "Region II",
+    "city": "Nueva Ecija",
+    "barangay": "Santo Niño",
+    "otherDetails": "Near plaza"
+  },
+  "experience": [
+    {
+      "company": "ABC Corp",
+      "position": "Frontend Developer",
+      "years": 2
+    }
+  ],
+  "education": [
+    {
+      "school": "XYZ University",
+      "degree": "BS Information Technology",
+      "yearGraduated": 2023
+    }
+  ],
+  "resume": "https://example.com/resume.pdf",
+  "profilePicture": "https://example.com/profile.jpg",
+  "bio": "Aspiring full-stack developer with React and Node.js experience."
+}
+
+{
+    "firstName" : "Joe Franco"
+    "lastName" : "Nabung"
     "email" : "Francomartnabung@gmail.com",
     "password": " Franco@07",
     "matchpassword": "Franco@07"
+    "phoneNumber" : "09173663078"
+    
 }

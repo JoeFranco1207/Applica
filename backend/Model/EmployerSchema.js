@@ -25,4 +25,5 @@ export const employerSchema = new mongoose.Schema({
  
 );
 
-export default User.discriminator("employer", employerSchema);
+const Employer = User.discriminator("employer", employerSchema);
+export default Employer;

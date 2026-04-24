@@ -5,13 +5,13 @@ export const  jobseekerSchema = new mongoose.Schema({
       
       profilePicture: String,
       bio: String,
-
+      
     citizenShip:{
       type: String,
       required: true,
       enum: ["Filipino", "Foreign"]
     },
-
+         
     location:{ 
 
       region:{
@@ -31,6 +31,10 @@ export const  jobseekerSchema = new mongoose.Schema({
 
     experience: String,
     education: String,
+    resume: {
+      type :String,
+      required: true
+    }
 },
  {
     timestamps: true,

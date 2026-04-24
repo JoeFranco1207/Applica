@@ -1,10 +1,9 @@
 import mongoose from 'mongoose';
 
 const options = {
-  discriminatorKey: "role", 
+  discriminatorKey: 'role',
   timestamps: true,
 };
-
 
 const userSchema = new mongoose.Schema({
   //Basic User Information
@@ -14,13 +13,14 @@ const userSchema = new mongoose.Schema({
     email: { type: String,required: true, }, 
     password:{ type: String,required: true },
     phoneNumber: String, 
+    role: { type: String, default: 'user' },
       AccountStatus:{
         type:String,
         enum: ["Verified" , "Not Verified"],
         select: false,
         default: "Not Verified"
     },  
-    //Verification and Password Reset Fields
+
     isVerified: {
       type: Boolean,
       default: false,

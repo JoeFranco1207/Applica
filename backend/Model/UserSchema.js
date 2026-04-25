@@ -13,7 +13,9 @@ const userSchema = new mongoose.Schema({
     email: { type: String,required: true, }, 
     password:{ type: String,required: true },
     phoneNumber: String, 
-    role: { type: String, default: 'user' },
+    role: { type: String,
+      enum: ['user', 'admin', 'employer', 'jobseeker'],
+      default: 'user' },
       AccountStatus:{
         type:String,
         enum: ["Verified" , "Not Verified"],

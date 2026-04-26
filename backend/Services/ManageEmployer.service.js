@@ -42,3 +42,47 @@ export const acceptEmployer = async (employerId) => {
     await employer.save();
     return employer;
 }
+
+export const rejectEmployer = async (employerId) => {
+    const employer = await Employer.findById(employerId);
+    if (!employer) {
+      throw new AppError("Employer not found", 404);
+    }
+    if (employer.AccountStatus === "Rejected") {
+      throw new AppError("Employer is already rejected", 400);
+    }
+    employer.AccountStatus = "Rejected";
+    await employer.save();
+    return employer;
+}
+
+export const getPendingEmployers = async () => {
+    const pendingEmployers = await Employer.find({ AccountStatus: "Pending" });
+    return pendingEmployers;
+}
+export const getAllEmployers = async () => {
+    const employers = await Employer.find();
+    return employers;
+}
+
+export const getEmployerById = async (employerId) => {
+    const employer = await Employer.findById(employerId);
+    if (!employer) {
+      throw new AppError("Employer not found", 404);
+    }
+    return employer;
+}
+
+export const deleteEmployer = async (employerId) => {
+    const employer = await Employer.findById(employerId);
+    if (!employer) {
+      throw new AppError("Employer not found", 404);
+    }
+    await Employer.findByIdAndDelete(employerId);
+    return { message: "Employer deleted successfully" };
+}
+
+
+
+
+

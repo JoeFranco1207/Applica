@@ -17,9 +17,14 @@ export const employerSchema = new mongoose.Schema({
     industry: String,
     website: String,
     contactNumber: String,
-    companyLogo: String
-},
- {
+    companyLogo: String,
+    dateEstablished: Date,
+    dateOfApproval: Date,
+    approvalStatus: {
+        type: String,
+        enum: ["pending", "approved", "rejected"]
+    }
+}, {
     timestamps: true,
  }
  

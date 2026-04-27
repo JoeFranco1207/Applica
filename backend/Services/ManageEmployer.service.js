@@ -1,11 +1,11 @@
 import Admin from "../Model/AdminSchema.js";
 import Employer from "../Model/EmployerSchema.js";
 import AppError from "../Middleware/AppError.js";
-import { doHash } from "../validator/Hashing.js";
+import { doHash, doHashValidation } from "../validator/Hashing.js";
+import jwt from 'jsonwebtoken';
 
 export const createAdmin = async (adminData) => {
   const { email, password, adminCode, permissions } = adminData;
-
 
   const existingAdmin = await Admin.findOne({ email });
   if (existingAdmin) {
@@ -27,6 +27,35 @@ export const createAdmin = async (adminData) => {
   });
 
   return newAdmin;
+};
+
+
+
+export const LoginAdmin = async (email, password) => {
+  const admin = await Admin.findOne({ email });
+
+  if (!admin) {
+    throw new AppError("Admin not found", 404);
+  }
+
+
+  const isMatch = await doHashValidation(password, admin.password);
+  if (!isMatch) {
+    throw new AppError("Invalid credentials", 401);
+  }
+
+
+  const token = jwt.sign(
+    { id: admin._id, role: "admin" },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+  const { password, ...adminSafe } = admin.toObject();
+
+  return {
+    admin : adminSafe,
+    token
+  };
 };
 
 export const acceptEmployer = async (employerId) => {

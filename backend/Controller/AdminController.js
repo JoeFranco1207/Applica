@@ -14,6 +14,8 @@ export const registerAdmin = async (req, res, next) => {
   } 
 };
 
+
+
 export const acceptEmployerController = async (req, res, next) => {
     try {
         const employerId = req.params.id;

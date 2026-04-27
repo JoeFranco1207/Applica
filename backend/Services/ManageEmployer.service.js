@@ -12,22 +12,24 @@ export const createAdmin = async (adminData) => {
     throw new AppError("Admin with this email already exists", 400);
   }
 
+  if (!password) {
+    throw new AppError("Password is required", 400);
+  }
+
   if (adminCode !== process.env.ADMIN_SECRET) {
     throw new AppError("Invalid admin code", 403);
   }
 
-  
+  const hashedPassword = await doHash(password, 10);
 
-  const hashedPassword = await doHash(password);
-
-  const newAdmin = await Admin.create({
+  const admin = await Admin.create({
     email,
     password: hashedPassword,
     adminCode,
     permissions
   });
 
-  return newAdmin;
+  return admin;
 };
 
 
@@ -51,7 +53,7 @@ export const LoginAdmin = async (email, password) => {
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
-  const { password, ...adminSafe } = admin.toObject();
+  const {...adminSafe } = admin.toObject();
 
   return {
     admin : adminSafe,

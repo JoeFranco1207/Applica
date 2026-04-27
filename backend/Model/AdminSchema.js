@@ -1,17 +1,20 @@
 import mongoose from "mongoose";
-import User from "./UserSchema.js";
 
-export const adminSchema = new mongoose.Schema({
-    adminCode: { type: String, required: true },
- permissions: {
+const adminSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  adminCode: { type: String, required: true },
+  permissions: {
   type: [String],
-  default: []
- }
-},
- {
-    timestamps: true,
- }
+  default: [
+    "EMPLOYER_APPROVE",
+    "EMPLOYER_REJECT",
+    "EMPLOYER_VIEW_ALL",
+    "EMPLOYER_DELETE"
+  ]
+}
+}, {
+  timestamps: true
+});
 
-);
-
-export default User.discriminator("admin", adminSchema);
+export default mongoose.model("Admin", adminSchema);

@@ -10,3 +10,5 @@ router.get("/employers", getAllEmployersController);
 router.post("/employers/:id/accept", acceptEmployerController);
 router.post("/employers/:id/reject", rejectEmployerController);
 router.delete("/employers/:id", deleteEmployerController);
+
+export default router;

@@ -2,11 +2,9 @@ import crypto from 'crypto';
 import  bcryptjs from 'bcrypt';
 
 
-export const doHash = (value, saltValue)=>{
-const result = bcryptjs.hash(value, saltValue);
-return result
-}
-
+export const doHash = async (value, saltValue) => {
+  return await bcryptjs.hash(value, saltValue);
+};
 export const doHashValidation = (value, hashedValue)=>{
  const result = bcryptjs.compare(value, hashedValue);
  return result;

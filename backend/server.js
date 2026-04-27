@@ -6,10 +6,12 @@ import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
 import JobseekerRouter from "./Routes/JobseekerRouter.js";
 import EmployerRouter from "./Routes/EmployerRouter.js";
+import AdminRouter from "./Routes/AdminRouter.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8000;
 app.use(express.json());
+app.use("/api/admin", AdminRouter);
 
 app.use((req, res, next) => {
   res.success = (appSuccessful) => {

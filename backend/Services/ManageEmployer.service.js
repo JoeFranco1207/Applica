@@ -16,6 +16,7 @@ export const createAdmin = async (adminData) => {
     throw new AppError("Invalid admin code", 403);
   }
 
+  
 
   const hashedPassword = await doHash(password);
 
@@ -57,6 +58,8 @@ export const LoginAdmin = async (email, password) => {
     token
   };
 };
+
+
 
 export const acceptEmployer = async (employerId) => {
     

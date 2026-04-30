@@ -19,9 +19,6 @@ export const updateJobseekerProfile = async (req, res, next) => {
     try{
     const response = await updateJobseekerProfileService(req.User.id, req.body);
     return res.success(new AppSuccessful("Jobseeker profile updated successfully", 200, response));
-
-   
-
    }catch(err){
     console.log(err);
     return next(err);

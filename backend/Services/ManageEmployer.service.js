@@ -50,7 +50,7 @@ export const LoginAdmin = async (email, password) => {
 
   const token = jwt.sign(
     { id: admin._id, role: "admin" },
-    process.env.JWT_SECRET,
+    process.env.TOKEN_SECRET,
     { expiresIn: "1d" }
   );
   const {...adminSafe } = admin.toObject();
@@ -63,9 +63,12 @@ export const LoginAdmin = async (email, password) => {
 
 
 
-export const acceptEmployer = async (employerId) => {
-    
+export const acceptEmployer = async (employerId) => { 
+   
     const employer = await Employer.findById(employerId);
+    if(employer){
+
+    }
     if (!employer) {
       throw new AppError("Employer not found", 404);
     }
@@ -76,6 +79,7 @@ export const acceptEmployer = async (employerId) => {
     await employer.save();
     return employer;
 }
+
 
 export const rejectEmployer = async (employerId) => {
     const employer = await Employer.findById(employerId);

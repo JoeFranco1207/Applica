@@ -1,6 +1,10 @@
 import { createAdmin, LoginAdmin, acceptEmployer, deleteEmployer, rejectEmployer, getAllEmployers, getPendingEmployers } from "../Services/ManageEmployer.service.js";
 import AppSuccessful from "../Middleware/AppSuccessful.js";
-import AppError from "../Middleware/AppError.js";
+import AppError from "../Middleware/AppError.js";   
+
+
+
+
 export const registerAdmin = async (req, res, next) => {
   try {
     const adminData = req.body;

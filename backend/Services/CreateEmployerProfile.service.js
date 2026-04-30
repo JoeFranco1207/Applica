@@ -1,6 +1,7 @@
 import AppError from "../Middleware/AppError.js";
 import User from "../Model/UserSchema.js";
 import Employer from "../Model/EmployerSchema.js";
+
 export const employerProfileService = async (userId, profileData) => {
   const {
     companyName,

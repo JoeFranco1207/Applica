@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { setDriver } from "mongoose";
 
 export const jobSchema = new mongoose.Schema({
     title:{
@@ -28,6 +28,8 @@ export const jobSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+ 
+
 
 
 export default mongoose.model("job", jobSchema);

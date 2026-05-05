@@ -36,3 +36,11 @@ export const restrictTo = (...roles) => {
     next();
   };
 };
+
+
+export const requireVerified = (req, res, next) => {
+  if (!req.user.isVerified) {
+    return next(new AppError("Please verify your account first", 403));
+  }
+  next();
+};

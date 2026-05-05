@@ -16,13 +16,6 @@ const userSchema = new mongoose.Schema({
     role: { type: String,
       enum: ['user', 'admin', 'employer', 'jobseeker'],
       default: 'user' },
-      AccountStatus:{
-        type:String,
-        enum: ["Verified" , "Not Verified"],
-        select: false,
-        default: "Not Verified"
-    },  
-
     isVerified: {
       type: Boolean,
       default: false,

@@ -84,6 +84,10 @@ export const rejectEmployer = async (employerId) => {
     if (!employer) {
       throw new AppError("Employer not found", 404);
     }
+
+    if(employer.approvalStatus === "Accepted"){
+      throw new AppError("Employer is already accepted", 403);
+    }
     if (employer.approvalStatus === "Rejected") {
       throw new AppError("Employer is already rejected", 400);
     }

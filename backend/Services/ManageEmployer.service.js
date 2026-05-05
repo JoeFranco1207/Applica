@@ -66,16 +66,14 @@ export const LoginAdmin = async (email, password) => {
 export const acceptEmployer = async (employerId) => { 
    
     const employer = await Employer.findById(employerId);
-    if(employer){
-
-    }
+    
     if (!employer) {
       throw new AppError("Employer not found", 404);
     }
-    if (employer.AccountStatus === "Verified") {
+    if (employer.approvalStatus === "Accepted") {
       throw new AppError("Employer is already verified", 400);
     }
-    employer.AccountStatus = "Verified";
+    employer.approvalStatus = "Accepted";
     await employer.save();
     return employer;
 }
@@ -86,10 +84,10 @@ export const rejectEmployer = async (employerId) => {
     if (!employer) {
       throw new AppError("Employer not found", 404);
     }
-    if (employer.AccountStatus === "Rejected") {
+    if (employer.approvalStatus === "Rejected") {
       throw new AppError("Employer is already rejected", 400);
     }
-    employer.AccountStatus = "Rejected";
+    employer.approvalStatus = "Rejected";
     await employer.save();
     return employer;
 }

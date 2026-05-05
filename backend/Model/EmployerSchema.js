@@ -22,7 +22,8 @@ export const employerSchema = new mongoose.Schema({
     dateOfApproval: Date,
     approvalStatus: {
         type: String,
-        enum: ["pending", "approved", "rejected"]
+        enum: ["Pending",  "Rejected", "Accepted"],
+        default: ["Pending"]
     }
 }, {
     timestamps: true,

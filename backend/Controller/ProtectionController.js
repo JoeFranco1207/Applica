@@ -6,6 +6,7 @@ import AppSuccessful from '../Middleware/AppSuccessful.js';
 export const protection = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
+  try{
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return next(new AppError("Unauthorized", 401));
   }
@@ -20,6 +21,9 @@ export const protection = async (req, res, next) => {
   };
 
   next();
+}catch(err){
+ console.log(err)
+}
 };
 
 export const restrictTo = (...roles) => {

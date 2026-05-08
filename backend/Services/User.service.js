@@ -118,27 +118,29 @@ export const loginService = async(email, password) => {
 }
 
 
-export const chooseRoleService = async(userId, role) =>{
+export const chooseRoleService = async(userId, role) => {
 
   console.log("Incoming role:", role);
 
-    if (!['jobseeker', 'employer'].includes(role)) {
-      throw new AppError("Invalid role selection", 400);
-    }
+  if (!['jobseeker', 'employer'].includes(role)) {
+    throw new AppError("Invalid role selection", 400);
+  }
 
-    const user = await User.findById(userId);
+  const user = await User.findById(userId);
 
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
-
-    if (user.role !== "user") {
-      throw new AppError("Role already selected", 400);
-    }
-
-    user.role = role;
-    await user.save();
-  return {role: user.role};
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
 
 
+  if (user.role !== "user" && user.__t) {
+    throw new AppError("Role already selected", 400);
+  }
+
+  user.role = role;
+  user.__t = role;
+
+  await user.save();
+
+  return { role: user.role };
 }

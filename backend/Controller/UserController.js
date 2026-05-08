@@ -89,10 +89,11 @@ export const Register = async(req,res,next)=>{
 
 export const chooseRole = async (req, res, next) => {
   try {
-    const data = await chooseRoleService(req.User.id, req.body.role);
+    const data = await chooseRoleService(req.user.id, req.body.role);
 
     return res.success(new AppSuccessful("Role selected successfully", 200, data));
   } catch (err) {
+    console.log(err)
     return next(err);
   }
 };

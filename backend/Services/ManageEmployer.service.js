@@ -97,7 +97,7 @@ export const rejectEmployer = async (employerId) => {
 }
 
 export const getPendingEmployers = async () => {
-    const pendingEmployers = await Employer.find({ AccountStatus: "Pending" });
+    const pendingEmployers = await Employer.find({ approvalStatus: "Pending" });
     return pendingEmployers;
 }
 export const getAllEmployers = async () => {
@@ -111,7 +111,9 @@ export const getEmployerById = async (employerId) => {
       throw new AppError("Employer not found", 404);
     }
     return employer;
-}
+};
+
+
 
 export const deleteEmployer = async (employerId) => {
     const employer = await Employer.findById(employerId);

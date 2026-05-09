@@ -10,6 +10,6 @@ router.get("/employers/pending", protection, getPendingEmployersController);
 router.get("/employers", getAllEmployersController);
 router.post("/employers/:id/accept", acceptEmployerController);
 router.post("/employers/:id/reject", rejectEmployerController);
-router.delete("/employers/:id", deleteEmployerController);
+router.delete("/employers/:id/delete", deleteEmployerController);
 
 export default router;

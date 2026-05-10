@@ -22,9 +22,25 @@ export const protection = async (req, res, next) => {
 
   next();
 }catch(err){
+  next(err);
  console.log(err)
 }
 };
+
+
+// export const jobseekerOnly = (req, res, next) => {
+//   try {
+//     if (req.user.role !== "jobseeker") {
+//       return next(
+//         new AppError("Access denied. Jobseekers only.", 403)
+//       );
+//     }
+
+//     next();
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 export const restrictTo = (...roles) => {
   return (req, res, next) => {

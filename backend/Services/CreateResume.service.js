@@ -1,12 +1,28 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
+import User from "../Model/UserSchema.js";
 
-export const createResumeService = async (resumeData) => {
+export const createResumeService = async (userId, resumeData, fileNameFromUrl) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // ✅ BUILD FULL NAME PROPERLY
+  const firstName = user.firstName || "";
+  const middleName = user.middleName || "";
+  const lastName = user.lastName || "";
+
+  const name = `${firstName} ${middleName} ${lastName}`
+    .replace(/\s+/g, " ")
+    .trim() || "User";
+
+  const email = user.email || "no-email";
+
   const {
-    name,
-    email,
-    phone,
+    phone = "",
     education = [],
     experience = [],
     skills = [],
@@ -67,39 +83,35 @@ export const createResumeService = async (resumeData) => {
 
       <div class="section">
         <h2>Education</h2>
-
         ${education
           .map(
             (edu) => `
-          <p>
-            <strong>${edu.degree}</strong> -
-            ${edu.institution} (${edu.year})
-          </p>
-        `
+            <p>
+              <strong>${edu.degree || ""}</strong> -
+              ${edu.institution || ""} (${edu.year || ""})
+            </p>
+          `
           )
           .join("")}
       </div>
 
       <div class="section">
         <h2>Experience</h2>
-
         ${experience
           .map(
             (exp) => `
-          <p>
-            <strong>${exp.position}</strong> -
-            ${exp.company} (${exp.years})
-          </p>
-
-          <p>${exp.description}</p>
-        `
+            <p>
+              <strong>${exp.position || ""}</strong> -
+              ${exp.company || ""} (${exp.years || ""})
+            </p>
+            <p>${exp.description || ""}</p>
+          `
           )
           .join("")}
       </div>
 
       <div class="section">
         <h2>Skills</h2>
-
         <ul class="skills">
           ${skills.map((skill) => `<li>${skill}</li>`).join("")}
         </ul>
@@ -108,42 +120,50 @@ export const createResumeService = async (resumeData) => {
   </html>
   `;
 
- 
+  // 📁 Create folder if not exists
   const resumesDir = path.join(process.cwd(), "resumes");
 
   if (!fs.existsSync(resumesDir)) {
     fs.mkdirSync(resumesDir);
   }
 
-
-  const fileName = `${name.replace(/\s+/g, "_")}_resume.pdf`;
+  // 📄 SAFE FILE NAME
+  const safeName = name.replace(/\s+/g, "_");
+  const fileName = `${safeName}_resume.pdf`;
   const filePath = path.join(resumesDir, fileName);
 
+  let browser;
 
-  const browser = await puppeteer.launch({
-    headless: "new",
-  });
+  try {
+    console.log("Launching browser...");
 
-  const page = await browser.newPage();
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
 
-  await page.setContent(htmlContent, {
-    waitUntil: "networkidle0",
-  });
+    const page = await browser.newPage();
 
-  
-  const pdfBuffer = await page.pdf({
-    format: "A4",
-    printBackground: true,
-  });
+    await page.setContent(htmlContent, {
+      waitUntil: "domcontentloaded",
+    });
 
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+    });
 
-  fs.writeFileSync(filePath, pdfBuffer);
+    fs.writeFileSync(filePath, pdfBuffer);
 
-  await browser.close();
+    return {
+      fileName,
+      filePath,
+      pdfBuffer,
+    };
 
-  return {
-    fileName,
-    filePath,
-    pdfBuffer,
-  };
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 };

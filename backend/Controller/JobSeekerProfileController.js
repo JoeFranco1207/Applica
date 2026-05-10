@@ -1,5 +1,6 @@
 import { jobseekerProfileService, updateJobseekerProfileService } from "../Services/CreateJobseekerProfile.service.js";
 import AppSuccessful from '../Middleware/AppSuccessful.js'
+import { createResumeService } from "../Services/CreateResume.service.js";
 import AppError from '../Middleware/AppError.js';
 
 export const jobseekerProfile = async (req, res, next) => {
@@ -24,3 +25,19 @@ export const updateJobseekerProfile = async (req, res, next) => {
     return next(err);
     } 
 }
+
+export const createResumeController = async (req, res, next) => {
+  try {
+    const result = await createResumeService(req.body);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${result.fileName}"`
+    );
+
+    return res.send(result.pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+};

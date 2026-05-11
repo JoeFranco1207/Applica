@@ -101,7 +101,9 @@ export const createResumeService = async (userId, resumeData) => {
     });
 
     fs.writeFileSync(filePath, pdfBuffer);
+   user.resume = filePath;
 
+    await user.save();
     return {
       fileName,
       filePath,

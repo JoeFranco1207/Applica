@@ -5,5 +5,5 @@ import { protection } from "../Controller/ProtectionController.js";
 const router = express.Router();
 router.put('/profile', protection, jobseekerProfile);
 router.patch('/update-profile', protection, updateJobseekerProfile);
-router.post('/create-resume', protection, createResumeController);
+router.post('/create-resume/:fileName', protection, createResumeController);
 export default router;

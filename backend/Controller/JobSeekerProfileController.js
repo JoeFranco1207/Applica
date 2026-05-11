@@ -28,14 +28,12 @@ export const updateJobseekerProfile = async (req, res, next) => {
 
 export const createResumeController = async (req, res, next) => {
   try {
-
     const result = await createResumeService(
       req.user.id,
       req.body
     );
 
     res.setHeader("Content-Type", "application/pdf");
-
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${result.fileName}"`

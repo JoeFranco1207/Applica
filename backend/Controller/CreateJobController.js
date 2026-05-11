@@ -1,25 +1,17 @@
 import AppSuccessful from "../Middleware/AppSuccessful.js";
 import { createJob } from "../Services/CreateJob.service.js";
 
-export const createResumeController = async (req, res, next) => {
+export const createJobController = async (req, res, next) => {
   try {
-    const fileNameFromUrl = req.params.fileName;
+    const employerId = req.user.id;
 
-    const result = await createResumeService(
-      req.user.id,
-      req.body,
-      fileNameFromUrl
+    const job = await createJob(req.body, employerId);
+
+    return res.status(201).json(
+      new AppSuccessful("Created Job Successfully", 201, job)
     );
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${result.fileName}"`
-    );
-
-    return res.send(result.pdfBuffer);
-
   } catch (err) {
+    console.log(err);
     next(err);
   }
 };

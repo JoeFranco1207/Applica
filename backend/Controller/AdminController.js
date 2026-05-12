@@ -63,7 +63,8 @@ export const rejectEmployerController = async (req, res, next) => {
     catch (error) {
         next(error);
     }
-}
+};
+
 export const getPendingEmployersController = async (req, res, next) => {
     try {
         const pendingEmployers = await getPendingEmployers();
@@ -73,6 +74,7 @@ export const getPendingEmployersController = async (req, res, next) => {
         next(error);
     }
   };
+
 export const getAllEmployersController = async (req, res, next) => {
     try {
         const employers = await getAllEmployers();
@@ -82,7 +84,7 @@ export const getAllEmployersController = async (req, res, next) => {
         next(error);
     }
   };
-  
+    
 export const getEmployerByIdController = async (req, res, next) => {
     try {
         const employerId = req.params.id;

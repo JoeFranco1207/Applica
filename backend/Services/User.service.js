@@ -13,10 +13,11 @@ export const registerService = async (data) => {
     const emailExists = await User.findOne({email});
     const phoneNumberExists = await User.findOne({phoneNumber});
      const {error: phoneError} = phoneNumberValidation.validate({phoneNumber});
-        
-            if(phoneError){
+
+        if(phoneError){
             throw new AppError("Invalid phone number format. Please use 09XXXXXXXXX or +639XXXXXXXXX.", 400)
-            }
+        }
+        
         if(phoneNumberExists){
             throw new AppError("Phone number already exists", 400)
         }

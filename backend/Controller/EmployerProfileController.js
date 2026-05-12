@@ -6,7 +6,6 @@ import Employer from '../Model/EmployerSchema.js'
 export const employerProfileController = async (req, res, next) => {
   try {
     const userId = req.user.id;
-
     const profile = await employerProfileService(userId, req.body);
 
     return res.json(
@@ -16,6 +15,7 @@ export const employerProfileController = async (req, res, next) => {
         profile
       )
     );
+
   } catch (err) {
     console.log(err);
     next(err);

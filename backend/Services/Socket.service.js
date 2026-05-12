@@ -1,31 +1,34 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { AppError } from '../Utils/AppError.js';
+import crypto from 'crypto';
 
 const wss = new WebSocketServer({ port: 8080 });
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+  ws.id = crypto.randomUUID();
+
+  console.log(`Client connected: ${ws.id}`);
+
+  ws.on('message', (data) => {
+    const message = data.toString();
+
+    console.log(`[${ws.id}]: ${message}`);
+
+    // Broadcast to everyone
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(
+          JSON.stringify({
+            clientId: ws.id,
+            text: message,
+          })
+        );
+      }
+    });
+  });
+
+  ws.on('close', () => {
+    console.log(`Client disconnected: ${ws.id}`);
+  });
 });
 
-export const sendMessage = (message) => {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) { 
-        client.send(JSON.stringify(message));
-    }
-  }
-    );
-};
-
-export const broadcastMessage = (message) => {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
-    }
-  });
-};
-
-export const sendMessageToClient = (clientId, message) => {
-  const client = Array.from(wss.clients).find((c) => c.id === clientId);
-    if (!client) {
-        throw new AppError("Client not found", 404);
-    }
+console.log('Chat server running on ws://localhost:8080');

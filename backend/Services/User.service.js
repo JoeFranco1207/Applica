@@ -10,6 +10,7 @@ import Jobseeker from '../Model/JobseekerSchema.js';
 
 export const registerService = async (data) => { 
    const {firstName, lastName, email, password, phoneNumber} = data;
+    email.toLowerCase();
     const emailExists = await User.findOne({email});
     const phoneNumberExists = await User.findOne({phoneNumber});
      const {error: phoneError} = phoneNumberValidation.validate({phoneNumber});
@@ -56,7 +57,7 @@ export const sendVerificationCodeService = async(email) =>{
                     verificationCode: code,
                     codeExpiration: Date.now() + 10 * 60 * 1000
                 }, 
-                {new: true}
+                {returnDocument: 'after'}
             )
 
              if(!user){

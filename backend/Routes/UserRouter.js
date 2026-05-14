@@ -4,8 +4,8 @@ import { jobseekerProfile } from '../Controller/JobSeekerProfileController.js';
 import { protection } from '../Controller/ProtectionController.js';
 const router = express.Router();
 
-router.post("/Register", Register);
-router.post("/Login", Login);
+router.post("/register", Register);
+router.post("/login", Login);
 router.post("/sendVerificationCode", sendVerificationCode);
 router.put("/verifyCode", verifyCode);
 router.put('/select-role', protection, chooseRole);

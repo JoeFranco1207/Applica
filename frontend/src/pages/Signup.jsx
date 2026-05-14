@@ -1,29 +1,63 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import Landing from "./Landing.jsx";
 
 export default function Signup() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLogin, setIsLogin] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
+  const [showPassword, setShowPassword] =
+    useState(false);
 
   const [isMobile, setIsMobile] = useState(
     window.innerWidth <= 768
   );
+
+  const [focusedField, setFocusedField] =
+    useState(null);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] =
+    useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if token exists in localStorage on mount
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener(
+      "resize",
+      handleResize
+    );
 
     return () =>
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener(
+        "resize",
+        handleResize
+      );
   }, []);
 
   const [signupData, setSignupData] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
+    phoneNumber: "",
     password: "",
     confirmPassword: "",
   });
@@ -32,9 +66,6 @@ export default function Signup() {
     email: "",
     password: "",
   });
-
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
 
   const handleSignupChange = (e) => {
     setSignupData((prev) => ({
@@ -50,40 +81,63 @@ export default function Signup() {
     }));
   };
 
+  const showMessage = (text, type) => {
+    setMessage(text);
+    setMessageType(type);
+
+    setTimeout(() => {
+      setMessage("");
+      setMessageType("");
+    }, 4000);
+  };
+
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
 
-    if (signupData.password !== signupData.confirmPassword) {
-      return setMessage("Passwords do not match.");
+    if (
+      signupData.password !==
+      signupData.confirmPassword
+    ) {
+      return showMessage(
+        "Passwords do not match.",
+        "error"
+      );
     }
 
     try {
       setLoading(true);
+
       const res = await axios.post(
-        "http://localhost:8000/api/signup",
+        "http://localhost:8000/api/auth/Register",
         {
-          fullName: signupData.fullName,
+          firstName: signupData.firstName,
+          lastName: signupData.lastName,
           email: signupData.email,
           password: signupData.password,
+          phoneNumber:
+            signupData.phoneNumber,
         }
       );
 
-      setMessage(
-        res.data.message ||
-          "Account created successfully."
-      );
+      setVerificationEmail(signupData.email);
+      setShowVerificationModal(true);
+
+      // Send verification code to email
+      await handleSendVerificationCode(signupData.email);
 
       setSignupData({
-        fullName: "",
+        firstName: "",
+        lastName: "",
         email: "",
+        phoneNumber: "",
         password: "",
         confirmPassword: "",
       });
     } catch (err) {
-      setMessage(
+      showMessage(
         err.response?.data?.message ||
-          "Something went wrong."
+          "Something went wrong.",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -92,342 +146,649 @@ export default function Signup() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
 
     try {
       setLoading(true);
+
       const res = await axios.post(
-        "http://localhost:8000/api/login",
+        "http://localhost:8000/api/auth/Login",
         {
           email: loginData.email,
           password: loginData.password,
         }
       );
 
-      setMessage(
-        res.data.message ||
-          "Login successful."
-      );
+      // Check if user is already verified
+      if (res.data.data?.user?.isVerified) {
+        // User is verified, proceed to landing page
+        showMessage(
+          res.data.message ||
+            "Login successful.",
+          "success"
+        );
+
+        // Store token in localStorage
+        if (res.data.data?.token) {
+          localStorage.setItem("token", res.data.data.token);
+        }
+
+        setIsAuthenticated(true);
+      } else {
+        // User is not verified, show verification modal
+        setVerificationEmail(loginData.email);
+        setShowVerificationModal(true);
+        
+        // Send verification code to email
+        await handleSendVerificationCode(loginData.email);
+      }
 
       setLoginData({
         email: "",
         password: "",
       });
     } catch (err) {
-      setMessage(
+      showMessage(
         err.response?.data?.message ||
-          "Invalid credentials."
+          "Invalid credentials.",
+        "error"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleMode = (mode) => {
-    setIsLogin(mode);
-    setMessage("");
+  const handleSendVerificationCode = async (email) => {
+    try {
+      const res = await axios.post(
+        "http://localhost:8000/api/auth/sendVerificationCode",
+        { email }
+      );
+
+      showMessage(
+        res.data.message ||
+          "Verification code sent to your email.",
+        "success"
+      );
+    } catch (err) {
+      showMessage(
+        err.response?.data?.message ||
+          "Failed to send verification code.",
+        "error"
+      );
+    }
   };
 
-  return (
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+
+    if (!verificationCode) {
+      return showMessage(
+        "Please enter the verification code.",
+        "error"
+      );
+    }
+
+    try {
+      setVerificationLoading(true);
+
+      const res = await axios.put(
+        "http://localhost:8000/api/auth/verifyCode",
+        {
+          email: verificationEmail,
+          code: verificationCode,
+        }
+      );
+
+      showMessage(
+        res.data.message ||
+          "Verification successful!",
+        "success"
+      );
+
+      // Store token in localStorage
+      if (res.data.data?.token) {
+        localStorage.setItem("token", res.data.data.token);
+      }
+
+      setShowVerificationModal(false);
+      setVerificationCode("");
+      setVerificationEmail("");
+      setIsAuthenticated(true);
+    } catch (err) {
+      showMessage(
+        err.response?.data?.message ||
+          "Invalid verification code.",
+        "error"
+      );
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  return isAuthenticated ? (
+    <Landing />
+  ) : (
     <div
       style={{
         ...styles.page,
-        flexDirection: isMobile ? "column" : "row",
+        flexDirection: isMobile
+          ? "column"
+          : "row",
       }}
     >
-      {/* LEFT SIDE */}
       <div
         style={{
           ...styles.leftSection,
-          width: isMobile ? "100%" : "50%",
-          minHeight: isMobile ? "200px" : "100vh",
+          width: isMobile
+            ? "100%"
+            : "50%",
         }}
       >
         <div style={styles.brand}>
-          <div style={styles.logoPlaceholder}>
-            <img 
-              src="/src/assets/Applica_Logo.png" 
-              alt="Applica Logo"
-              style={styles.logo}
-            />
-          </div>
+          <img
+            src="/src/assets/Applica_Logo.png"
+            alt="Logo"
+            style={styles.logo}
+          />
+
           <h1
             style={{
               ...styles.brandTitle,
-              fontSize: isMobile ? "28px" : "52px",
-              textAlign: isMobile ? "center" : "left",
+              textAlign: isMobile
+                ? "center"
+                : "left",
             }}
           >
-            Build Your Future Professionally
+            Build Your Future
+            Professionally
           </h1>
 
           <p
             style={{
               ...styles.brandText,
-              textAlign: isMobile ? "center" : "left",
+              textAlign: isMobile
+                ? "center"
+                : "left",
             }}
           >
-            Join thousands of professionals, creators, and ambitious individuals transforming their careers on our modern platform.
+            Join thousands of
+            professionals transforming
+            their careers.
           </p>
-
-          <div style={styles.features}>
-            <div style={styles.featureItem}>
-              <span style={styles.checkmark}>✓</span>
-              <span>Career growth opportunities</span>
-            </div>
-            <div style={styles.featureItem}>
-              <span style={styles.checkmark}>✓</span>
-              <span>Professional networking</span>
-            </div>
-            <div style={styles.featureItem}>
-              <span style={styles.checkmark}>✓</span>
-              <span>Industry connections</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
       <div
         style={{
           ...styles.rightSection,
-          width: isMobile ? "100%" : "50%",
-          padding: isMobile ? "24px" : "60px 50px",
-          position: "relative",
-          overflow: "hidden",
+          width: isMobile
+            ? "100%"
+            : "50%",
         }}
       >
-        {/* SIGNUP FORM */}
-        <form
-          style={{
-            ...styles.card,
-            padding: isMobile ? "32px" : "48px",
-            transform: isLogin ? "translateX(100%)" : "translateX(0)",
-            opacity: isLogin ? 0 : 1,
-            transition: "all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
-            position: "absolute",
-            width: isMobile ? "calc(100% - 64px)" : "calc(100% - 96px)",
-            maxWidth: "480px",
-          }}
-          onSubmit={handleSignupSubmit}
-        >
-          <div style={styles.topHeader}>
-            <h2 style={styles.heading}>Create Account</h2>
-            <p style={styles.subHeading}>
-              Start your professional journey with a secure account
-            </p>
-          </div>
+        {!isLogin ? (
+          <form
+            style={styles.card}
+            onSubmit={handleSignupSubmit}
+          >
+            <h2 style={styles.heading}>
+              Create Account
+            </h2>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Full Name *</label>
-            <input
-              type="text"
-              name="fullName"
-              placeholder="John Doe"
-              value={signupData.fullName}
-              onChange={handleSignupChange}
-              onFocus={() => setFocusedField("fullName")}
-              onBlur={() => setFocusedField(null)}
-              style={{
-                ...styles.input,
-                borderColor: focusedField === "fullName" ? "#2563eb" : "#d0d0d0",
-                boxShadow: focusedField === "fullName" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-              }}
-              required
+            <Input
+              label="First Name"
+              name="firstName"
+              value={signupData.firstName}
+              onChange={
+                handleSignupChange
+              }
+              focusedField={focusedField}
+              setFocusedField={
+                setFocusedField
+              }
             />
-          </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email Address *</label>
-            <input
-              type="email"
+            <Input
+              label="Last Name"
+              name="lastName"
+              value={signupData.lastName}
+              onChange={
+                handleSignupChange
+              }
+              focusedField={focusedField}
+              setFocusedField={
+                setFocusedField
+              }
+            />
+
+            <Input
+              label="Email"
               name="email"
-              placeholder="you@example.com"
+              type="email"
               value={signupData.email}
-              onChange={handleSignupChange}
-              onFocus={() => setFocusedField("email")}
-              onBlur={() => setFocusedField(null)}
-              style={{
-                ...styles.input,
-                borderColor: focusedField === "email" ? "#2563eb" : "#d0d0d0",
-                boxShadow: focusedField === "email" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-              }}
-              required
+              onChange={
+                handleSignupChange
+              }
+              focusedField={focusedField}
+              setFocusedField={
+                setFocusedField
+              }
             />
-          </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password *</label>
-            <div style={{
-              ...styles.passwordWrapper,
-              borderColor: focusedField === "password" ? "#2563eb" : "#d0d0d0",
-              boxShadow: focusedField === "password" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-            }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Create a strong password"
-                value={signupData.password}
-                onChange={handleSignupChange}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField(null)}
-                style={styles.passwordInput}
-                required
-              />
-              <button
-                type="button"
-                style={styles.showButton}
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-          </div>
+            <Input
+              label="Phone Number"
+              name="phoneNumber"
+              value={signupData.phoneNumber}
+              onChange={
+                handleSignupChange
+              }
+              focusedField={focusedField}
+              setFocusedField={
+                setFocusedField
+              }
+            />
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Confirm Password *</label>
-            <input
-              type={showPassword ? "text" : "password"}
+            <PasswordInput
+              label="Password"
+              value={signupData.password}
+              onChange={
+                handleSignupChange
+              }
+              name="password"
+              showPassword={
+                showPassword
+              }
+              setShowPassword={
+                setShowPassword
+              }
+            />
+
+            <PasswordInput
+              label="Confirm Password"
+              value={
+                signupData.confirmPassword
+              }
+              onChange={
+                handleSignupChange
+              }
               name="confirmPassword"
-              placeholder="Confirm your password"
-              value={signupData.confirmPassword}
-              onChange={handleSignupChange}
-              onFocus={() => setFocusedField("confirmPassword")}
-              onBlur={() => setFocusedField(null)}
-              style={{
-                ...styles.input,
-                borderColor: focusedField === "confirmPassword" ? "#2563eb" : "#d0d0d0",
-                boxShadow: focusedField === "confirmPassword" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-              }}
-              required
+              showPassword={
+                showPassword
+              }
+              setShowPassword={
+                setShowPassword
+              }
             />
-          </div>
 
-          {message && (
-            <div style={{
-              ...styles.messageBox,
-              backgroundColor: message.includes("successfully") || message.includes("Account created") ? "#f0fdf4" : "#fef2f2",
-              color: message.includes("successfully") || message.includes("Account created") ? "#15803d" : "#dc2626",
-              borderLeftColor: message.includes("successfully") || message.includes("Account created") ? "#22c55e" : "#ef4444",
-            }}>
-              {message}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            style={styles.submitButton}
-            disabled={loading}
-            onMouseEnter={(e) => !loading && (e.target.style.transform = "translateY(-2px)")}
-            onMouseLeave={(e) => (e.target.style.transform = "translateY(0)")}
-          >
-            {loading ? "Creating account..." : "Create Account"}
-          </button>
-
-          <p style={styles.footerText}>
-            Already have an account?{" "}
-            <span style={styles.link} onClick={() => toggleMode(true)}>
-              Sign in
-            </span>
-          </p>
-        </form>
-
-        {/* LOGIN FORM */}
-        <form
-          style={{
-            ...styles.card,
-            padding: isMobile ? "32px" : "48px",
-            transform: isLogin ? "translateX(0)" : "translateX(-100%)",
-            opacity: isLogin ? 1 : 0,
-            transition: "all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
-            position: "absolute",
-            width: isMobile ? "calc(100% - 64px)" : "calc(100% - 96px)",
-            maxWidth: "480px",
-          }}
-          onSubmit={handleLoginSubmit}
-        >
-          <div style={styles.topHeader}>
-            <h2 style={styles.heading}>Sign In</h2>
-            <p style={styles.subHeading}>
-              Welcome back to your professional platform
-            </p>
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email Address *</label>
-            <input
-              type="email"
-              name="email"
-              placeholder="you@example.com"
-              value={loginData.email}
-              onChange={handleLoginChange}
-              onFocus={() => setFocusedField("email")}
-              onBlur={() => setFocusedField(null)}
-              style={{
-                ...styles.input,
-                borderColor: focusedField === "email" ? "#2563eb" : "#d0d0d0",
-                boxShadow: focusedField === "email" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-              }}
-              required
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password *</label>
-            <div style={{
-              ...styles.passwordWrapper,
-              borderColor: focusedField === "password" ? "#2563eb" : "#d0d0d0",
-              boxShadow: focusedField === "password" ? "0 0 0 3px rgba(37, 99, 235, 0.1)" : "none",
-            }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Enter your password"
-                value={loginData.password}
-                onChange={handleLoginChange}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField(null)}
-                style={styles.passwordInput}
-                required
-              />
-              <button
-                type="button"
-                style={styles.showButton}
-                onClick={() => setShowPassword(!showPassword)}
+            {message && (
+              <div
+                style={{
+                  ...styles.messageBox,
+                  ...(messageType ===
+                  "success"
+                    ? styles.successBox
+                    : styles.errorBox),
+                }}
               >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-          </div>
+                <span
+                  style={styles.icon}
+                >
+                  {messageType ===
+                  "success"
+                    ? "✓"
+                    : "!"}
+                </span>
 
-          {message && (
-            <div style={{
-              ...styles.messageBox,
-              backgroundColor: message.includes("successful") ? "#f0fdf4" : "#fef2f2",
-              color: message.includes("successful") ? "#15803d" : "#dc2626",
-              borderLeftColor: message.includes("successful") ? "#22c55e" : "#ef4444",
-            }}>
-              {message}
-            </div>
-          )}
+                {message}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            style={styles.submitButton}
-            disabled={loading}
-            onMouseEnter={(e) => !loading && (e.target.style.transform = "translateY(-2px)")}
-            onMouseLeave={(e) => (e.target.style.transform = "translateY(0)")}
+            <button
+              type="submit"
+              style={styles.submitButton}
+              disabled={loading}
+            >
+              {loading
+                ? "Creating..."
+                : "Create Account"}
+            </button>
+
+            <p style={styles.footerText}>
+              Already have an account?{" "}
+              <span
+                style={styles.link}
+                onClick={() => {
+                  setIsLogin(true);
+                  setMessage("");
+                }}
+              >
+                Sign In
+              </span>
+            </p>
+          </form>
+        ) : (
+          <form
+            style={styles.card}
+            onSubmit={handleLoginSubmit}
           >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
+            <h2 style={styles.heading}>
+              Sign In
+            </h2>
 
-          <p style={styles.footerText}>
-            Don't have an account?{" "}
-            <span style={styles.link} onClick={() => toggleMode(false)}>
-              Create account
+            <Input
+              label="Email"
+              name="email"
+              type="email"
+              value={loginData.email}
+              onChange={
+                handleLoginChange
+              }
+              focusedField={focusedField}
+              setFocusedField={
+                setFocusedField
+              }
+            />
+
+            <PasswordInput
+              label="Password"
+              value={loginData.password}
+              onChange={
+                handleLoginChange
+              }
+              name="password"
+              showPassword={
+                showPassword
+              }
+              setShowPassword={
+                setShowPassword
+              }
+            />
+
+            {message && (
+              <div
+                style={{
+                  ...styles.messageBox,
+                  ...(messageType ===
+                  "success"
+                    ? styles.successBox
+                    : styles.errorBox),
+                }}
+              >
+                <span
+                  style={styles.icon}
+                >
+                  {messageType ===
+                  "success"
+                    ? "✓"
+                    : "!"}
+                </span>
+
+                {message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              style={styles.submitButton}
+              disabled={loading}
+            >
+              {loading
+                ? "Signing In..."
+                : "Sign In"}
+            </button>
+
+            <p style={styles.footerText}>
+              Don't have an account?{" "}
+              <span
+                style={styles.link}
+                onClick={() => {
+                  setIsLogin(false);
+                  setMessage("");
+                }}
+              >
+                Create account
+              </span>
+            </p>
+          </form>
+        )}
+      </div>
+
+      {showVerificationModal && (
+        <VerificationModal
+          email={verificationEmail}
+          verificationCode={verificationCode}
+          setVerificationCode={setVerificationCode}
+          onSubmit={handleVerifyCode}
+          loading={verificationLoading}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setVerificationCode("");
+            setVerificationEmail("");
+          }}
+        />
+      )}
+    </div>
+    );
+}
+
+function Input({
+  label,
+  name,
+  value,
+  onChange,
+  focusedField,
+  setFocusedField,
+  type = "text",
+}) {
+  return (
+    <div style={styles.inputGroup}>
+      <div style={styles.inputWrapper}>
+        <label
+          style={{
+            ...styles.floatingLabel,
+            top: value || focusedField === name ? "-8px" : "14px",
+            fontSize: value || focusedField === name ? "12px" : "15px",
+            color: focusedField === name ? "#2563eb" : "#999",
+          }}
+        >
+          {label}
+        </label>
+
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          required
+          onFocus={() =>
+            setFocusedField(name)
+          }
+          onBlur={() =>
+            setFocusedField(null)
+          }
+          style={{
+            ...styles.input,
+            borderColor:
+        focusedField === name
+         ? "#2563eb"
+         : "#d0d0d0",
+          }}
+          placeholder=""
+        />
+      </div>
+    </div>
+  );
+}
+
+function PasswordInput({
+  label,
+  value,
+  onChange,
+  name,
+  showPassword,
+  setShowPassword,
+}) {
+  return (
+    <div style={styles.inputGroup}>
+      <div
+        style={{
+          ...styles.passwordWrapper,
+          borderColor: "#d0d0d0",
+          position: "relative",
+        }}
+      >
+        <label
+          style={{
+            ...styles.floatingLabel,
+            top: value ? "-8px" : "14px",
+            fontSize: value ? "12px" : "15px",
+            color: value ? "#2563eb" : "#999",
+          }}
+        >
+          {label}
+        </label>
+
+        <input
+          type={
+            showPassword
+              ? "text"
+              : "password"
+          }
+          name={name}
+          value={value}
+          onChange={onChange}
+          required
+          style={styles.passwordInput}
+          placeholder=""
+        />
+
+        <button
+          type="button"
+          style={styles.showButton}
+          onClick={() =>
+            setShowPassword(
+              !showPassword
+            )
+          }
+        >
+          {showPassword
+            ? "Hide"
+            : "Show"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VerificationModal({
+  email,
+  verificationCode,
+  setVerificationCode,
+  onSubmit,
+  loading,
+  onClose,
+}) {
+  const [focusedField, setFocusedField] = useState(null);
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div 
+        style={styles.modalContainer}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          style={styles.closeButton}
+          onClick={onClose}
+        >
+          ✕
+        </button>
+
+        <div style={styles.modalContent}>
+          <h2 style={styles.modalHeading}>
+            Verify Your Email
+          </h2>
+
+          <p style={styles.modalText}>
+            We've sent a verification code to{" "}
+            <strong>{email}</strong>
+          </p>
+
+          <form onSubmit={onSubmit}>
+            <div style={styles.inputGroup}>
+              <div style={styles.inputWrapper}>
+                <label
+                  style={{
+                    ...styles.floatingLabel,
+                    top:
+                      verificationCode ||
+                      focusedField === "code"
+                        ? "-8px"
+                        : "14px",
+                    fontSize:
+                      verificationCode ||
+                      focusedField === "code"
+                        ? "12px"
+                        : "15px",
+                    color:
+                      focusedField === "code"
+                        ? "#2563eb"
+                        : "#999",
+                  }}
+                >
+                  Verification Code
+                </label>
+
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) =>
+                    setVerificationCode(
+                      e.target.value
+                    )
+                  }
+                  onFocus={() =>
+                    setFocusedField("code")
+                  }
+                  onBlur={() =>
+                    setFocusedField(null)
+                  }
+                  style={{
+                    ...styles.input,
+                    borderColor:
+                      focusedField === "code"
+                        ? "#2563eb"
+                        : "#d0d0d0",
+                  }}
+                  placeholder=""
+                  maxLength="6"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              style={styles.submitButton}
+              disabled={loading}
+            >
+              {loading
+                ? "Verifying..."
+                : "Verify Code"}
+            </button>
+          </form>
+
+          <p style={styles.resendText}>
+            Didn't receive the code?{" "}
+            <span
+              style={styles.resendLink}
+              onClick={() =>
+                setVerificationCode("")
+              }
+            >
+              Resend
             </span>
           </p>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -439,165 +800,122 @@ const styles = {
     display: "flex",
     backgroundColor: "#ffffff",
     fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    margin: 0,
-    padding: 0,
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
 
   leftSection: {
     background:
-      "linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%)",
+      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     padding: "60px",
-    position: "relative",
-    overflow: "hidden",
-  },
-
-  logoPlaceholder: {
-    marginBottom: "40px",
-    display: "flex",
-    justifyContent: "flex-start",
-  },
-
-  logo: {
-    maxWidth: "140px",
-    height: "auto",
-    display: "block",
-    filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1))",
-    backgroundColor: "transparent",
-    objectFit: "contain",
-  },
-
-  brand: {
-    maxWidth: "560px",
-  },
-
-  brandTitle: {
-    color: "#ffffff",
-    fontWeight: "800",
-    lineHeight: "1.2",
-    marginBottom: "24px",
-    letterSpacing: "-1px",
-  },
-
-  brandText: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "18px",
-    lineHeight: "1.8",
-    marginBottom: "40px",
-  },
-
-  features: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-
-  featureItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    color: "rgba(255, 255, 255, 0.95)",
-    fontSize: "15px",
-  },
-
-  checkmark: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: "50%",
-    width: "28px",
-    height: "28px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    fontWeight: "bold",
-    color: "#ffffff",
   },
 
   rightSection: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    padding: "30px",
+    background: "#ffffff",
+  },
+
+  brand: {
+    maxWidth: "500px",
+  },
+
+  logo: {
+    width: "120px",
+    marginBottom: "30px",
+  },
+
+  brandTitle: {
+    color: "#fff",
+    fontSize: "52px",
+    fontWeight: "800",
+    lineHeight: "1.1",
+    marginBottom: "20px",
+  },
+
+  brandText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: "18px",
+    lineHeight: "1.7",
   },
 
   card: {
     width: "100%",
-    maxWidth: "480px",
-    backgroundColor: "#ffffff",
-    borderRadius: "20px",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.08)",
-    border: "1px solid #f0f0f0",
-  },
-
-  topHeader: {
-    marginBottom: "36px",
+    maxWidth: "470px",
+    backgroundColor: "#fff",
+    padding: "40px",
+    borderRadius: "24px",
+    boxShadow:
+      "0 20px 50px rgba(0,0,0,0.08)",
+    animation: "fadeIn 0.4s ease",
   },
 
   heading: {
-    fontSize: "36px",
+    fontSize: "34px",
     fontWeight: "800",
-    color: "#000000",
-    marginBottom: "10px",
-    letterSpacing: "-1px",
-  },
-
-  subHeading: {
-    color: "#555555",
-    fontSize: "16px",
-    lineHeight: "1.6",
-    fontWeight: "400",
+    marginBottom: "30px",
+    color: "#000",
   },
 
   inputGroup: {
-    marginBottom: "24px",
+    marginBottom: "18px",
+  },
+
+  inputWrapper: {
+    position: "relative",
+  },
+
+  floatingLabel: {
+    position: "absolute",
+    left: "16px",
+    transition: "all 0.3s ease",
+    backgroundColor: "#ffffff",
+    paddingLeft: "4px",
+    paddingRight: "4px",
+    pointerEvents: "none",
   },
 
   label: {
     display: "block",
-    marginBottom: "10px",
-    color: "#000000",
+    marginBottom: "8px",
     fontWeight: "600",
-    fontSize: "14px",
-    letterSpacing: "0.3px",
+    color: "#111",
   },
 
-  input: {
-    width: "100%",
-    padding: "14px 16px",
-    borderRadius: "12px",
-    border: "1.5px solid #d0d0d0",
-    fontSize: "15px",
-    outline: "none",
-    backgroundColor: "#ffffff",
-    boxSizing: "border-box",
-    transition: "all 0.3s ease",
-    fontFamily: "inherit",
-    color: "#000000",
-  },
+input: {
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: "12px",
+  border: "1.5px solid #d0d0d0",
+  outline: "none",
+  fontSize: "15px",
+  transition: "0.3s",
+  boxSizing: "border-box",
+  backgroundColor: "#ffffff",
+  color: "#000000",
+},
+passwordWrapper: {
+  display: "flex",
+  alignItems: "center",
+  border: "1.5px solid #d0d0d0",
+  borderRadius: "12px",
+  overflow: "hidden",
+  backgroundColor: "#ffffff",
+},
 
-  passwordWrapper: {
-    display: "flex",
-    alignItems: "center",
-    border: "1.5px solid #d0d0d0",
-    borderRadius: "12px",
-    overflow: "hidden",
-    backgroundColor: "#ffffff",
-    transition: "all 0.3s ease",
-  },
-
-  passwordInput: {
-    flex: 1,
-    padding: "14px 16px",
-    border: "none",
-    outline: "none",
-    fontSize: "15px",
-    fontFamily: "inherit",
-    color: "#000000",
-    backgroundColor: "#ffffff",
-  },
+passwordInput: {
+  flex: 1,
+  border: "none",
+  outline: "none",
+  padding: "14px 16px",
+  fontSize: "15px",
+  backgroundColor: "#ffffff",
+  color: "#000000",
+},
 
   showButton: {
     border: "none",
@@ -605,77 +923,140 @@ const styles = {
     padding: "0 16px",
     cursor: "pointer",
     color: "#2563eb",
-    fontWeight: "600",
-    fontSize: "13px",
-    transition: "color 0.2s ease",
+    fontWeight: "700",
   },
 
   submitButton: {
     width: "100%",
-    padding: "14px 16px",
-    borderRadius: "12px",
+    padding: "14px",
     border: "none",
+    borderRadius: "12px",
     background:
       "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
-    color: "#ffffff",
-    fontSize: "16px",
+    color: "#fff",
     fontWeight: "700",
+    fontSize: "16px",
     cursor: "pointer",
-    marginTop: "8px",
-    transition: "all 0.3s ease",
-    boxShadow: "0 8px 20px rgba(37, 99, 235, 0.25)",
-    letterSpacing: "0.3px",
+    marginTop: "10px",
+    transition: "0.3s",
   },
 
   footerText: {
     textAlign: "center",
     marginTop: "24px",
-    color: "#555555",
-    fontSize: "14px",
-    fontWeight: "500",
+    color: "#666",
   },
 
   link: {
     color: "#2563eb",
     fontWeight: "700",
     cursor: "pointer",
-    transition: "color 0.2s ease",
   },
 
   messageBox: {
-    padding: "14px 16px",
-    borderRadius: "12px",
-    marginBottom: "20px",
-    fontSize: "14px",
-    fontWeight: "500",
-    borderLeftWidth: "4px",
-    borderLeftStyle: "solid",
-  },
-
-  divider: {
     display: "flex",
     alignItems: "center",
-    margin: "28px 0",
-    color: "#999999",
-    fontSize: "13px",
-  },
-
-  socialButtonsContainer: {
-    display: "flex",
-    gap: "12px",
-  },
-
-  socialButton: {
-    flex: 1,
-    padding: "12px 16px",
+    gap: "10px",
+    padding: "14px",
     borderRadius: "12px",
-    border: "1.5px solid #d0d0d0",
-    backgroundColor: "#ffffff",
-    color: "#000000",
-    fontSize: "14px",
+    marginBottom: "18px",
     fontWeight: "600",
+    animation:
+      "slideDown 0.4s ease forwards",
+  },
+
+  successBox: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    border: "1px solid #86efac",
+  },
+
+  errorBox: {
+    backgroundColor: "#fee2e2",
+    color: "#991b1b",
+    border: "1px solid #fca5a5",
+  },
+
+  icon: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.6)",
+    fontWeight: "800",
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+
+  modalContainer: {
+    backgroundColor: "#fff",
+    padding: "40px",
+    borderRadius: "24px",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+    maxWidth: "450px",
+    width: "90%",
+    animation: "slideDown 0.3s ease",
+    position: "relative",
+  },
+
+  closeButton: {
+    position: "absolute",
+    top: "16px",
+    right: "16px",
+    background: "none",
+    border: "none",
+    fontSize: "24px",
     cursor: "pointer",
-    transition: "all 0.3s ease",
-    fontFamily: "inherit",
+    color: "#999",
+    transition: "0.3s",
+    padding: "0",
+    width: "32px",
+    height: "32px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  modalContent: {
+    textAlign: "center",
+  },
+
+  modalHeading: {
+    fontSize: "28px",
+    fontWeight: "800",
+    marginBottom: "16px",
+    color: "#000",
+  },
+
+  modalText: {
+    fontSize: "15px",
+    color: "#666",
+    marginBottom: "28px",
+    lineHeight: "1.6",
+  },
+
+  resendText: {
+    fontSize: "14px",
+    color: "#666",
+    marginTop: "18px",
+  },
+
+  resendLink: {
+    color: "#2563eb",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 };

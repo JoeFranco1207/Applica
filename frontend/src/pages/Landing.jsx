@@ -1,252 +1,332 @@
 import { useState } from "react";
 
-export default function Landing() {
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+export default function Landing({
+  onCreateProfile,
+}) {
+  const [userMenuOpen, setUserMenuOpen] =
+    useState(false);
 
   const handleLogout = () => {
-    // Clear token and user data
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    
-    // Redirect to signup page
+
     window.location.href = "/";
   };
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar */}
       <nav style={styles.navbar}>
-        <div style={styles.navContent}>
-          <div style={styles.logo}>
-            <img
-              src="/src/assets/Applica_Logo.png"
-              alt="Applica"
-              style={styles.logoImage}
-            />
-            <span style={styles.logoText}>Applica</span>
-          </div>
+        <div style={styles.logoContainer}>
+          <img
+            src="/src/assets/Applica_Logo.png"
+            alt="Applica"
+            style={styles.logo}
+          />
 
-          <div style={styles.navLinks}>
-            <a href="#" style={styles.navLink}>
-              Browse Jobs
-            </a>
-            <a href="#" style={styles.navLink}>
-              Companies
-            </a>
-            <a href="#" style={styles.navLink}>
-              Resources
-            </a>
-          </div>
+          <h2 style={styles.logoText}>
+            Applica
+          </h2>
+        </div>
 
-          <div style={styles.profileMenu}>
-            <button
-              style={styles.profileButton}
-              onClick={() =>
-                setUserMenuOpen(!userMenuOpen)
-              }
-            >
-              <span style={styles.profileIcon}>
-                ⋯
-              </span>
-            </button>
-            {userMenuOpen && (
-              <div style={styles.dropdown}>
-                <a href="#" style={styles.dropdownItem}>
-                  My Profile
-                </a>
-                <a href="#" style={styles.dropdownItem}>
-                  Settings
-                </a>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    ...styles.dropdownItem,
-                    background: "none",
-                    border: "none",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    color: "#ff4757",
-                  }}
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
+        <div style={styles.navLinks}>
+          <a href="#" style={styles.navLink}>
+            Browse Jobs
+          </a>
+
+          <a href="#" style={styles.navLink}>
+            Companies
+          </a>
+
+          <a href="#" style={styles.navLink}>
+            Resources
+          </a>
+
+          <button
+            style={styles.createBtn}
+            onClick={onCreateProfile}
+          >
+            Create Profile
+          </button>
+        </div>
+
+        <div style={styles.profileMenu}>
+          <button
+            style={styles.profileButton}
+            onClick={() =>
+              setUserMenuOpen(!userMenuOpen)
+            }
+          >
+            ⋯
+          </button>
+
+          {userMenuOpen && (
+            <div style={styles.dropdown}>
+              <button
+                style={styles.dropdownItem}
+              >
+                My Profile
+              </button>
+
+              <button
+                style={styles.dropdownItem}
+              >
+                Settings
+              </button>
+
+              <button
+                style={{
+                  ...styles.dropdownItem,
+                  color: "#ef4444",
+                }}
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
-      {/* Hero Section */}
       <section style={styles.heroSection}>
         <div style={styles.heroContent}>
+          <span style={styles.badge}>
+            Your future starts here
+          </span>
+
           <h1 style={styles.heroTitle}>
-            Welcome to Your Professional Journey
+            Find work that matches your
+            passion.
           </h1>
+
           <p style={styles.heroSubtitle}>
-            Discover amazing job opportunities and connect with leading companies
+            Build your professional profile,
+            connect with companies, and
+            discover opportunities waiting
+            for you.
           </p>
+
           <div style={styles.heroButtons}>
-            <button style={styles.primaryButton}>
+            <button
+              style={styles.primaryButton}
+            >
               Explore Jobs
             </button>
-            <button style={styles.secondaryButton}>
+
+            <button
+              style={styles.secondaryButton}
+              onClick={onCreateProfile}
+            >
               Complete Profile
             </button>
           </div>
         </div>
-        <div style={styles.heroImage}>
-          <div style={styles.imagePlaceholder}>
-            <span style={styles.placeholderText}>
-              
-            </span>
+
+        <div style={styles.heroCard}>
+          <div style={styles.heroGlass}>
+            <img
+              src="/src/assets/Applica_Logo.png"
+              alt="logo"
+              style={styles.heroLogo}
+            />
+
+            <h3 style={styles.heroCardTitle}>
+              Applica
+            </h3>
+
+            <p style={styles.heroCardText}>
+              A modern platform where talent
+              meets opportunity.
+            </p>
+
+            <div style={styles.heroStats}>
+              <div style={styles.statBox}>
+                <h2 style={styles.statNumber}>
+                  5K+
+                </h2>
+
+                <p style={styles.statLabel}>
+                  Jobs
+                </p>
+              </div>
+
+              <div style={styles.statBox}>
+                <h2 style={styles.statNumber}>
+                  2K+
+                </h2>
+
+                <p style={styles.statLabel}>
+                  Companies
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
       <section style={styles.featuresSection}>
         <h2 style={styles.sectionTitle}>
           Why Choose Applica?
         </h2>
+
         <div style={styles.featuresGrid}>
           <FeatureCard
-            title="Find Perfect Jobs"
-            description="Discover job opportunities tailored to your skills and preferences"
+            title="Smart Matching"
+            description="Get job recommendations based on your skills and experience."
           />
-          <FeatureCard
-            title="Connect with Companies"
-            description="Build relationships with leading organizations and recruiters"
-          />
-          <FeatureCard
-            title="Grow Your Career"
-            description="Access resources and guidance to advance in your professional journey"
-          />
+
           <FeatureCard
             title="Easy Applications"
-            description="Apply to multiple jobs with just a few clicks using your profile"
+            description="Apply to jobs in just a few clicks with your profile."
+          />
+
+          <FeatureCard
+            title="Professional Growth"
+            description="Grow your career with opportunities from top companies."
+          />
+
+          <FeatureCard
+            title="Modern Experience"
+            description="Fast, clean, and designed for a smooth user journey."
           />
         </div>
       </section>
 
-      {/* Trending Jobs Section */}
       <section style={styles.jobsSection}>
         <h2 style={styles.sectionTitle}>
           Trending Jobs
         </h2>
-        <div style={styles.jobsList}>
+
+        <div style={styles.jobsGrid}>
           <JobCard
-            title="Senior React Developer"
-            company="Tech Innovations Inc"
-            location="Manila, NCR"
-            salary="₱150,000 - ₱180,000"
+            title="Frontend Developer"
+            company="TechNova"
+            location="Manila"
+            salary="₱80k - ₱120k"
           />
+
           <JobCard
-            title="UX/UI Designer"
-            company="Creative Studios"
-            location="Quezon City, NCR"
-            salary="₱100,000 - ₱130,000"
+            title="UI/UX Designer"
+            company="Creative Hub"
+            location="Makati"
+            salary="₱70k - ₱100k"
           />
+
+          <JobCard
+            title="Backend Engineer"
+            company="CloudStack"
+            location="Cebu"
+            salary="₱90k - ₱150k"
+          />
+
           <JobCard
             title="Data Analyst"
-            company="Analytics Pro"
-            location="Makati, NCR"
-            salary="₱120,000 - ₱150,000"
+            company="Vision Analytics"
+            location="Quezon City"
+            salary="₱75k - ₱110k"
           />
-          <JobCard
-            title="Full Stack Developer"
-            company="Web Solutions Ltd"
-            location="Cebu, Cebu"
-            salary="₱140,000 - ₱170,000"
-          />
-        </div>
-        <div style={styles.viewAllButton}>
-          <button style={styles.primaryButton}>
-            View All Jobs
-          </button>
         </div>
       </section>
 
-      {/* Call to Action Section */}
       <section style={styles.ctaSection}>
-        <div style={styles.ctaContent}>
+        <div style={styles.ctaCard}>
           <h2 style={styles.ctaTitle}>
-            Ready to Land Your Dream Job?
+            Ready to start your journey?
           </h2>
+
           <p style={styles.ctaText}>
-            Complete your profile and start applying to amazing
-            opportunities today
+            Create your profile and unlock
+            thousands of opportunities.
           </p>
-          <button style={styles.ctaButton}>
-            Complete Your Profile
+
+          <button
+            style={styles.ctaButton}
+            onClick={onCreateProfile}
+          >
+            Create Profile
           </button>
         </div>
       </section>
 
-      {/* Footer */}
       <footer style={styles.footer}>
         <div style={styles.footerContent}>
-          <div style={styles.footerSection}>
-            <h4 style={styles.footerTitle}>
-              About Applica
-            </h4>
+          <div>
+            <h3 style={styles.footerLogo}>
+              Applica
+            </h3>
+
             <p style={styles.footerText}>
-              Connecting talented professionals with
-              leading companies
+              Connecting ambitious people
+              with meaningful careers.
             </p>
           </div>
-          <div style={styles.footerSection}>
+
+          <div>
             <h4 style={styles.footerTitle}>
               Quick Links
             </h4>
-            <ul style={styles.footerLinks}>
-              <li>
-                <a href="#" style={styles.footerLink}>
-                  Browse Jobs
-                </a>
-              </li>
-              <li>
-                <a href="#" style={styles.footerLink}>
-                  Companies
-                </a>
-              </li>
-              <li>
-                <a href="#" style={styles.footerLink}>
-                  Contact
-                </a>
-              </li>
-            </ul>
+
+            <a
+              href="#"
+              style={styles.footerLink}
+            >
+              Browse Jobs
+            </a>
+
+            <a
+              href="#"
+              style={styles.footerLink}
+            >
+              Companies
+            </a>
+
+            <a
+              href="#"
+              style={styles.footerLink}
+            >
+              Contact
+            </a>
           </div>
-          <div style={styles.footerSection}>
+
+          <div>
             <h4 style={styles.footerTitle}>
-              Connect With Us
+              Socials
             </h4>
-            <div style={styles.socialLinks}>
-              <a href="#" style={styles.socialLink}>
+
+            <div style={styles.socials}>
+              <div style={styles.social}>
                 f
-              </a>
-              <a href="#" style={styles.socialLink}>
+              </div>
+
+              <div style={styles.social}>
                 𝕏
-              </a>
-              <a href="#" style={styles.socialLink}>
+              </div>
+
+              <div style={styles.social}>
                 in
-              </a>
+              </div>
             </div>
           </div>
         </div>
+
         <div style={styles.footerBottom}>
-          <p>
-            © 2024 Applica. All rights reserved.
-          </p>
+          © 2026 Applica. All rights
+          reserved.
         </div>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({ title, description }) {
+function FeatureCard({
+  title,
+  description,
+}) {
   return (
     <div style={styles.featureCard}>
-      <h3 style={styles.featureTitle}>{title}</h3>
+      <h3 style={styles.featureTitle}>
+        {title}
+      </h3>
+
       <p style={styles.featureDescription}>
         {description}
       </p>
@@ -262,25 +342,26 @@ function JobCard({
 }) {
   return (
     <div style={styles.jobCard}>
-      <div style={styles.jobCardHeader}>
-        <h3 style={styles.jobTitle}>{title}</h3>
-        <button
-          style={styles.saveButton}
-          title="Save job"
-        >
+      <div style={styles.jobTop}>
+        <h3 style={styles.jobTitle}>
+          {title}
+        </h3>
+
+        <button style={styles.saveBtn}>
           Save
         </button>
       </div>
-      <p style={styles.jobCompany}>{company}</p>
-      <div style={styles.jobDetails}>
-        <span style={styles.jobLocation}>
-          {location}
-        </span>
-        <span style={styles.jobSalary}>
-          {salary}
-        </span>
+
+      <p style={styles.company}>
+        {company}
+      </p>
+
+      <div style={styles.jobInfo}>
+        <span>{location}</span>
+        <span>{salary}</span>
       </div>
-      <button style={styles.applyButton}>
+
+      <button style={styles.applyBtn}>
         Apply Now
       </button>
     </div>
@@ -290,58 +371,64 @@ function JobCard({
 const styles = {
   container: {
     minHeight: "100vh",
-    backgroundColor: "#ffffff",
+    background:
+      "linear-gradient(to right, #0f172a, #1e293b)",
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "#fff",
   },
 
   navbar: {
-    backgroundColor: "#ffffff",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+    height: "75px",
+    background: "rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0 40px",
+    borderBottom:
+      "1px solid rgba(255,255,255,0.1)",
     position: "sticky",
     top: 0,
     zIndex: 100,
   },
 
-  navContent: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "16px 30px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  logo: {
+  logoContainer: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
   },
 
-  logoImage: {
-    width: "40px",
-    height: "40px",
+  logo: {
+    width: "45px",
   },
 
   logoText: {
-    fontSize: "24px",
+    fontSize: "1.6rem",
     fontWeight: "800",
-    color: "#2563eb",
   },
 
   navLinks: {
     display: "flex",
-    gap: "40px",
-    flex: 1,
-    marginLeft: "60px",
+    alignItems: "center",
+    gap: "28px",
   },
 
   navLink: {
+    color: "#cbd5e1",
     textDecoration: "none",
-    color: "#666",
     fontWeight: "600",
-    fontSize: "14px",
-    transition: "0.3s",
+    fontSize: "15px",
+  },
+
+  createBtn: {
+    padding: "12px 20px",
+    borderRadius: "12px",
+    border: "none",
+    background:
+      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
+    color: "#fff",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
@@ -350,70 +437,79 @@ const styles = {
   },
 
   profileButton: {
-    background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-    border: "none",
+    width: "45px",
+    height: "45px",
     borderRadius: "50%",
-    width: "44px",
-    height: "44px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    border: "none",
+    background:
+      "rgba(255,255,255,0.12)",
+    color: "#fff",
+    fontSize: "24px",
     cursor: "pointer",
-    fontSize: "20px",
-  },
-
-  profileIcon: {
-    color: "#ffffff",
   },
 
   dropdown: {
     position: "absolute",
-    top: "54px",
     right: 0,
-    backgroundColor: "#ffffff",
-    border: "1px solid #e0e0e0",
-    borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+    top: "55px",
+    background: "#fff",
+    borderRadius: "16px",
+    overflow: "hidden",
     minWidth: "180px",
-    zIndex: 101,
+    boxShadow:
+      "0 10px 30px rgba(0,0,0,0.2)",
   },
 
   dropdownItem: {
-    display: "block",
-    padding: "12px 16px",
-    color: "#333",
-    textDecoration: "none",
-    fontSize: "14px",
-    borderBottom: "1px solid #f0f0f0",
-    transition: "0.2s",
+    width: "100%",
+    padding: "14px 18px",
+    border: "none",
+    background: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+    fontWeight: "600",
+    color: "#0f172a",
   },
 
   heroSection: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "80px 30px",
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
     alignItems: "center",
-    gap: "60px",
+    gap: "50px",
+    padding: "80px 60px",
+    maxWidth: "1400px",
+    margin: "0 auto",
   },
 
   heroContent: {
-    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+  },
+
+  badge: {
+    background:
+      "rgba(59,130,246,0.15)",
+    color: "#93c5fd",
+    width: "fit-content",
+    padding: "10px 18px",
+    borderRadius: "999px",
+    marginBottom: "24px",
+    fontWeight: "700",
   },
 
   heroTitle: {
-    fontSize: "52px",
-    fontWeight: "800",
-    color: "#000",
+    fontSize: "4rem",
+    fontWeight: "900",
+    lineHeight: "1.1",
     marginBottom: "20px",
-    lineHeight: "1.2",
   },
 
   heroSubtitle: {
     fontSize: "18px",
-    color: "#666",
-    marginBottom: "32px",
-    lineHeight: "1.6",
+    lineHeight: "1.8",
+    color: "#cbd5e1",
+    marginBottom: "35px",
+    maxWidth: "550px",
   },
 
   heroButtons: {
@@ -422,299 +518,298 @@ const styles = {
   },
 
   primaryButton: {
-    padding: "14px 32px",
+    padding: "16px 30px",
+    borderRadius: "14px",
     border: "none",
-    borderRadius: "12px",
     background:
       "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
     color: "#fff",
     fontWeight: "700",
-    fontSize: "16px",
+    fontSize: "15px",
     cursor: "pointer",
-    transition: "0.3s",
   },
 
   secondaryButton: {
-    padding: "14px 32px",
-    border: "2px solid #2563eb",
-    borderRadius: "12px",
-    background: "transparent",
-    color: "#2563eb",
-    fontWeight: "700",
-    fontSize: "16px",
-    cursor: "pointer",
-    transition: "0.3s",
-  },
-
-  heroImage: {
-    flex: 1,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  imagePlaceholder: {
-    width: "100%",
-    height: "400px",
+    padding: "16px 30px",
+    borderRadius: "14px",
+    border:
+      "1px solid rgba(255,255,255,0.2)",
     background:
-      "linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)",
-    borderRadius: "24px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "120px",
+      "rgba(255,255,255,0.08)",
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
   },
 
-  placeholderText: {
-    fontSize: "100px",
+  heroCard: {
+    display: "flex",
+    justifyContent: "center",
+  },
+
+  heroGlass: {
+    width: "100%",
+    maxWidth: "420px",
+    background:
+      "rgba(255,255,255,0.08)",
+    backdropFilter: "blur(14px)",
+    borderRadius: "28px",
+    padding: "40px",
+    border:
+      "1px solid rgba(255,255,255,0.1)",
+    boxShadow:
+      "0 20px 40px rgba(0,0,0,0.3)",
+  },
+
+  heroLogo: {
+    width: "70px",
+    marginBottom: "20px",
+  },
+
+  heroCardTitle: {
+    fontSize: "2rem",
+    fontWeight: "800",
+    marginBottom: "10px",
+  },
+
+  heroCardText: {
+    color: "#cbd5e1",
+    lineHeight: "1.7",
+    marginBottom: "30px",
+  },
+
+  heroStats: {
+    display: "flex",
+    gap: "20px",
+  },
+
+  statBox: {
+    flex: 1,
+    background:
+      "rgba(255,255,255,0.08)",
+    borderRadius: "18px",
+    padding: "20px",
+    textAlign: "center",
+  },
+
+  statNumber: {
+    fontSize: "2rem",
+    marginBottom: "6px",
+  },
+
+  statLabel: {
+    color: "#cbd5e1",
   },
 
   featuresSection: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "80px 30px",
-    backgroundColor: "#f8fafc",
-  },
-
-  jobsSection: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "80px 30px",
+    padding: "80px 60px",
   },
 
   sectionTitle: {
-    fontSize: "42px",
-    fontWeight: "800",
-    color: "#000",
-    marginBottom: "60px",
+    fontSize: "2.7rem",
     textAlign: "center",
+    marginBottom: "50px",
+    fontWeight: "800",
   },
 
   featuresGrid: {
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "30px",
+    gap: "25px",
+    maxWidth: "1300px",
+    margin: "0 auto",
   },
 
   featureCard: {
-    padding: "30px",
-    backgroundColor: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-    textAlign: "center",
-    transition: "0.3s",
+    background:
+      "rgba(255,255,255,0.08)",
+    borderRadius: "24px",
+    padding: "35px",
+    border:
+      "1px solid rgba(255,255,255,0.08)",
+    backdropFilter: "blur(12px)",
   },
 
   featureTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#000",
+    fontSize: "1.4rem",
     marginBottom: "12px",
   },
 
   featureDescription: {
-    fontSize: "14px",
-    color: "#666",
-    lineHeight: "1.6",
+    color: "#cbd5e1",
+    lineHeight: "1.7",
   },
 
-  jobsList: {
+  jobsSection: {
+    padding: "80px 60px",
+  },
+
+  jobsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "24px",
-    marginBottom: "40px",
+      "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "25px",
+    maxWidth: "1300px",
+    margin: "0 auto",
   },
 
   jobCard: {
-    padding: "24px",
-    backgroundColor: "#ffffff",
-    border: "1.5px solid #e0e0e0",
-    borderRadius: "16px",
-    transition: "0.3s",
+    background:
+      "rgba(255,255,255,0.08)",
+    borderRadius: "24px",
+    padding: "28px",
+    backdropFilter: "blur(12px)",
+    border:
+      "1px solid rgba(255,255,255,0.08)",
   },
 
-  jobCardHeader: {
+  jobTop: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: "12px",
   },
 
   jobTitle: {
-    fontSize: "18px",
+    fontSize: "1.2rem",
     fontWeight: "700",
-    color: "#000",
-    margin: 0,
   },
 
-  saveButton: {
-    background: "none",
+  saveBtn: {
     border: "none",
-    fontSize: "12px",
+    background:
+      "rgba(255,255,255,0.1)",
+    color: "#93c5fd",
+    padding: "8px 14px",
+    borderRadius: "10px",
     cursor: "pointer",
-    padding: "6px 12px",
-    color: "#2563eb",
-    fontWeight: "600",
-    transition: "0.2s",
   },
 
-  jobCompany: {
-    fontSize: "14px",
-    color: "#2563eb",
-    fontWeight: "600",
-    margin: "8px 0",
+  company: {
+    color: "#93c5fd",
+    marginBottom: "20px",
   },
 
-  jobDetails: {
+  jobInfo: {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-    margin: "16px 0",
-    fontSize: "13px",
-    color: "#666",
+    color: "#cbd5e1",
+    marginBottom: "25px",
   },
 
-  jobLocation: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-
-  jobSalary: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    fontWeight: "600",
-    color: "#000",
-  },
-
-  applyButton: {
+  applyBtn: {
     width: "100%",
-    padding: "12px",
-    border: "2px solid #2563eb",
-    borderRadius: "10px",
-    background: "transparent",
-    color: "#2563eb",
-    fontWeight: "600",
+    padding: "14px",
+    borderRadius: "12px",
+    border: "none",
+    background:
+      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
+    color: "#fff",
+    fontWeight: "700",
     cursor: "pointer",
-    transition: "0.3s",
-  },
-
-  viewAllButton: {
-    textAlign: "center",
   },
 
   ctaSection: {
-    background:
-      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
-    padding: "80px 30px",
-    textAlign: "center",
+    padding: "100px 60px",
   },
 
-  ctaContent: {
-    maxWidth: "600px",
+  ctaCard: {
+    maxWidth: "1000px",
     margin: "0 auto",
+    background:
+      "linear-gradient(135deg, rgba(37,99,235,0.25), rgba(59,130,246,0.15))",
+    borderRadius: "32px",
+    padding: "70px 40px",
+    textAlign: "center",
+    border:
+      "1px solid rgba(255,255,255,0.1)",
+    backdropFilter: "blur(12px)",
   },
 
   ctaTitle: {
-    fontSize: "42px",
-    fontWeight: "800",
-    color: "#ffffff",
+    fontSize: "3rem",
+    fontWeight: "900",
     marginBottom: "20px",
   },
 
   ctaText: {
+    color: "#cbd5e1",
     fontSize: "18px",
-    color: "rgba(255,255,255,0.9)",
-    marginBottom: "32px",
-    lineHeight: "1.6",
+    marginBottom: "30px",
   },
 
   ctaButton: {
-    padding: "16px 40px",
+    padding: "16px 32px",
+    borderRadius: "14px",
     border: "none",
-    borderRadius: "12px",
-    background: "#ffffff",
+    background: "#fff",
     color: "#2563eb",
-    fontWeight: "700",
-    fontSize: "16px",
+    fontWeight: "800",
     cursor: "pointer",
-    transition: "0.3s",
   },
 
   footer: {
-    backgroundColor: "#0f172a",
-    color: "#ffffff",
+    marginTop: "80px",
+    borderTop:
+      "1px solid rgba(255,255,255,0.1)",
   },
 
   footerContent: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "60px 30px",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(250px, 1fr))",
     gap: "40px",
+    padding: "60px",
+    maxWidth: "1300px",
+    margin: "0 auto",
   },
 
-  footerSection: {
-    textAlign: "left",
-  },
-
-  footerTitle: {
-    fontSize: "16px",
-    fontWeight: "700",
-    marginBottom: "16px",
-    color: "#ffffff",
+  footerLogo: {
+    fontSize: "2rem",
+    marginBottom: "14px",
   },
 
   footerText: {
-    fontSize: "14px",
-    color: "rgba(255,255,255,0.7)",
-    lineHeight: "1.6",
+    color: "#cbd5e1",
+    lineHeight: "1.7",
   },
 
-  footerLinks: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
+  footerTitle: {
+    marginBottom: "16px",
+    fontSize: "1.1rem",
   },
 
   footerLink: {
-    color: "rgba(255,255,255,0.7)",
-    textDecoration: "none",
-    fontSize: "14px",
-    transition: "0.2s",
     display: "block",
-    marginBottom: "8px",
-  },
-
-  socialLinks: {
-    display: "flex",
-    gap: "16px",
-  },
-
-  socialLink: {
-    width: "40px",
-    height: "40px",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#ffffff",
+    color: "#cbd5e1",
     textDecoration: "none",
-    fontSize: "18px",
-    transition: "0.2s",
+    marginBottom: "10px",
+  },
+
+  socials: {
+    display: "flex",
+    gap: "14px",
+  },
+
+  social: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.1)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    fontWeight: "700",
   },
 
   footerBottom: {
-    borderTop: "1px solid rgba(255,255,255,0.1)",
-    padding: "24px 30px",
     textAlign: "center",
-    fontSize: "14px",
-    color: "rgba(255,255,255,0.6)",
+    padding: "25px",
+    color: "#94a3b8",
+    borderTop:
+      "1px solid rgba(255,255,255,0.08)",
   },
 };

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Landing from "./Landing.jsx";
+import ProfileSelection from "./Create/ProfileSelection.jsx";
+import CreateJobseekerProfile from "./Create/CreateJobseekerProfile.jsx";
+import CreateEmployerProfile from "./Create/CreateEmployerProfile.jsx";
 
 export default function Signup() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -26,6 +29,9 @@ export default function Signup() {
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationEmail, setVerificationEmail] = useState("");
   const [verificationLoading, setVerificationLoading] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState("landing");
+  const [selectedRole, setSelectedRole] = useState(null);
 
   useEffect(() => {
     // Check if token exists in localStorage on mount
@@ -266,7 +272,63 @@ export default function Signup() {
   };
 
   return isAuthenticated ? (
-    <Landing />
+    (() => {
+      // Listen for navigation events from Landing component
+      if (!window.navigationListener) {
+        window.navigationListener = true;
+        window.addEventListener('navigate', (e) => {
+          setCurrentPage(e.detail.page);
+          window.scrollTo(0, 0);
+        });
+      }
+
+      const navigate = (page) => {
+        setCurrentPage(page);
+        window.scrollTo(0, 0);
+      };
+
+      const handleProfileSelection = (role) => {
+        setSelectedRole(role);
+        navigate(role === "jobseeker" ? "createJobseeker" : "createEmployer");
+      };
+
+      const handleBackToSelection = () => {
+        setSelectedRole(null);
+        navigate("create");
+      };
+
+      const handleBackToLanding = () => {
+        setCurrentPage("landing");
+        setSelectedRole(null);
+        window.scrollTo(0, 0);
+      };
+
+      switch (currentPage) {
+        case "landing":
+          return <Landing />;
+        case "create":
+          return (
+            <ProfileSelection 
+              onSelect={handleProfileSelection}
+              onBack={handleBackToLanding}
+            />
+          );
+        case "createJobseeker":
+          return (
+            <CreateJobseekerProfile 
+              onBack={handleBackToSelection}
+            />
+          );
+        case "createEmployer":
+          return (
+            <CreateEmployerProfile 
+              onBack={handleBackToSelection}
+            />
+          );
+        default:
+          return <Landing />;
+      }
+    })()
   ) : (
     <div
       style={{

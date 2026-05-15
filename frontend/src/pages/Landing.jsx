@@ -224,6 +224,7 @@ export default function Landing() {
               style={
                 styles.primaryButton
               }
+              onClick={() => navigate("/explore")}
             >
               Explore Jobs
             </button>
@@ -260,7 +261,7 @@ export default function Landing() {
                 styles.placeholderText
               }
             >
-              🎯
+            
 
             </span>
           </div>
@@ -317,6 +318,13 @@ export default function Landing() {
           Trending Jobs
         </h2>
 
+        <p style={{
+          ...styles.sectionDescription,
+          color: isDarkMode ? "#d1d5db" : "#4b5563",
+        }}>
+          Do you know the jobs? Discover popular openings and explore a feed of the best roles on the market.
+        </p>
+
         <div style={styles.jobsList}>
           <JobCard
             title="Senior React Developer"
@@ -356,6 +364,7 @@ export default function Landing() {
             style={
               styles.primaryButton
             }
+            onClick={() => navigate("/explore")}
           >
             View All Jobs
           </button>
@@ -858,7 +867,15 @@ const styles = {
     fontSize: "42px",
     fontWeight: "800",
     textAlign: "center",
-    marginBottom: "60px",
+    marginBottom: "16px",
+  },
+
+  sectionDescription: {
+    maxWidth: "720px",
+    margin: "0 auto 40px auto",
+    fontSize: "18px",
+    lineHeight: "1.6",
+    textAlign: "center",
   },
 
   featuresGrid: {

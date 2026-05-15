@@ -5,6 +5,7 @@ import Signup from "./pages/Signup";
 import Create from "./pages/Create/ProfileSelection";
 import CreateEmployerProfile from "./pages/Create/CreateEmployerProfile";
 import CreateJobseekerProfile from "./pages/Create/CreateJobseekerProfile";
+import BrowseJob from "./pages/Browse/BrowseJob";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -50,6 +51,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/explore" element={<BrowseJob />} />
         <Route path="/auth" element={<Signup />} />
       </Route>
     </Routes>

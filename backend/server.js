@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
+import Job from "./Model/JobSchema.js";
 import JobseekerRouter from "./Routes/JobseekerRouter.js";
 import EmployerRouter from "./Routes/EmployerRouter.js";
 import AdminRouter from "./Routes/AdminRouter.js";
@@ -32,6 +33,19 @@ app.use((req, res, next) => {
 
 
 app.use("/api/auth", Router);
+app.get("/api/jobs", async (req, res, next) => {
+  try {
+    const jobs = await Job.find().populate("createdBy", "firstName email");
+    res.success({
+      statusCode: 200,
+      status: "success",
+      message: "Jobs fetched successfully",
+      data: jobs,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 app.use("/api/jobseeker", JobseekerRouter);
 app.use("/api/employer", EmployerRouter);
 app.get('/', async(req,res)=>{

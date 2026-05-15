@@ -4,6 +4,31 @@ import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
 import axios from "axios";
 
+const calculateEmployerProfileCompletion = (user) => {
+  if (!user || user.role !== "employer") return 0;
+
+  const fields = [
+    user.companyName,
+    user.companyDescription,
+    user.companySize,
+    user.industry,
+    user.website,
+    user.contactNumber,
+    user.dateEstablished,
+    user.companyLocation?.region,
+    user.companyLocation?.city,
+    user.companyLocation?.barangay,
+    user.companyLocation?.otherDetails,
+  ];
+
+  const filledCount = fields.reduce(
+    (count, value) => count + (!!value ? 1 : 0),
+    0
+  );
+
+  return Math.round((filledCount / fields.length) * 100);
+};
+
 export default function Profile() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -21,13 +46,13 @@ export default function Profile() {
       }
 
       try {
-        const response = await axios.get("http://localhost:3000/api/user/profile", {
+        const response = await axios.get("http://localhost:8000/api/auth/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (response.data.success) {
+        if (response.data && response.data.data) {
           setUser(response.data.data);
           // Update localStorage with fresh data
           localStorage.setItem("user", JSON.stringify(response.data.data));
@@ -69,6 +94,8 @@ export default function Profile() {
       </div>
     );
   }
+
+  const completion = calculateEmployerProfileCompletion(user);
 
   return (
     <div style={{
@@ -325,6 +352,56 @@ export default function Profile() {
             </div>
           </div>
 
+          {user?.role === "employer" && (
+            <div style={{
+              ...styles.profileSection,
+              borderColor: isDarkMode ? "#333" : "#f0f0f0",
+              backgroundColor: isDarkMode ? "#0f0f0f" : "#ffffff",
+            }}>
+              <h2 style={{
+                ...styles.sectionTitle,
+                color: isDarkMode ? "#ffffff" : "#000",
+              }}>
+                Employer Profile
+              </h2>
+
+              <div style={styles.detailsGrid}>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Company</label>
+                  <p style={styles.detailValue}>{user.companyName || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Industry</label>
+                  <p style={styles.detailValue}>{user.industry || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Company Size</label>
+                  <p style={styles.detailValue}>{user.companySize || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Website</label>
+                  <p style={styles.detailValue}>{user.website || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Contact</label>
+                  <p style={styles.detailValue}>{user.contactNumber || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Established</label>
+                  <p style={styles.detailValue}>{user.dateEstablished ? new Date(user.dateEstablished).toLocaleDateString() : "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Location</label>
+                  <p style={styles.detailValue}>{`${user.companyLocation?.region || ""}${user.companyLocation?.city ? ", " + user.companyLocation.city : ""}${user.companyLocation?.barangay ? ", " + user.companyLocation.barangay : ""}${user.companyLocation?.otherDetails ? ", " + user.companyLocation.otherDetails : ""}` || "Not provided"}</p>
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Status</label>
+                  <p style={styles.detailValue}>{user.approvalStatus || "Pending"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{
             ...styles.profileSection,
             borderColor: isDarkMode ? "#333" : "#f0f0f0",
@@ -350,18 +427,18 @@ export default function Profile() {
                   backgroundColor: isDarkMode ? "#333" : "#e0e0e0",
                 }}>
                   <div
-                    style={
-                      styles.progressFill
-                    }
+                    style={{
+                      ...styles.progressFill,
+                      width: `${completion}%`,
+                      backgroundColor: completion === 100 ? "#22c55e" : "#3b82f6",
+                    }}
                   ></div>
                 </div>
                 <span style={{
                   ...styles.statusValue,
                   color: isDarkMode ? "#999" : "#666",
                 }}>
-                  {user?.profileComplete
-                    ? "100%"
-                    : "Incomplete"}
+                  {completion}% complete
                 </span>
               </div>
             </div>

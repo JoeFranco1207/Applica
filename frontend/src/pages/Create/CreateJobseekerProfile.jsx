@@ -214,7 +214,7 @@ const CreateJobseekerProfile = () => {
       );
 
       setTimeout(() => {
-        navigate("/create");
+        navigate("/profile");
       }, 1500);
     } catch (error) {
       showMessage(
@@ -245,7 +245,7 @@ const CreateJobseekerProfile = () => {
 
         <button
           style={styles.backBtn}
-          onClick={() => navigate("/create")}
+          onClick={() => navigate("/profile")}
         >
           ← Back
         </button>
@@ -487,7 +487,7 @@ const CreateJobseekerProfile = () => {
               <button
                 type="button"
                 style={styles.cancelBtn}
-                onClick={() => navigate("/create")}
+                onClick={() => navigate("/profile")}
               >
                 Cancel
               </button>

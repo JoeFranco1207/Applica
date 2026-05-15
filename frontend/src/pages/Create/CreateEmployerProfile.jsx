@@ -42,6 +42,8 @@ const industries = [
 
 const CreateEmployerProfile = () => {
   const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editable, setEditable] = useState(true);
   const [formData, setFormData] = useState({
     companyName: "",
     companyDescription: "",
@@ -58,7 +60,6 @@ const CreateEmployerProfile = () => {
     dateEstablished: "",
   });
 
-  const [companyLogo, setCompanyLogo] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
@@ -80,6 +81,52 @@ const CreateEmployerProfile = () => {
     );
   }, [formData.companyLocation]);
 
+  useEffect(() => {
+    const fetchEmployerProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/api/auth/profile",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (response.data && response.data.data) {
+          const existing = response.data.data;
+          if (existing.role === "employer") {
+            setFormData({
+              companyName: existing.companyName || "",
+              companyDescription: existing.companyDescription || "",
+              companyLocation: existing.companyLocation || {
+                region: "",
+                city: "",
+                barangay: "",
+                otherDetails: "",
+              },
+              companySize: existing.companySize || "",
+              industry: existing.industry || "",
+              website: existing.website || "",
+              contactNumber: existing.contactNumber || "",
+              dateEstablished: existing.dateEstablished
+                ? existing.dateEstablished.split("T")[0]
+                : "",
+            });
+            setIsEditing(true);
+            setEditable(false);
+          }
+        }
+      } catch (error) {
+        console.error("Unable to prefill employer profile:", error);
+      }
+    };
+
+    fetchEmployerProfile();
+  }, []);
+
   const showMessage = (text, type) => {
     setMessage(text);
     setMessageType(type);
@@ -88,6 +135,25 @@ const CreateEmployerProfile = () => {
       setMessage("");
       setMessageType("");
     }, 3000);
+  };
+
+  const computeCompletion = (data) => {
+    const fields = [
+      data?.companyName,
+      data?.companyDescription,
+      data?.companySize,
+      data?.industry,
+      data?.website,
+      data?.contactNumber,
+      data?.dateEstablished,
+      data?.companyLocation?.region,
+      data?.companyLocation?.city,
+      data?.companyLocation?.barangay,
+      data?.companyLocation?.otherDetails,
+    ];
+
+    const filled = fields.reduce((c, v) => c + (!!v ? 1 : 0), 0);
+    return Math.round((filled / fields.length) * 100);
   };
 
   const handleInputChange = (e) => {
@@ -111,16 +177,6 @@ const CreateEmployerProfile = () => {
     }
   };
 
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0];
-
-    if (file && file.type.startsWith("image/")) {
-      setCompanyLogo(file);
-    } else {
-      showMessage("Please select a valid image file", "error");
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -135,62 +191,23 @@ const CreateEmployerProfile = () => {
         return;
       }
 
-      const formDataToSend = new FormData();
-
-      formDataToSend.append(
-        "companyName",
-        formData.companyName
-      );
-
-      formDataToSend.append(
-        "companyDescription",
-        formData.companyDescription
-      );
-
-      formDataToSend.append(
-        "companyLocation",
-        JSON.stringify(formData.companyLocation)
-      );
-
-      formDataToSend.append(
-        "companySize",
-        formData.companySize
-      );
-
-      formDataToSend.append(
-        "industry",
-        formData.industry
-      );
-
-      formDataToSend.append(
-        "website",
-        formData.website
-      );
-
-      formDataToSend.append(
-        "contactNumber",
-        formData.contactNumber
-      );
-
-      formDataToSend.append(
-        "dateEstablished",
-        formData.dateEstablished
-      );
-
-      if (companyLogo) {
-        formDataToSend.append(
-          "companyLogo",
-          companyLogo
-        );
-      }
+      const payload = {
+        companyName: formData.companyName,
+        companyDescription: formData.companyDescription,
+        companyLocation: formData.companyLocation,
+        companySize: formData.companySize,
+        industry: formData.industry,
+        website: formData.website,
+        contactNumber: formData.contactNumber,
+        dateEstablished: formData.dateEstablished,
+      };
 
       await axios.put(
         "http://localhost:8000/api/employer/profile",
-        formDataToSend,
+        payload,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -201,7 +218,7 @@ const CreateEmployerProfile = () => {
       );
 
       setTimeout(() => {
-        navigate("/");
+        navigate("/profile");
       }, 1500);
     } catch (error) {
       showMessage(
@@ -228,7 +245,7 @@ const CreateEmployerProfile = () => {
           <h2 style={styles.logoText}>Applica</h2>
         </div>
 
-        <button style={styles.backBtn} onClick={() => navigate("/create")}>
+<button style={styles.backBtn} onClick={() => navigate("/profile")}> 
           ← Back
         </button>
       </nav>
@@ -238,14 +255,56 @@ const CreateEmployerProfile = () => {
         <div style={styles.card}>
           {/* LEFT */}
           <div style={styles.leftSide}>
-            <h1 style={styles.title}>
-              Create Company Profile
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h1 style={styles.title}>
+                {isEditing ? "Edit Company Profile" : "Create Company Profile"}
+              </h1>
+              {isEditing && !editable && (
+                <button
+                  onClick={() => setEditable(true)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#3b82f6",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              {isEditing && editable && (
+                <button
+                  onClick={() => setEditable(false)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 14,
+                  }}
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <p style={styles.subtitle}>
               Complete your employer information
             </p>
 
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: "#cbd5e1", marginBottom: 6 }}>
+                Profile Completion
+              </div>
+              <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#3b82f6" }} />
+              </div>
+            </div>
             {message && (
               <div
                 style={{
@@ -268,20 +327,6 @@ const CreateEmployerProfile = () => {
               onSubmit={handleSubmit}
               style={styles.form}
             >
-              {/* Logo */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Company Logo
-                </label>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  style={styles.input}
-                />
-              </div>
-
               {/* Company Name */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>
@@ -296,6 +341,7 @@ const CreateEmployerProfile = () => {
                   placeholder="Enter company name"
                   style={styles.input}
                   required
+                  disabled={!editable}
                 />
               </div>
 
@@ -311,6 +357,7 @@ const CreateEmployerProfile = () => {
                   onChange={handleInputChange}
                   placeholder="Tell us about your company"
                   style={styles.textarea}
+                  disabled={!editable}
                 />
               </div>
 
@@ -326,6 +373,7 @@ const CreateEmployerProfile = () => {
                     value={formData.industry}
                     onChange={handleInputChange}
                     style={styles.input}
+                    disabled={!editable}
                   >
                     <option value="">
                       Select Industry
@@ -352,6 +400,7 @@ const CreateEmployerProfile = () => {
                     value={formData.companySize}
                     onChange={handleInputChange}
                     style={styles.input}
+                    disabled={!editable}
                   >
                     <option value="">
                       Select Size
@@ -382,6 +431,7 @@ const CreateEmployerProfile = () => {
                   onChange={handleInputChange}
                   placeholder="https://example.com"
                   style={styles.input}
+                  disabled={!editable}
                 />
               </div>
 
@@ -399,6 +449,7 @@ const CreateEmployerProfile = () => {
                     onChange={handleInputChange}
                     placeholder="09xxxxxxxxx"
                     style={styles.input}
+                    disabled={!editable}
                   />
                 </div>
 
@@ -413,6 +464,7 @@ const CreateEmployerProfile = () => {
                     value={formData.dateEstablished}
                     onChange={handleInputChange}
                     style={styles.input}
+                    disabled={!editable}
                   />
                 </div>
               </div>
@@ -435,6 +487,7 @@ const CreateEmployerProfile = () => {
                     }
                     onChange={handleInputChange}
                     style={styles.input}
+                    disabled={!editable}
                   >
                     <option value="">
                       Select Region
@@ -465,6 +518,7 @@ const CreateEmployerProfile = () => {
                     onChange={handleInputChange}
                     placeholder="City"
                     style={styles.input}
+                    disabled={!editable}
                   />
                 </div>
               </div>
@@ -485,6 +539,7 @@ const CreateEmployerProfile = () => {
                     onChange={handleInputChange}
                     placeholder="Barangay"
                     style={styles.input}
+                    disabled={!editable}
                   />
                 </div>
 
@@ -503,6 +558,7 @@ const CreateEmployerProfile = () => {
                     onChange={handleInputChange}
                     placeholder="Street / Building"
                     style={styles.input}
+                    disabled={!editable}
                   />
                 </div>
               </div>
@@ -525,7 +581,7 @@ const CreateEmployerProfile = () => {
                 <button
                   type="button"
                   style={styles.cancelBtn}
-                  onClick={() => navigate("/create")}
+                  onClick={() => navigate("/profile")}
                 >
                   Cancel
                 </button>
@@ -533,10 +589,14 @@ const CreateEmployerProfile = () => {
                 <button
                   type="submit"
                   style={styles.submitBtn}
-                  disabled={loading}
+                  disabled={loading || !editable}
                 >
                   {loading
-                    ? "Creating..."
+                    ? isEditing
+                      ? "Saving..."
+                      : "Creating..."
+                    : isEditing
+                    ? "Save Changes"
                     : "Create Profile"}
                 </button>
               </div>

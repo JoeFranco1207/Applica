@@ -11,7 +11,8 @@ export const employerProfileService = async (userId, profileData) => {
     industry,
     website,
     contactNumber,
-    companyLogo
+    companyLogo,
+    dateEstablished,
   } = profileData;
 
   const employer = await Employer.findById(userId);
@@ -27,7 +28,18 @@ export const employerProfileService = async (userId, profileData) => {
   employer.industry = industry;
   employer.website = website;
   employer.contactNumber = contactNumber;
+  employer.dateEstablished = dateEstablished || employer.dateEstablished;
   employer.companyLogo = companyLogo;
+
+  if (typeof companyLocation === "string") {
+    try {
+      employer.companyLocation = JSON.parse(companyLocation);
+    } catch (err) {
+      employer.companyLocation = employer.companyLocation || {};
+    }
+  } else {
+    employer.companyLocation = companyLocation || employer.companyLocation;
+  }
 
   await employer.save();
 

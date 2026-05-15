@@ -1,24 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-const ProfileSelection = ({
-  onSelect,
-  onBack,
-}) => {
-  const [selectedRole, setSelectedRole] =
-    useState(null);
+const ProfileSelection = () => {
+  const navigate = useNavigate();
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    // Check if user already has a role
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (user.role) {
+      setUserRole(user.role);
+      // Redirect based on existing role
+      if (user.role === "jobseeker") {
+        navigate("/create/jobseeker");
+      } else if (user.role === "employer") {
+        navigate("/create/employer");
+      }
+    }
+  }, [navigate]);
 
   const handleContinue = () => {
     if (selectedRole) {
-      onSelect(selectedRole);
+      navigate(selectedRole === "jobseeker" ? "/create/jobseeker" : "/create/employer");
     }
   };
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      window.location.href = "/";
-    }
+    navigate("/");
   };
 
   return (

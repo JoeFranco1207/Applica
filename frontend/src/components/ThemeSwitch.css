@@ -1,0 +1,58 @@
+.theme-switch {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.switch-track {
+  width: 56px;
+  height: 32px;
+  background: #ccc;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  transition: background 0.3s ease;
+  position: relative;
+}
+
+.theme-switch.dark .switch-track {
+  background: #3b82f6;
+}
+
+.theme-switch.light .switch-track {
+  background: #d3d3d3;
+}
+
+.switch-thumb {
+  width: 28px;
+  height: 28px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.theme-switch.dark .switch-thumb {
+  transform: translateX(24px);
+}
+
+.theme-switch.light .switch-thumb {
+  transform: translateX(0);
+}
+
+.switch-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -68,32 +68,77 @@ export const sendVerificationCodeService = async(email) =>{
            return true;
         };
 
-export const verifyCodeService = async(email, code) =>{
+// export const verifyCodeService = async(email, code) =>{
 
-     const user = await User.findOne({email}).select('+verificationCode +codeExpiration');
+//      const user = await User.findOne({email}).select('+verificationCode +codeExpiration');
 
-             if(!user){
-                 throw new AppError("Email not found", 404);
-             }          
-             if(user.codeExpiration < Date.now()){
-                 throw new AppError("Verification code expired", 400);
-             }   
-             if(user.verificationCode !== Number(code)){
-                throw new AppError("Invalid verification code", 400);
-             }
+//              if(!user){
+//                  throw new AppError("Email not found", 404);
+//              }          
+//              if(user.codeExpiration < Date.now()){
+//                  throw new AppError("Verification code expired", 400);
+//              }   
+//              if(user.verificationCode !== Number(code)){
+//                 throw new AppError("Invalid verification code", 400);
+//              }
             
-             await User.updateOne(
-               { email},
-               {
-                 isVerified: true,
-                 verificationCode: null,
-                 codeExpiration:null
-               }
-             )
-             return true;
+//              await User.updateOne(
+//                { email},
+//                {
+//                  isVerified: true,
+//                  verificationCode: null,
+//                  codeExpiration:null
+//                }
+//              )
+//              return true;
             
-            };
- 
+//             };
+ export const verifyCodeService = async (email, code) => {
+
+  const user = await User.findOne({ email })
+    .select('+verificationCode +codeExpiration +password');
+
+  if (!user) {
+    throw new AppError("Email not found", 404);
+  }
+
+  if (user.codeExpiration < Date.now()) {
+    throw new AppError("Verification code expired", 400);
+  }
+
+  if (user.verificationCode !== Number(code)) {
+    throw new AppError("Invalid verification code", 400);
+  }
+
+  // mark user as verified
+  user.isVerified = true;
+  user.verificationCode = null;
+  user.codeExpiration = null;
+
+  await user.save();
+
+  // generate token
+  const token = jwt.sign(
+    {
+      email: user.email,
+      id: user._id,
+      verified: user.isVerified
+    },
+    process.env.TOKEN_SECRET,
+    {
+      expiresIn: "8h"
+    }
+  );
+
+  // remove password before returning
+  const safeUser = user.toObject();
+  delete safeUser.password;
+
+  return {
+    token,
+    user: safeUser
+  };
+};
 
 export const loginService = async(email, password) => {
       const existingUser = await User.findOne({email}).select('+password');
@@ -146,3 +191,13 @@ export const chooseRoleService = async(userId, role) => {
 
   return { role: user.role };
 }
+
+export const getProfileService = async (userId) => {
+  const user = await User.findById(userId).select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode');
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  return user;
+};

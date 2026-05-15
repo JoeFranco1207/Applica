@@ -1,4 +1,4 @@
-import  {registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService} from "../Services/User.service.js";
+import  {registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService} from "../Services/User.service.js";
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
 import jwt from 'jsonwebtoken';
@@ -29,16 +29,38 @@ export const Register = async(req,res,next)=>{
     };
 
 
-    export const verifyCode = async(req, res, next) =>{
-      const {email, code} = req.body;
-        try{
-           await verifyCodeService(email, code);
-            return res.success(new AppSuccessful("Email verified successfully", 200));
-        }catch(err){
-            return next(err);
-        }};
-    
+  export const verifyCode = async (req, res, next) => {
 
+  const { email, code } = req.body;
+
+  try {
+
+    const response = await verifyCodeService(email, code);
+
+    const { token, user } = response;
+
+    res.cookie(
+      'Authorization',
+      'Bearer ' + token,
+      {
+        expires: new Date(Date.now() + 8 * 3600000),
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict'
+      }
+    ).json({
+      success: true,
+      message: "Email verified successfully",
+      data: {
+        user,
+        token
+      }
+    });
+
+  } catch (err) {
+    return next(err);
+  }
+};
 
     export const Login = async(req,res,next)=>{
    const {email, password} = req.body;
@@ -97,5 +119,13 @@ export const chooseRole = async (req, res, next) => {
     return next(err);
   }
 };
- //JOBSEEKER CONTROLLER
 
+export const getProfile = async (req, res, next) => {
+  try {
+    const user = await getProfileService(req.user.id);
+    return res.success(new AppSuccessful("Profile retrieved successfully", 200, user));
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+};

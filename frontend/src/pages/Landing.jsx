@@ -1,316 +1,541 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { ThemeContext } from "../contexts/ThemeContext";
+import ThemeSwitch from "../components/ThemeSwitch";
 
-export default function Landing({
-  onCreateProfile,
-}) {
+export default function Landing() {
   const [userMenuOpen, setUserMenuOpen] =
     useState(false);
+
+  const navigate = useNavigate();
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+
+  const isAuthenticated =
+    !!localStorage.getItem("token");
+
+  const userData = isAuthenticated
+    ? JSON.parse(localStorage.getItem("user") || "{}")
+    : null;
+
+  const userName = userData?.name || "User";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
-    window.location.href = "/";
+    setUserMenuOpen(false);
+
+    navigate("/");
+
+    window.location.reload();
   };
 
   return (
-    <div style={styles.container}>
-      <nav style={styles.navbar}>
-        <div style={styles.logoContainer}>
-          <img
-            src="/src/assets/Applica_Logo.png"
-            alt="Applica"
+    <div style={{
+      ...styles.container,
+      backgroundColor: isDarkMode ? "#1a1a1a" : "#ffffff",
+      color: isDarkMode ? "#ffffff" : "#000",
+    }}>
+      {/* Navbar */}
+      <nav style={{
+        ...styles.navbar,
+        backgroundColor: isDarkMode ? "#0f0f0f" : "#ffffff",
+      }}>
+        <div style={styles.navContent}>
+          <div
             style={styles.logo}
-          />
-
-          <h2 style={styles.logoText}>
-            Applica
-          </h2>
-        </div>
-
-        <div style={styles.navLinks}>
-          <a href="#" style={styles.navLink}>
-            Browse Jobs
-          </a>
-
-          <a href="#" style={styles.navLink}>
-            Companies
-          </a>
-
-          <a href="#" style={styles.navLink}>
-            Resources
-          </a>
-
-          <button
-            style={styles.createBtn}
-            onClick={onCreateProfile}
+            onClick={() => navigate("/")}
           >
-            Create Profile
-          </button>
-        </div>
-
-        <div style={styles.profileMenu}>
-          <button
-            style={styles.profileButton}
-            onClick={() =>
-              setUserMenuOpen(!userMenuOpen)
-            }
-          >
-            ⋯
-          </button>
-
-          {userMenuOpen && (
-            <div style={styles.dropdown}>
-              <button
-                style={styles.dropdownItem}
-              >
-                My Profile
-              </button>
-
-              <button
-                style={styles.dropdownItem}
-              >
-                Settings
-              </button>
-
-              <button
-                style={{
-                  ...styles.dropdownItem,
-                  color: "#ef4444",
-                }}
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
-      </nav>
-
-      <section style={styles.heroSection}>
-        <div style={styles.heroContent}>
-          <span style={styles.badge}>
-            Your future starts here
-          </span>
-
-          <h1 style={styles.heroTitle}>
-            Find work that matches your
-            passion.
-          </h1>
-
-          <p style={styles.heroSubtitle}>
-            Build your professional profile,
-            connect with companies, and
-            discover opportunities waiting
-            for you.
-          </p>
-
-          <div style={styles.heroButtons}>
-            <button
-              style={styles.primaryButton}
-            >
-              Explore Jobs
-            </button>
-
-            <button
-              style={styles.secondaryButton}
-              onClick={onCreateProfile}
-            >
-              Complete Profile
-            </button>
-          </div>
-        </div>
-
-        <div style={styles.heroCard}>
-          <div style={styles.heroGlass}>
             <img
               src="/src/assets/Applica_Logo.png"
-              alt="logo"
-              style={styles.heroLogo}
+              alt="Applica"
+              style={styles.logoImage}
             />
 
-            <h3 style={styles.heroCardTitle}>
+            <span style={styles.logoText}>
               Applica
-            </h3>
-
-            <p style={styles.heroCardText}>
-              A modern platform where talent
-              meets opportunity.
-            </p>
-
-            <div style={styles.heroStats}>
-              <div style={styles.statBox}>
-                <h2 style={styles.statNumber}>
-                  5K+
-                </h2>
-
-                <p style={styles.statLabel}>
-                  Jobs
-                </p>
-              </div>
-
-              <div style={styles.statBox}>
-                <h2 style={styles.statNumber}>
-                  2K+
-                </h2>
-
-                <p style={styles.statLabel}>
-                  Companies
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section style={styles.featuresSection}>
-        <h2 style={styles.sectionTitle}>
-          Why Choose Applica?
-        </h2>
-
-        <div style={styles.featuresGrid}>
-          <FeatureCard
-            title="Smart Matching"
-            description="Get job recommendations based on your skills and experience."
-          />
-
-          <FeatureCard
-            title="Easy Applications"
-            description="Apply to jobs in just a few clicks with your profile."
-          />
-
-          <FeatureCard
-            title="Professional Growth"
-            description="Grow your career with opportunities from top companies."
-          />
-
-          <FeatureCard
-            title="Modern Experience"
-            description="Fast, clean, and designed for a smooth user journey."
-          />
-        </div>
-      </section>
-
-      <section style={styles.jobsSection}>
-        <h2 style={styles.sectionTitle}>
-          Trending Jobs
-        </h2>
-
-        <div style={styles.jobsGrid}>
-          <JobCard
-            title="Frontend Developer"
-            company="TechNova"
-            location="Manila"
-            salary="₱80k - ₱120k"
-          />
-
-          <JobCard
-            title="UI/UX Designer"
-            company="Creative Hub"
-            location="Makati"
-            salary="₱70k - ₱100k"
-          />
-
-          <JobCard
-            title="Backend Engineer"
-            company="CloudStack"
-            location="Cebu"
-            salary="₱90k - ₱150k"
-          />
-
-          <JobCard
-            title="Data Analyst"
-            company="Vision Analytics"
-            location="Quezon City"
-            salary="₱75k - ₱110k"
-          />
-        </div>
-      </section>
-
-      <section style={styles.ctaSection}>
-        <div style={styles.ctaCard}>
-          <h2 style={styles.ctaTitle}>
-            Ready to start your journey?
-          </h2>
-
-          <p style={styles.ctaText}>
-            Create your profile and unlock
-            thousands of opportunities.
-          </p>
-
-          <button
-            style={styles.ctaButton}
-            onClick={onCreateProfile}
-          >
-            Create Profile
-          </button>
-        </div>
-      </section>
-
-      <footer style={styles.footer}>
-        <div style={styles.footerContent}>
-          <div>
-            <h3 style={styles.footerLogo}>
-              Applica
-            </h3>
-
-            <p style={styles.footerText}>
-              Connecting ambitious people
-              with meaningful careers.
-            </p>
+            </span>
           </div>
 
-          <div>
-            <h4 style={styles.footerTitle}>
-              Quick Links
-            </h4>
-
+          <div style={styles.navLinks}>
             <a
               href="#"
-              style={styles.footerLink}
+              style={{
+                ...styles.navLink,
+                color: isDarkMode ? "#ccc" : "#666",
+              }}
             >
               Browse Jobs
             </a>
 
             <a
               href="#"
-              style={styles.footerLink}
+              style={{
+                ...styles.navLink,
+                color: isDarkMode ? "#ccc" : "#666",
+              }}
             >
               Companies
             </a>
 
             <a
               href="#"
-              style={styles.footerLink}
+              style={{
+                ...styles.navLink,
+                color: isDarkMode ? "#ccc" : "#666",
+              }}
             >
-              Contact
+              Resources
             </a>
           </div>
 
-          <div>
-            <h4 style={styles.footerTitle}>
-              Socials
+          <div style={styles.navActions}>
+            <ThemeSwitch 
+              isDarkMode={isDarkMode} 
+              toggleTheme={toggleTheme} 
+            />
+
+            {isAuthenticated ? (
+              <>
+                <button
+                  style={
+                    styles.createButton
+                  }
+                  onClick={() =>
+                    navigate("/create")
+                  }
+                >
+                  Create+
+                </button>
+
+                <div
+                  style={
+                    styles.profileMenu
+                  }
+                >
+                  <button
+                    style={
+                      styles.profileButton
+                    }
+                    onClick={() =>
+                      setUserMenuOpen(
+                        !userMenuOpen
+                      )
+                    }
+                  >
+                    <span
+                      style={
+                        styles.profileIcon
+                      }
+                    >
+                      ⋯
+                    </span>
+                  </button>
+
+                  {userMenuOpen && (
+                    <div
+                      style={{
+                        ...styles.dropdown,
+                        backgroundColor: isDarkMode ? "#2a2a2a" : "#ffffff",
+                        borderColor: isDarkMode ? "#444" : "#e0e0e0",
+                      }}
+                    >
+                      <button
+                        style={{
+                          ...styles.dropdownItem,
+                          color: isDarkMode ? "#ccc" : "#333",
+                          borderColor: isDarkMode ? "#444" : "#f0f0f0",
+                        }}
+                        onClick={() =>
+                          navigate("/profile")
+                        }
+                      >
+                        My Profile
+                      </button>
+
+                      <button
+                        style={{
+                          ...styles.dropdownItem,
+                          color: isDarkMode ? "#ccc" : "#333",
+                          borderColor: isDarkMode ? "#444" : "#f0f0f0",
+                        }}
+                      >
+                        Settings
+                      </button>
+
+                      <button
+                        onClick={
+                          handleLogout
+                        }
+                        style={{
+                          ...styles.dropdownItem,
+                          color:
+                            "#ff4757",
+                          borderBottom:
+                            "none",
+                        }}
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <button
+                style={
+                  styles.loginButton
+                }
+                onClick={() =>
+                  navigate("/auth")
+                }
+              >
+                Login
+              </button>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section style={styles.heroSection}>
+        <div style={styles.heroContent}>
+          <h1 style={{
+            ...styles.heroTitle,
+            color: isDarkMode ? "#ffffff" : "#000",
+          }}>
+            Welcome to Your
+            Professional Journey
+          </h1>
+
+          <p style={{
+            ...styles.heroSubtitle,
+            color: isDarkMode ? "#aaa" : "#666",
+          }}>
+            Discover amazing job
+            opportunities and connect
+            with leading companies
+          </p>
+
+          <div
+            style={styles.heroButtons}
+          >
+            <button
+              style={
+                styles.primaryButton
+              }
+            >
+              Explore Jobs
+            </button>
+
+            <button
+              style={
+                styles.secondaryButton
+              }
+              onClick={() => {
+                if (
+                  isAuthenticated
+                ) {
+                  navigate("/create");
+                } else {
+                  navigate("/auth");
+                }
+              }}
+            >
+              {isAuthenticated
+                ? "Complete Profile"
+                : "Get Started"}
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.heroImage}>
+          <div
+            style={
+              styles.imagePlaceholder
+            }
+          >
+            <span
+              style={
+                styles.placeholderText
+              }
+            >
+              🎯
+
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section
+        style={{
+          ...styles.featuresSection,
+          backgroundColor: isDarkMode ? "#2a2a2a" : "#f8fafc",
+        }}
+      >
+        <h2 style={{
+          ...styles.sectionTitle,
+          color: isDarkMode ? "#ffffff" : "#000",
+        }}>
+          Why Choose Applica?
+        </h2>
+
+        <div style={styles.featuresGrid}>
+          <FeatureCard
+            title="Find Perfect Jobs"
+            description="Discover job opportunities tailored to your skills and preferences."
+            isDarkMode={isDarkMode}
+          />
+
+          <FeatureCard
+            title="Connect with Companies"
+            description="Build relationships with leading organizations and recruiters."
+            isDarkMode={isDarkMode}
+          />
+
+          <FeatureCard
+            title="Grow Your Career"
+            description="Access resources and guidance to advance your professional journey."
+            isDarkMode={isDarkMode}
+          />
+
+          <FeatureCard
+            title="Easy Applications"
+            description="Apply to multiple jobs quickly using your profile."
+            isDarkMode={isDarkMode}
+          />
+        </div>
+      </section>
+
+      {/* Jobs */}
+      <section style={styles.jobsSection}>
+        <h2 style={{
+          ...styles.sectionTitle,
+          color: isDarkMode ? "#ffffff" : "#000",
+        }}>
+          Trending Jobs
+        </h2>
+
+        <div style={styles.jobsList}>
+          <JobCard
+            title="Senior React Developer"
+            company="Tech Innovations Inc"
+            location="Manila, NCR"
+            salary="₱150,000 - ₱180,000"
+            isDarkMode={isDarkMode}
+          />
+
+          <JobCard
+            title="UX/UI Designer"
+            company="Creative Studios"
+            location="Quezon City, NCR"
+            salary="₱100,000 - ₱130,000"
+            isDarkMode={isDarkMode}
+          />
+
+          <JobCard
+            title="Data Analyst"
+            company="Analytics Pro"
+            location="Makati, NCR"
+            salary="₱120,000 - ₱150,000"
+            isDarkMode={isDarkMode}
+          />
+
+          <JobCard
+            title="Full Stack Developer"
+            company="Web Solutions Ltd"
+            location="Cebu, Cebu"
+            salary="₱140,000 - ₱170,000"
+            isDarkMode={isDarkMode}
+          />
+        </div>
+
+        <div style={styles.viewAllButton}>
+          <button
+            style={
+              styles.primaryButton
+            }
+          >
+            View All Jobs
+          </button>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{
+        ...styles.ctaSection,
+        background: isDarkMode 
+          ? "linear-gradient(135deg, #0a1a3a 0%, #1a3a5a 100%)"
+          : "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+      }}>
+        <div style={styles.ctaContent}>
+          <h2 style={styles.ctaTitle}>
+            Ready to Land Your Dream
+            Job?
+          </h2>
+
+          <p style={styles.ctaText}>
+            Complete your profile and
+            start applying today.
+          </p>
+
+          <button
+            style={styles.ctaButton}
+            onClick={() => {
+              if (
+                isAuthenticated
+              ) {
+                navigate("/create");
+              } else {
+                navigate("/auth");
+              }
+            }}
+          >
+            {isAuthenticated
+              ? "Complete Your Profile"
+              : "Get Started Now"}
+          </button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={{
+        ...styles.footer,
+        backgroundColor: isDarkMode ? "#000000" : "#0f172a",
+      }}>
+        <div style={styles.footerContent}>
+          <div
+            style={styles.footerSection}
+          >
+            <h4
+              style={styles.footerTitle}
+            >
+              About Applica
             </h4>
 
-            <div style={styles.socials}>
-              <div style={styles.social}>
+            <p style={{
+              ...styles.footerText,
+              color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
+            }}>
+              Connecting talented
+              professionals with
+              leading companies.
+            </p>
+          </div>
+
+          <div
+            style={styles.footerSection}
+          >
+            <h4
+              style={styles.footerTitle}
+            >
+              Quick Links
+            </h4>
+
+            <ul
+              style={styles.footerLinks}
+            >
+              <li>
+                <a
+                  href="#"
+                  style={{
+                    ...styles.footerLink,
+                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  Browse Jobs
+                </a>
+              </li>
+
+              <li>
+                <a
+                  href="#"
+                  style={{
+                    ...styles.footerLink,
+                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  Companies
+                </a>
+              </li>
+
+              <li>
+                <a
+                  href="#"
+                  style={{
+                    ...styles.footerLink,
+                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  Contact
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            style={styles.footerSection}
+          >
+            <h4
+              style={styles.footerTitle}
+            >
+              Connect With Us
+            </h4>
+
+            <div
+              style={styles.socialLinks}
+            >
+              <a
+                href="#"
+                style={{
+                  ...styles.socialLink,
+                  backgroundColor: isDarkMode 
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(255,255,255,0.1)",
+                }}
+              >
                 f
-              </div>
+              </a>
 
-              <div style={styles.social}>
+              <a
+                href="#"
+                style={{
+                  ...styles.socialLink,
+                  backgroundColor: isDarkMode 
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(255,255,255,0.1)",
+                }}
+              >
                 𝕏
-              </div>
+              </a>
 
-              <div style={styles.social}>
+              <a
+                href="#"
+                style={{
+                  ...styles.socialLink,
+                  backgroundColor: isDarkMode 
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(255,255,255,0.1)",
+                }}
+              >
                 in
-              </div>
+              </a>
             </div>
           </div>
         </div>
 
-        <div style={styles.footerBottom}>
-          © 2026 Applica. All rights
-          reserved.
+        <div style={{
+          ...styles.footerBottom,
+          borderColor: isDarkMode 
+            ? "rgba(255,255,255,0.1)"
+            : "rgba(255,255,255,0.1)",
+          color: isDarkMode ? "#666" : "rgba(255,255,255,0.6)",
+        }}>
+          <p>
+            © 2026 Applica. All rights
+            reserved.
+          </p>
         </div>
       </footer>
     </div>
@@ -320,14 +545,29 @@ export default function Landing({
 function FeatureCard({
   title,
   description,
+  isDarkMode,
 }) {
   return (
-    <div style={styles.featureCard}>
-      <h3 style={styles.featureTitle}>
+    <div style={{
+      ...styles.featureCard,
+      backgroundColor: isDarkMode ? "#1a1a1a" : "#ffffff",
+      boxShadow: isDarkMode
+        ? "0 4px 20px rgba(0,0,0,0.3)"
+        : "0 4px 20px rgba(0,0,0,0.05)",
+    }}>
+      <h3 style={{
+        ...styles.featureTitle,
+        color: isDarkMode ? "#ffffff" : "#000",
+      }}>
         {title}
       </h3>
 
-      <p style={styles.featureDescription}>
+      <p
+        style={{
+          ...styles.featureDescription,
+          color: isDarkMode ? "#aaa" : "#666",
+        }}
+      >
         {description}
       </p>
     </div>
@@ -339,29 +579,59 @@ function JobCard({
   company,
   location,
   salary,
+  isDarkMode,
 }) {
   return (
-    <div style={styles.jobCard}>
-      <div style={styles.jobTop}>
-        <h3 style={styles.jobTitle}>
+    <div style={{
+      ...styles.jobCard,
+      backgroundColor: isDarkMode ? "#1a1a1a" : "#ffffff",
+      borderColor: isDarkMode ? "#444" : "#e0e0e0",
+    }}>
+      <div style={styles.jobCardHeader}>
+        <h3 style={{
+          ...styles.jobTitle,
+          color: isDarkMode ? "#ffffff" : "#000",
+        }}>
           {title}
         </h3>
 
-        <button style={styles.saveBtn}>
+        <button
+          style={styles.saveButton}
+        >
           Save
         </button>
       </div>
 
-      <p style={styles.company}>
+      <p style={{
+        ...styles.jobCompany,
+        color: "#2563eb",
+      }}>
         {company}
       </p>
 
-      <div style={styles.jobInfo}>
-        <span>{location}</span>
-        <span>{salary}</span>
+      <div style={styles.jobDetails}>
+        <span
+          style={{
+            ...styles.jobLocation,
+            color: isDarkMode ? "#999" : "#666",
+          }}
+        >
+          {location}
+        </span>
+
+        <span
+          style={{
+            ...styles.jobSalary,
+            color: isDarkMode ? "#eee" : "#000",
+          }}
+        >
+          {salary}
+        </span>
       </div>
 
-      <button style={styles.applyBtn}>
+      <button
+        style={styles.applyButton}
+      >
         Apply Now
       </button>
     </div>
@@ -371,63 +641,85 @@ function JobCard({
 const styles = {
   container: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(to right, #0f172a, #1e293b)",
+    backgroundColor: "#ffffff",
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#fff",
   },
 
   navbar: {
-    height: "75px",
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(12px)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0 40px",
-    borderBottom:
-      "1px solid rgba(255,255,255,0.1)",
+    backgroundColor: "#ffffff",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.05)",
     position: "sticky",
     top: 0,
     zIndex: 100,
   },
 
-  logoContainer: {
+  navContent: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "16px 30px",
     display: "flex",
+    justifyContent:
+      "space-between",
     alignItems: "center",
-    gap: "12px",
   },
 
   logo: {
-    width: "45px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    cursor: "pointer",
+  },
+
+  logoImage: {
+    width: "40px",
+    height: "40px",
   },
 
   logoText: {
-    fontSize: "1.6rem",
+    fontSize: "24px",
     fontWeight: "800",
+    color: "#2563eb",
   },
 
   navLinks: {
     display: "flex",
-    alignItems: "center",
-    gap: "28px",
+    gap: "40px",
+    flex: 1,
+    marginLeft: "60px",
   },
 
   navLink: {
-    color: "#cbd5e1",
     textDecoration: "none",
+    color: "#666",
     fontWeight: "600",
-    fontSize: "15px",
+    fontSize: "14px",
   },
 
-  createBtn: {
-    padding: "12px 20px",
-    borderRadius: "12px",
-    border: "none",
+  navActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+  },
+
+  createButton: {
     background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
-    color: "#fff",
+      "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 24px",
+    color: "#ffffff",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  loginButton: {
+    background: "transparent",
+    border: "2px solid #2563eb",
+    borderRadius: "12px",
+    padding: "10px 24px",
+    color: "#2563eb",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -437,79 +729,76 @@ const styles = {
   },
 
   profileButton: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "50%",
-    border: "none",
     background:
-      "rgba(255,255,255,0.12)",
-    color: "#fff",
-    fontSize: "24px",
+      "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+    border: "none",
+    borderRadius: "50%",
+    width: "44px",
+    height: "44px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     cursor: "pointer",
+  },
+
+  profileIcon: {
+    color: "#ffffff",
+    fontSize: "22px",
   },
 
   dropdown: {
     position: "absolute",
+    top: "54px",
     right: 0,
-    top: "55px",
-    background: "#fff",
-    borderRadius: "16px",
-    overflow: "hidden",
-    minWidth: "180px",
+    backgroundColor: "#ffffff",
+    border:
+      "1px solid #e0e0e0",
+    borderRadius: "12px",
     boxShadow:
-      "0 10px 30px rgba(0,0,0,0.2)",
+      "0 4px 20px rgba(0,0,0,0.1)",
+    minWidth: "180px",
+    overflow: "hidden",
   },
 
   dropdownItem: {
     width: "100%",
-    padding: "14px 18px",
+    padding: "12px 16px",
+    background: "none",
     border: "none",
-    background: "#fff",
+    borderBottom:
+      "1px solid #f0f0f0",
     textAlign: "left",
     cursor: "pointer",
-    fontWeight: "600",
-    color: "#0f172a",
+    fontSize: "14px",
+    color: "#333",
   },
 
   heroSection: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    alignItems: "center",
-    gap: "50px",
-    padding: "80px 60px",
-    maxWidth: "1400px",
+    maxWidth: "1200px",
     margin: "0 auto",
+    padding: "80px 30px",
+    display: "flex",
+    alignItems: "center",
+    gap: "60px",
   },
 
   heroContent: {
-    display: "flex",
-    flexDirection: "column",
-  },
-
-  badge: {
-    background:
-      "rgba(59,130,246,0.15)",
-    color: "#93c5fd",
-    width: "fit-content",
-    padding: "10px 18px",
-    borderRadius: "999px",
-    marginBottom: "24px",
-    fontWeight: "700",
+    flex: 1,
   },
 
   heroTitle: {
-    fontSize: "4rem",
-    fontWeight: "900",
-    lineHeight: "1.1",
+    fontSize: "52px",
+    fontWeight: "800",
+    color: "#000",
     marginBottom: "20px",
+    lineHeight: "1.2",
   },
 
   heroSubtitle: {
     fontSize: "18px",
-    lineHeight: "1.8",
-    color: "#cbd5e1",
-    marginBottom: "35px",
-    maxWidth: "550px",
+    color: "#666",
+    marginBottom: "32px",
+    lineHeight: "1.6",
   },
 
   heroButtons: {
@@ -518,298 +807,269 @@ const styles = {
   },
 
   primaryButton: {
-    padding: "16px 30px",
-    borderRadius: "14px",
+    padding: "14px 32px",
     border: "none",
+    borderRadius: "12px",
     background:
       "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
     color: "#fff",
     fontWeight: "700",
-    fontSize: "15px",
     cursor: "pointer",
   },
 
   secondaryButton: {
-    padding: "16px 30px",
-    borderRadius: "14px",
+    padding: "14px 32px",
     border:
-      "1px solid rgba(255,255,255,0.2)",
-    background:
-      "rgba(255,255,255,0.08)",
-    color: "#fff",
+      "2px solid #2563eb",
+    borderRadius: "12px",
+    background: "transparent",
+    color: "#2563eb",
     fontWeight: "700",
-    fontSize: "15px",
     cursor: "pointer",
   },
 
-  heroCard: {
+  heroImage: {
+    flex: 1,
     display: "flex",
     justifyContent: "center",
   },
 
-  heroGlass: {
+  imagePlaceholder: {
     width: "100%",
-    maxWidth: "420px",
+    height: "400px",
     background:
-      "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(14px)",
-    borderRadius: "28px",
-    padding: "40px",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
-    boxShadow:
-      "0 20px 40px rgba(0,0,0,0.3)",
-  },
-
-  heroLogo: {
-    width: "70px",
-    marginBottom: "20px",
-  },
-
-  heroCardTitle: {
-    fontSize: "2rem",
-    fontWeight: "800",
-    marginBottom: "10px",
-  },
-
-  heroCardText: {
-    color: "#cbd5e1",
-    lineHeight: "1.7",
-    marginBottom: "30px",
-  },
-
-  heroStats: {
+      "linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)",
+    borderRadius: "24px",
     display: "flex",
-    gap: "20px",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  statBox: {
-    flex: 1,
-    background:
-      "rgba(255,255,255,0.08)",
-    borderRadius: "18px",
-    padding: "20px",
-    textAlign: "center",
-  },
-
-  statNumber: {
-    fontSize: "2rem",
-    marginBottom: "6px",
-  },
-
-  statLabel: {
-    color: "#cbd5e1",
+  placeholderText: {
+    fontSize: "100px",
   },
 
   featuresSection: {
-    padding: "80px 60px",
+    backgroundColor: "#f8fafc",
+    padding: "80px 30px",
   },
 
   sectionTitle: {
-    fontSize: "2.7rem",
-    textAlign: "center",
-    marginBottom: "50px",
+    fontSize: "42px",
     fontWeight: "800",
+    textAlign: "center",
+    marginBottom: "60px",
   },
 
   featuresGrid: {
+    maxWidth: "1200px",
+    margin: "0 auto",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "25px",
-    maxWidth: "1300px",
-    margin: "0 auto",
+    gap: "30px",
   },
 
   featureCard: {
-    background:
-      "rgba(255,255,255,0.08)",
-    borderRadius: "24px",
-    padding: "35px",
-    border:
-      "1px solid rgba(255,255,255,0.08)",
-    backdropFilter: "blur(12px)",
+    backgroundColor: "#ffffff",
+    padding: "30px",
+    borderRadius: "16px",
+    boxShadow:
+      "0 4px 20px rgba(0,0,0,0.05)",
+    textAlign: "center",
   },
 
   featureTitle: {
-    fontSize: "1.4rem",
+    fontSize: "20px",
+    fontWeight: "700",
     marginBottom: "12px",
   },
 
   featureDescription: {
-    color: "#cbd5e1",
-    lineHeight: "1.7",
+    color: "#666",
+    lineHeight: "1.6",
   },
 
   jobsSection: {
-    padding: "80px 60px",
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "80px 30px",
   },
 
-  jobsGrid: {
+  jobsList: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "25px",
-    maxWidth: "1300px",
-    margin: "0 auto",
+      "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "24px",
+    marginBottom: "40px",
   },
 
   jobCard: {
-    background:
-      "rgba(255,255,255,0.08)",
-    borderRadius: "24px",
-    padding: "28px",
-    backdropFilter: "blur(12px)",
+    padding: "24px",
     border:
-      "1px solid rgba(255,255,255,0.08)",
+      "1.5px solid #e0e0e0",
+    borderRadius: "16px",
   },
 
-  jobTop: {
+  jobCardHeader: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent:
+      "space-between",
     marginBottom: "12px",
   },
 
   jobTitle: {
-    fontSize: "1.2rem",
+    fontSize: "18px",
     fontWeight: "700",
+    margin: 0,
   },
 
-  saveBtn: {
+  saveButton: {
+    background: "none",
     border: "none",
-    background:
-      "rgba(255,255,255,0.1)",
-    color: "#93c5fd",
-    padding: "8px 14px",
-    borderRadius: "10px",
+    color: "#2563eb",
     cursor: "pointer",
+    fontWeight: "600",
   },
 
-  company: {
-    color: "#93c5fd",
-    marginBottom: "20px",
+  jobCompany: {
+    color: "#2563eb",
+    fontWeight: "600",
   },
 
-  jobInfo: {
+  jobDetails: {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-    color: "#cbd5e1",
-    marginBottom: "25px",
+    margin: "16px 0",
   },
 
-  applyBtn: {
+  jobLocation: {
+    color: "#666",
+  },
+
+  jobSalary: {
+    fontWeight: "700",
+  },
+
+  applyButton: {
     width: "100%",
-    padding: "14px",
-    borderRadius: "12px",
-    border: "none",
-    background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
-    color: "#fff",
+    padding: "12px",
+    border:
+      "2px solid #2563eb",
+    borderRadius: "10px",
+    background: "transparent",
+    color: "#2563eb",
     fontWeight: "700",
     cursor: "pointer",
   },
 
-  ctaSection: {
-    padding: "100px 60px",
+  viewAllButton: {
+    textAlign: "center",
   },
 
-  ctaCard: {
-    maxWidth: "1000px",
-    margin: "0 auto",
+  ctaSection: {
     background:
-      "linear-gradient(135deg, rgba(37,99,235,0.25), rgba(59,130,246,0.15))",
-    borderRadius: "32px",
-    padding: "70px 40px",
+      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+    padding: "80px 30px",
     textAlign: "center",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
-    backdropFilter: "blur(12px)",
+  },
+
+  ctaContent: {
+    maxWidth: "600px",
+    margin: "0 auto",
   },
 
   ctaTitle: {
-    fontSize: "3rem",
-    fontWeight: "900",
+    fontSize: "42px",
+    fontWeight: "800",
+    color: "#ffffff",
     marginBottom: "20px",
   },
 
   ctaText: {
-    color: "#cbd5e1",
+    color:
+      "rgba(255,255,255,0.9)",
+    marginBottom: "32px",
     fontSize: "18px",
-    marginBottom: "30px",
   },
 
   ctaButton: {
-    padding: "16px 32px",
-    borderRadius: "14px",
+    padding: "16px 40px",
     border: "none",
-    background: "#fff",
+    borderRadius: "12px",
+    background: "#ffffff",
     color: "#2563eb",
-    fontWeight: "800",
+    fontWeight: "700",
     cursor: "pointer",
   },
 
   footer: {
-    marginTop: "80px",
-    borderTop:
-      "1px solid rgba(255,255,255,0.1)",
+    backgroundColor: "#0f172a",
+    color: "#ffffff",
   },
 
   footerContent: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "60px 30px",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(250px, 1fr))",
     gap: "40px",
-    padding: "60px",
-    maxWidth: "1300px",
-    margin: "0 auto",
   },
 
-  footerLogo: {
-    fontSize: "2rem",
-    marginBottom: "14px",
-  },
-
-  footerText: {
-    color: "#cbd5e1",
-    lineHeight: "1.7",
-  },
+  footerSection: {},
 
   footerTitle: {
     marginBottom: "16px",
-    fontSize: "1.1rem",
-  },
-
-  footerLink: {
-    display: "block",
-    color: "#cbd5e1",
-    textDecoration: "none",
-    marginBottom: "10px",
-  },
-
-  socials: {
-    display: "flex",
-    gap: "14px",
-  },
-
-  social: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.1)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
     fontWeight: "700",
   },
 
+  footerText: {
+    color:
+      "rgba(255,255,255,0.7)",
+    lineHeight: "1.6",
+  },
+
+  footerLinks: {
+    listStyle: "none",
+    padding: 0,
+    margin: 0,
+  },
+
+  footerLink: {
+    color:
+      "rgba(255,255,255,0.7)",
+    textDecoration: "none",
+    display: "block",
+    marginBottom: "8px",
+  },
+
+  socialLinks: {
+    display: "flex",
+    gap: "16px",
+  },
+
+  socialLink: {
+    width: "40px",
+    height: "40px",
+    backgroundColor:
+      "rgba(255,255,255,0.1)",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+    color: "#ffffff",
+  },
+
   footerBottom: {
-    textAlign: "center",
-    padding: "25px",
-    color: "#94a3b8",
     borderTop:
-      "1px solid rgba(255,255,255,0.08)",
+      "1px solid rgba(255,255,255,0.1)",
+    textAlign: "center",
+    padding: "24px",
+    color:
+      "rgba(255,255,255,0.6)",
   },
 };

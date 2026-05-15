@@ -1,50 +1,70 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import Landing from "./Landing.jsx";
-import ProfileSelection from "./Create/ProfileSelection.jsx";
-import CreateJobseekerProfile from "./Create/CreateJobseekerProfile.jsx";
-import CreateEmployerProfile from "./Create/CreateEmployerProfile.jsx";
+import { useNavigate } from "react-router-dom";
 
 export default function Signup() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLogin, setIsLogin] = useState(false);
+  const navigate = useNavigate();
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isLogin, setIsLogin] =
+    useState(false);
+
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [isMobile, setIsMobile] = useState(
-    window.innerWidth <= 768
-  );
+  const [isMobile, setIsMobile] =
+    useState(window.innerWidth <= 768);
 
   const [focusedField, setFocusedField] =
     useState(null);
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
+
   const [messageType, setMessageType] =
     useState("");
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [
+    showVerificationModal,
+    setShowVerificationModal,
+  ] = useState(false);
 
-  const [currentPage, setCurrentPage] = useState("landing");
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [
+    verificationCode,
+    setVerificationCode,
+  ] = useState("");
+
+  const [
+    verificationEmail,
+    setVerificationEmail,
+  ] = useState("");
+
+  const [
+    verificationLoading,
+    setVerificationLoading,
+  ] = useState(false);
 
   useEffect(() => {
-    // Check if token exists in localStorage on mount
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
+
     if (token) {
-      setIsAuthenticated(true);
+      navigate("/");
     }
+
     setIsLoading(false);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
+      setIsMobile(
+        window.innerWidth <= 768
+      );
     };
 
     window.addEventListener(
@@ -59,35 +79,42 @@ export default function Signup() {
       );
   }, []);
 
-  const [signupData, setSignupData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phoneNumber: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [signupData, setSignupData] =
+    useState({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+      password: "",
+      confirmPassword: "",
+    });
 
-  const [loginData, setLoginData] = useState({
-    email: "",
-    password: "",
-  });
+  const [loginData, setLoginData] =
+    useState({
+      email: "",
+      password: "",
+    });
 
   const handleSignupChange = (e) => {
     setSignupData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [e.target.name]:
+        e.target.value,
     }));
   };
 
   const handleLoginChange = (e) => {
     setLoginData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [e.target.name]:
+        e.target.value,
     }));
   };
 
-  const showMessage = (text, type) => {
+  const showMessage = (
+    text,
+    type
+  ) => {
     setMessage(text);
     setMessageType(type);
 
@@ -97,7 +124,9 @@ export default function Signup() {
     }, 4000);
   };
 
-  const handleSignupSubmit = async (e) => {
+  const handleSignupSubmit = async (
+    e
+  ) => {
     e.preventDefault();
 
     if (
@@ -116,20 +145,33 @@ export default function Signup() {
       const res = await axios.post(
         "http://localhost:8000/api/auth/Register",
         {
-          firstName: signupData.firstName,
-          lastName: signupData.lastName,
+          firstName:
+            signupData.firstName,
+          lastName:
+            signupData.lastName,
           email: signupData.email,
-          password: signupData.password,
+          password:
+            signupData.password,
           phoneNumber:
             signupData.phoneNumber,
         }
       );
 
-      setVerificationEmail(signupData.email);
+      setVerificationEmail(
+        signupData.email
+      );
+
       setShowVerificationModal(true);
 
-      // Send verification code to email
-      await handleSendVerificationCode(signupData.email);
+      await handleSendVerificationCode(
+        signupData.email
+      );
+
+      showMessage(
+        res.data.message ||
+          "Account created successfully.",
+        "success"
+      );
 
       setSignupData({
         firstName: "",
@@ -150,7 +192,9 @@ export default function Signup() {
     }
   };
 
-  const handleLoginSubmit = async (e) => {
+  const handleLoginSubmit = async (
+    e
+  ) => {
     e.preventDefault();
 
     try {
@@ -160,32 +204,46 @@ export default function Signup() {
         "http://localhost:8000/api/auth/Login",
         {
           email: loginData.email,
-          password: loginData.password,
+          password:
+            loginData.password,
         }
       );
 
-      // Check if user is already verified
-      if (res.data.data?.user?.isVerified) {
-        // User is verified, proceed to landing page
+      if (res.data.data?.token) {
+        localStorage.setItem(
+          "token",
+          res.data.data.token
+        );
+
+        // Store user data in localStorage
+        if (res.data.data.user) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify(res.data.data.user)
+          );
+        }
+
         showMessage(
           res.data.message ||
             "Login successful.",
           "success"
         );
 
-        // Store token in localStorage
-        if (res.data.data?.token) {
-          localStorage.setItem("token", res.data.data.token);
-        }
-
-        setIsAuthenticated(true);
+        setTimeout(() => {
+          navigate("/");
+        }, 1500);
       } else {
-        // User is not verified, show verification modal
-        setVerificationEmail(loginData.email);
-        setShowVerificationModal(true);
-        
-        // Send verification code to email
-        await handleSendVerificationCode(loginData.email);
+        setVerificationEmail(
+          loginData.email
+        );
+
+        setShowVerificationModal(
+          true
+        );
+
+        await handleSendVerificationCode(
+          loginData.email
+        );
       }
 
       setLoginData({
@@ -203,28 +261,33 @@ export default function Signup() {
     }
   };
 
-  const handleSendVerificationCode = async (email) => {
-    try {
-      const res = await axios.post(
-        "http://localhost:8000/api/auth/sendVerificationCode",
-        { email }
-      );
+  const handleSendVerificationCode =
+    async (email) => {
+      try {
+        const res =
+          await axios.post(
+            "http://localhost:8000/api/auth/sendVerificationCode",
+            { email }
+          );
 
-      showMessage(
-        res.data.message ||
-          "Verification code sent to your email.",
-        "success"
-      );
-    } catch (err) {
-      showMessage(
-        err.response?.data?.message ||
-          "Failed to send verification code.",
-        "error"
-      );
-    }
-  };
+        showMessage(
+          res.data.message ||
+            "Verification code sent.",
+          "success"
+        );
+      } catch (err) {
+        showMessage(
+          err.response?.data
+            ?.message ||
+            "Failed to send verification code.",
+          "error"
+        );
+      }
+    };
 
-  const handleVerifyCode = async (e) => {
+  const handleVerifyCode = async (
+    e
+  ) => {
     e.preventDefault();
 
     if (!verificationCode) {
@@ -235,12 +298,15 @@ export default function Signup() {
     }
 
     try {
-      setVerificationLoading(true);
+      setVerificationLoading(
+        true
+      );
 
       const res = await axios.put(
         "http://localhost:8000/api/auth/verifyCode",
         {
-          email: verificationEmail,
+          email:
+            verificationEmail,
           code: verificationCode,
         }
       );
@@ -251,15 +317,23 @@ export default function Signup() {
         "success"
       );
 
-      // Store token in localStorage
       if (res.data.data?.token) {
-        localStorage.setItem("token", res.data.data.token);
+        localStorage.setItem(
+          "token",
+          res.data.data.token
+        );
       }
 
-      setShowVerificationModal(false);
+      setShowVerificationModal(
+        false
+      );
+
       setVerificationCode("");
       setVerificationEmail("");
-      setIsAuthenticated(true);
+
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
     } catch (err) {
       showMessage(
         err.response?.data?.message ||
@@ -267,69 +341,17 @@ export default function Signup() {
         "error"
       );
     } finally {
-      setVerificationLoading(false);
+      setVerificationLoading(
+        false
+      );
     }
   };
 
-  return isAuthenticated ? (
-    (() => {
-      // Listen for navigation events from Landing component
-      if (!window.navigationListener) {
-        window.navigationListener = true;
-        window.addEventListener('navigate', (e) => {
-          setCurrentPage(e.detail.page);
-          window.scrollTo(0, 0);
-        });
-      }
+  if (isLoading) {
+    return null;
+  }
 
-      const navigate = (page) => {
-        setCurrentPage(page);
-        window.scrollTo(0, 0);
-      };
-
-      const handleProfileSelection = (role) => {
-        setSelectedRole(role);
-        navigate(role === "jobseeker" ? "createJobseeker" : "createEmployer");
-      };
-
-      const handleBackToSelection = () => {
-        setSelectedRole(null);
-        navigate("create");
-      };
-
-      const handleBackToLanding = () => {
-        setCurrentPage("landing");
-        setSelectedRole(null);
-        window.scrollTo(0, 0);
-      };
-
-      switch (currentPage) {
-        case "landing":
-          return <Landing />;
-        case "create":
-          return (
-            <ProfileSelection 
-              onSelect={handleProfileSelection}
-              onBack={handleBackToLanding}
-            />
-          );
-        case "createJobseeker":
-          return (
-            <CreateJobseekerProfile 
-              onBack={handleBackToSelection}
-            />
-          );
-        case "createEmployer":
-          return (
-            <CreateEmployerProfile 
-              onBack={handleBackToSelection}
-            />
-          );
-        default:
-          return <Landing />;
-      }
-    })()
-  ) : (
+  return (
     <div
       style={{
         ...styles.page,
@@ -391,7 +413,9 @@ export default function Signup() {
         {!isLogin ? (
           <form
             style={styles.card}
-            onSubmit={handleSignupSubmit}
+            onSubmit={
+              handleSignupSubmit
+            }
           >
             <h2 style={styles.heading}>
               Create Account
@@ -400,11 +424,15 @@ export default function Signup() {
             <Input
               label="First Name"
               name="firstName"
-              value={signupData.firstName}
+              value={
+                signupData.firstName
+              }
               onChange={
                 handleSignupChange
               }
-              focusedField={focusedField}
+              focusedField={
+                focusedField
+              }
               setFocusedField={
                 setFocusedField
               }
@@ -413,11 +441,15 @@ export default function Signup() {
             <Input
               label="Last Name"
               name="lastName"
-              value={signupData.lastName}
+              value={
+                signupData.lastName
+              }
               onChange={
                 handleSignupChange
               }
-              focusedField={focusedField}
+              focusedField={
+                focusedField
+              }
               setFocusedField={
                 setFocusedField
               }
@@ -427,11 +459,15 @@ export default function Signup() {
               label="Email"
               name="email"
               type="email"
-              value={signupData.email}
+              value={
+                signupData.email
+              }
               onChange={
                 handleSignupChange
               }
-              focusedField={focusedField}
+              focusedField={
+                focusedField
+              }
               setFocusedField={
                 setFocusedField
               }
@@ -440,11 +476,15 @@ export default function Signup() {
             <Input
               label="Phone Number"
               name="phoneNumber"
-              value={signupData.phoneNumber}
+              value={
+                signupData.phoneNumber
+              }
               onChange={
                 handleSignupChange
               }
-              focusedField={focusedField}
+              focusedField={
+                focusedField
+              }
               setFocusedField={
                 setFocusedField
               }
@@ -452,7 +492,9 @@ export default function Signup() {
 
             <PasswordInput
               label="Password"
-              value={signupData.password}
+              value={
+                signupData.password
+              }
               onChange={
                 handleSignupChange
               }
@@ -507,7 +549,9 @@ export default function Signup() {
 
             <button
               type="submit"
-              style={styles.submitButton}
+              style={
+                styles.submitButton
+              }
               disabled={loading}
             >
               {loading
@@ -516,7 +560,8 @@ export default function Signup() {
             </button>
 
             <p style={styles.footerText}>
-              Already have an account?{" "}
+              Already have an
+              account?{" "}
               <span
                 style={styles.link}
                 onClick={() => {
@@ -531,7 +576,9 @@ export default function Signup() {
         ) : (
           <form
             style={styles.card}
-            onSubmit={handleLoginSubmit}
+            onSubmit={
+              handleLoginSubmit
+            }
           >
             <h2 style={styles.heading}>
               Sign In
@@ -541,11 +588,15 @@ export default function Signup() {
               label="Email"
               name="email"
               type="email"
-              value={loginData.email}
+              value={
+                loginData.email
+              }
               onChange={
                 handleLoginChange
               }
-              focusedField={focusedField}
+              focusedField={
+                focusedField
+              }
               setFocusedField={
                 setFocusedField
               }
@@ -553,7 +604,9 @@ export default function Signup() {
 
             <PasswordInput
               label="Password"
-              value={loginData.password}
+              value={
+                loginData.password
+              }
               onChange={
                 handleLoginChange
               }
@@ -591,7 +644,9 @@ export default function Signup() {
 
             <button
               type="submit"
-              style={styles.submitButton}
+              style={
+                styles.submitButton
+              }
               disabled={loading}
             >
               {loading
@@ -600,7 +655,8 @@ export default function Signup() {
             </button>
 
             <p style={styles.footerText}>
-              Don't have an account?{" "}
+              Don't have an
+              account?{" "}
               <span
                 style={styles.link}
                 onClick={() => {
@@ -618,19 +674,35 @@ export default function Signup() {
       {showVerificationModal && (
         <VerificationModal
           email={verificationEmail}
-          verificationCode={verificationCode}
-          setVerificationCode={setVerificationCode}
-          onSubmit={handleVerifyCode}
-          loading={verificationLoading}
+          verificationCode={
+            verificationCode
+          }
+          setVerificationCode={
+            setVerificationCode
+          }
+          onSubmit={
+            handleVerifyCode
+          }
+          loading={
+            verificationLoading
+          }
           onClose={() => {
-            setShowVerificationModal(false);
-            setVerificationCode("");
-            setVerificationEmail("");
+            setShowVerificationModal(
+              false
+            );
+
+            setVerificationCode(
+              ""
+            );
+
+            setVerificationEmail(
+              ""
+            );
           }}
         />
       )}
     </div>
-    );
+  );
 }
 
 function Input({
@@ -648,9 +720,20 @@ function Input({
         <label
           style={{
             ...styles.floatingLabel,
-            top: value || focusedField === name ? "-8px" : "14px",
-            fontSize: value || focusedField === name ? "12px" : "15px",
-            color: focusedField === name ? "#2563eb" : "#999",
+            top:
+              value ||
+              focusedField === name
+                ? "-8px"
+                : "14px",
+            fontSize:
+              value ||
+              focusedField === name
+                ? "12px"
+                : "15px",
+            color:
+              focusedField === name
+                ? "#2563eb"
+                : "#999",
           }}
         >
           {label}
@@ -671,11 +754,10 @@ function Input({
           style={{
             ...styles.input,
             borderColor:
-        focusedField === name
-         ? "#2563eb"
-         : "#d0d0d0",
+              focusedField === name
+                ? "#2563eb"
+                : "#d0d0d0",
           }}
-          placeholder=""
         />
       </div>
     </div>
@@ -695,16 +777,21 @@ function PasswordInput({
       <div
         style={{
           ...styles.passwordWrapper,
-          borderColor: "#d0d0d0",
           position: "relative",
         }}
       >
         <label
           style={{
             ...styles.floatingLabel,
-            top: value ? "-8px" : "14px",
-            fontSize: value ? "12px" : "15px",
-            color: value ? "#2563eb" : "#999",
+            top: value
+              ? "-8px"
+              : "14px",
+            fontSize: value
+              ? "12px"
+              : "15px",
+            color: value
+              ? "#2563eb"
+              : "#999",
           }}
         >
           {label}
@@ -720,8 +807,9 @@ function PasswordInput({
           value={value}
           onChange={onChange}
           required
-          style={styles.passwordInput}
-          placeholder=""
+          style={
+            styles.passwordInput
+          }
         />
 
         <button
@@ -750,107 +838,59 @@ function VerificationModal({
   loading,
   onClose,
 }) {
-  const [focusedField, setFocusedField] = useState(null);
-
   return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div 
+    <div
+      style={styles.modalOverlay}
+      onClick={onClose}
+    >
+      <div
         style={styles.modalContainer}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) =>
+          e.stopPropagation()
+        }
       >
         <button
-          type="button"
           style={styles.closeButton}
           onClick={onClose}
         >
           ✕
         </button>
 
-        <div style={styles.modalContent}>
-          <h2 style={styles.modalHeading}>
-            Verify Your Email
-          </h2>
+        <h2 style={styles.modalHeading}>
+          Verify Your Email
+        </h2>
 
-          <p style={styles.modalText}>
-            We've sent a verification code to{" "}
-            <strong>{email}</strong>
-          </p>
+        <p style={styles.modalText}>
+          We sent a verification code
+          to <strong>{email}</strong>
+        </p>
 
-          <form onSubmit={onSubmit}>
-            <div style={styles.inputGroup}>
-              <div style={styles.inputWrapper}>
-                <label
-                  style={{
-                    ...styles.floatingLabel,
-                    top:
-                      verificationCode ||
-                      focusedField === "code"
-                        ? "-8px"
-                        : "14px",
-                    fontSize:
-                      verificationCode ||
-                      focusedField === "code"
-                        ? "12px"
-                        : "15px",
-                    color:
-                      focusedField === "code"
-                        ? "#2563eb"
-                        : "#999",
-                  }}
-                >
-                  Verification Code
-                </label>
+        <form onSubmit={onSubmit}>
+          <input
+            type="text"
+            value={verificationCode}
+            onChange={(e) =>
+              setVerificationCode(
+                e.target.value
+              )
+            }
+            style={styles.input}
+            placeholder="Enter code"
+            maxLength={6}
+          />
 
-                <input
-                  type="text"
-                  value={verificationCode}
-                  onChange={(e) =>
-                    setVerificationCode(
-                      e.target.value
-                    )
-                  }
-                  onFocus={() =>
-                    setFocusedField("code")
-                  }
-                  onBlur={() =>
-                    setFocusedField(null)
-                  }
-                  style={{
-                    ...styles.input,
-                    borderColor:
-                      focusedField === "code"
-                        ? "#2563eb"
-                        : "#d0d0d0",
-                  }}
-                  placeholder=""
-                  maxLength="6"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              style={styles.submitButton}
-              disabled={loading}
-            >
-              {loading
-                ? "Verifying..."
-                : "Verify Code"}
-            </button>
-          </form>
-
-          <p style={styles.resendText}>
-            Didn't receive the code?{" "}
-            <span
-              style={styles.resendLink}
-              onClick={() =>
-                setVerificationCode("")
-              }
-            >
-              Resend
-            </span>
-          </p>
-        </div>
+          <button
+            type="submit"
+            style={
+              styles.submitButton
+            }
+            disabled={loading}
+          >
+            {loading
+              ? "Verifying..."
+              : "Verify Code"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -913,7 +953,6 @@ const styles = {
     borderRadius: "24px",
     boxShadow:
       "0 20px 50px rgba(0,0,0,0.08)",
-    animation: "fadeIn 0.4s ease",
   },
 
   heading: {
@@ -935,49 +974,44 @@ const styles = {
     position: "absolute",
     left: "16px",
     transition: "all 0.3s ease",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
     paddingLeft: "4px",
     paddingRight: "4px",
     pointerEvents: "none",
   },
 
-  label: {
-    display: "block",
-    marginBottom: "8px",
-    fontWeight: "600",
-    color: "#111",
+  input: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border:
+      "1.5px solid #d0d0d0",
+    outline: "none",
+    fontSize: "15px",
+    boxSizing: "border-box",
+    backgroundColor: "#fff",
+    color: "#000",
   },
 
-input: {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: "1.5px solid #d0d0d0",
-  outline: "none",
-  fontSize: "15px",
-  transition: "0.3s",
-  boxSizing: "border-box",
-  backgroundColor: "#ffffff",
-  color: "#000000",
-},
-passwordWrapper: {
-  display: "flex",
-  alignItems: "center",
-  border: "1.5px solid #d0d0d0",
-  borderRadius: "12px",
-  overflow: "hidden",
-  backgroundColor: "#ffffff",
-},
+  passwordWrapper: {
+    display: "flex",
+    alignItems: "center",
+    border:
+      "1.5px solid #d0d0d0",
+    borderRadius: "12px",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
 
-passwordInput: {
-  flex: 1,
-  border: "none",
-  outline: "none",
-  padding: "14px 16px",
-  fontSize: "15px",
-  backgroundColor: "#ffffff",
-  color: "#000000",
-},
+  passwordInput: {
+    flex: 1,
+    border: "none",
+    outline: "none",
+    padding: "14px 16px",
+    fontSize: "15px",
+    backgroundColor: "#fff",
+    color: "#000",
+  },
 
   showButton: {
     border: "none",
@@ -1000,7 +1034,6 @@ passwordInput: {
     fontSize: "16px",
     cursor: "pointer",
     marginTop: "10px",
-    transition: "0.3s",
   },
 
   footerText: {
@@ -1023,8 +1056,6 @@ passwordInput: {
     borderRadius: "12px",
     marginBottom: "18px",
     fontWeight: "600",
-    animation:
-      "slideDown 0.4s ease forwards",
   },
 
   successBox: {
@@ -1046,17 +1077,16 @@ passwordInput: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.6)",
+    backgroundColor:
+      "rgba(255,255,255,0.6)",
     fontWeight: "800",
   },
 
   modalOverlay: {
     position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    inset: 0,
+    backgroundColor:
+      "rgba(0,0,0,0.5)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -1067,10 +1097,8 @@ passwordInput: {
     backgroundColor: "#fff",
     padding: "40px",
     borderRadius: "24px",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-    maxWidth: "450px",
     width: "90%",
-    animation: "slideDown 0.3s ease",
+    maxWidth: "450px",
     position: "relative",
   },
 
@@ -1078,22 +1106,10 @@ passwordInput: {
     position: "absolute",
     top: "16px",
     right: "16px",
-    background: "none",
     border: "none",
+    background: "none",
     fontSize: "24px",
     cursor: "pointer",
-    color: "#999",
-    transition: "0.3s",
-    padding: "0",
-    width: "32px",
-    height: "32px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  modalContent: {
-    textAlign: "center",
   },
 
   modalHeading: {
@@ -1108,17 +1124,5 @@ passwordInput: {
     color: "#666",
     marginBottom: "28px",
     lineHeight: "1.6",
-  },
-
-  resendText: {
-    fontSize: "14px",
-    color: "#666",
-    marginTop: "18px",
-  },
-
-  resendLink: {
-    color: "#2563eb",
-    fontWeight: "700",
-    cursor: "pointer",
   },
 };

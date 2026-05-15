@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const regions = [
   "NCR",
@@ -16,7 +17,8 @@ const regions = [
   "Zamboanga",
 ];
 
-const CreateJobseekerProfile = ({ onBack }) => {
+const CreateJobseekerProfile = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     bio: "",
     citizenShip: "Filipino",
@@ -212,7 +214,7 @@ const CreateJobseekerProfile = ({ onBack }) => {
       );
 
       setTimeout(() => {
-        if (onBack) onBack();
+        navigate("/create");
       }, 1500);
     } catch (error) {
       showMessage(
@@ -243,7 +245,7 @@ const CreateJobseekerProfile = ({ onBack }) => {
 
         <button
           style={styles.backBtn}
-          onClick={onBack}
+          onClick={() => navigate("/create")}
         >
           ← Back
         </button>
@@ -485,7 +487,7 @@ const CreateJobseekerProfile = ({ onBack }) => {
               <button
                 type="button"
                 style={styles.cancelBtn}
-                onClick={onBack}
+                onClick={() => navigate("/create")}
               >
                 Cancel
               </button>

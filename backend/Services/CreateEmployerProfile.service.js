@@ -21,24 +21,27 @@ export const employerProfileService = async (userId, profileData) => {
     throw new AppError("Employer not found", 404);
   }
 
-  employer.companyName = companyName;
-  employer.companyDescription = companyDescription;
-  employer.companyLocation = companyLocation;
-  employer.companySize = companySize;
-  employer.industry = industry;
-  employer.website = website;
-  employer.contactNumber = contactNumber;
-  employer.dateEstablished = dateEstablished || employer.dateEstablished;
-  employer.companyLogo = companyLogo;
+  // Only update fields that are provided in the request
+  if (companyName !== undefined) employer.companyName = companyName;
+  if (companyDescription !== undefined) employer.companyDescription = companyDescription;
+  if (companySize !== undefined) employer.companySize = companySize;
+  if (industry !== undefined) employer.industry = industry;
+  if (website !== undefined) employer.website = website;
+  if (contactNumber !== undefined) employer.contactNumber = contactNumber;
+  if (companyLogo !== undefined) employer.companyLogo = companyLogo;
+  if (dateEstablished !== undefined) employer.dateEstablished = dateEstablished;
 
-  if (typeof companyLocation === "string") {
-    try {
-      employer.companyLocation = JSON.parse(companyLocation);
-    } catch (err) {
-      employer.companyLocation = employer.companyLocation || {};
+  // Handle companyLocation specially
+  if (companyLocation !== undefined) {
+    if (typeof companyLocation === "string") {
+      try {
+        employer.companyLocation = JSON.parse(companyLocation);
+      } catch (err) {
+        employer.companyLocation = employer.companyLocation || {};
+      }
+    } else {
+      employer.companyLocation = companyLocation;
     }
-  } else {
-    employer.companyLocation = companyLocation || employer.companyLocation;
   }
 
   await employer.save();

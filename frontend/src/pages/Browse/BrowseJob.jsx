@@ -84,6 +84,12 @@ export default function BrowseJob() {
   const [socialPosts, setSocialPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostTags, setNewPostTags] = useState("");
+  const [newPostLocation, setNewPostLocation] = useState(null);
+  const [newPostMedia, setNewPostMedia] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
   const [editingTags, setEditingTags] = useState("");
@@ -259,6 +265,8 @@ export default function BrowseJob() {
             .split(",")
             .map((tag) => tag.trim())
             .filter(Boolean),
+          media: newPostMedia,
+          location: newPostLocation,
         },
         {
           headers: {
@@ -270,10 +278,56 @@ export default function BrowseJob() {
       setSocialPosts((prev) => [response.data.data, ...prev]);
       setNewPostContent("");
       setNewPostTags("");
+      setNewPostLocation(null);
+      setNewPostMedia(null);
+      setMediaPreview(null);
     } catch (error) {
       console.error("Create post error", error);
       alert("Unable to create post right now. Please try again.");
     }
+  };
+
+  const handleMediaUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File size must be less than 10MB");
+      return;
+    }
+
+    setUploadingMedia(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64Data = reader.result;
+        const fileType = file.type.startsWith('video') ? 'video' : 'image';
+        
+        setNewPostMedia({
+          type: fileType,
+          data: base64Data,
+          contentType: file.type,
+          fileName: file.name,
+        });
+        setMediaPreview(base64Data);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Media upload error", error);
+      alert("Failed to upload media");
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  const handleLocationSelect = (region, city) => {
+    setNewPostLocation({ region, city });
+    setShowLocationModal(false);
+  };
+
+  const removeMediaPreview = () => {
+    setNewPostMedia(null);
+    setMediaPreview(null);
   };
 
   const startEditPost = (post) => {
@@ -608,11 +662,50 @@ export default function BrowseJob() {
                 placeholder="Tags (comma separated)"
                 style={styles.postComposerInput}
               />
+              
+              {mediaPreview && (
+                <div style={styles.mediaPreviewContainer}>
+                  {newPostMedia?.type === 'video' ? (
+                    <video src={mediaPreview} style={styles.mediaPreviewItem} controls />
+                  ) : (
+                    <img src={mediaPreview} alt="preview" style={styles.mediaPreviewItem} />
+                  )}
+                  <button onClick={removeMediaPreview} style={styles.removeMediaButton}>✕ Remove</button>
+                </div>
+              )}
+
+              {newPostLocation && (
+                <div style={styles.locationTag}>
+                  📍 {newPostLocation.city}, {newPostLocation.region}
+                  <button onClick={() => setNewPostLocation(null)} style={{ marginLeft: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                </div>
+              )}
+
+              <div style={styles.composerActions}>
+                <label style={styles.actionIcon}>
+                  📎
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleMediaUpload}
+                    disabled={uploadingMedia}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <button
+                  style={styles.actionIcon}
+                  onClick={() => setShowLocationModal(true)}
+                >
+                  📍
+                </button>
+              </div>
+
               <button
                 style={styles.postComposerButton}
                 onClick={handleCreatePost}
+                disabled={uploadingMedia}
               >
-                Post update
+                {uploadingMedia ? "Uploading..." : "Post update"}
               </button>
             </div>
           )}
@@ -652,7 +745,23 @@ export default function BrowseJob() {
               </div>
               <div style={styles.postBody} onClick={() => openPostOrJob(post)}>
                 <p style={styles.postText}>{post.content}</p>
+                {post.location && (
+                  <p style={{ ...styles.postMeta, marginTop: '8px' }}>
+                    📍 {post.location.city}, {post.location.region}
+                  </p>
+                )}
               </div>
+
+              {post.media?.data && (
+                <div style={{ marginTop: '12px', borderRadius: '12px', overflow: 'hidden' }}>
+                  {post.media.type === 'video' ? (
+                    <video src={post.media.data} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} controls />
+                  ) : (
+                    <img src={post.media.data} alt="post media" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} />
+                  )}
+                </div>
+              )}
+
               {post.tags?.length > 0 && (
                 <div style={styles.postTags}>
                   {post.tags.map((tag, index) => (
@@ -914,6 +1023,59 @@ export default function BrowseJob() {
           </div>
         </div>
       )}
+
+      {/* Location Modal */}
+      {showLocationModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowLocationModal(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={{ margin: 0 }}>Select Location</h2>
+              <button style={styles.modalClose} onClick={() => setShowLocationModal(false)}>✕</button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search city or region..."
+              value={locationSearch}
+              onChange={(e) => setLocationSearch(e.target.value)}
+              style={{ ...styles.postComposerInput, marginBottom: '12px' }}
+            />
+
+            <div style={{ display: 'grid', gap: '8px', maxHeight: '400px', overflow: 'auto' }}>
+              {['Manila', 'Quezon City', 'Makati', 'Cavite', 'Laguna', 'Cebu', 'Davao', 'Iloilo', 'Cagayan de Oro', 'Bacolod'].map((city) => (
+                ['NCR', 'Calabarzon', 'Visayas', 'Mindanao'].map((region) => (
+                  <button
+                    key={`${city}-${region}`}
+                    onClick={() => handleLocationSelect(region, city)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {city}, {region}
+                  </button>
+                ))
+              ))}
+            </div>
+
+            <div style={{marginTop: '20px'}}>
+              <iframe
+                title="Location Map"
+                width="100%"
+                height="300"
+                style={{ borderRadius: '12px', border: 'none' }}
+                src="https://maps.google.com/maps?q=Philippines&t=&z=7&ie=UTF8&iwloc=&output=embed"
+                allowFullScreen
+                loading="lazy"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1081,6 +1243,60 @@ const styles = {
     color: "#ffffff",
     fontWeight: "700",
     cursor: "pointer",
+  },
+  mediaPreviewContainer: {
+    position: "relative",
+    borderRadius: "12px",
+    overflow: "hidden",
+    marginTop: "8px",
+    backgroundColor: "#f1f5f9",
+  },
+  mediaPreviewItem: {
+    width: "100%",
+    maxHeight: "250px",
+    objectFit: "cover",
+    borderRadius: "12px",
+  },
+  removeMediaButton: {
+    position: "absolute",
+    top: "8px",
+    right: "8px",
+    background: "#ef4444",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "50%",
+    width: "32px",
+    height: "32px",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+  locationTag: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    background: "#e0f2fe",
+    color: "#0369a1",
+    fontSize: "14px",
+    fontWeight: "600",
+    marginTop: "8px",
+  },
+  composerActions: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "flex-start",
+  },
+  actionIcon: {
+    fontSize: "20px",
+    cursor: "pointer",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    background: "#f1f5f9",
+    border: "1px solid #cbd5e1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   socialFeedHeading: {
     marginTop: "4px",

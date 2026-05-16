@@ -89,7 +89,7 @@ export default function Profile() {
     const fetchUserProfile = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
-        navigate("/");
+        navigate("/auth");
         return;
       }
 

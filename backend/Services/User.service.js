@@ -1,11 +1,12 @@
 import User from '../Model/UserSchema.js';
+import Employer from '../Model/EmployerSchema.js';
+import Jobseeker from '../Model/JobseekerSchema.js';
 import AppError from '../Middleware/AppError.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import { doHash, doHashValidation  } from '../validator/Hashing.js';
 import jwt from 'jsonwebtoken';
 import { signupValidation, phoneNumberValidation } from '../validator/Validator.js';
 import {sendVerificationEmail, sendForgotPasswordEmail} from '../Services/NodeMailer.js';
-import Jobseeker from '../Model/JobseekerSchema.js';
 
 
 export const registerService = async (data) => { 

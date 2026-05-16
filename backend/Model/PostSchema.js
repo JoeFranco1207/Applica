@@ -24,7 +24,17 @@ const postSchema = new mongoose.Schema(
     },
     authorName: String,
     authorRole: String,
-    authorAvatar: String,    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],    archived: {
+    authorAvatar: String,
+    location: {
+      region: String,
+      city: String,
+      coordinates: {
+        lat: Number,
+        lng: Number,
+      },
+    },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    archived: {
       type: Boolean,
       default: false,
     },

@@ -70,6 +70,14 @@ const CreateEmployerProfile = () => {
 
   const [mapUrl, setMapUrl] = useState("");
 
+  // Check authorization on mount
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const location = `
       ${formData.companyLocation.otherDetails}

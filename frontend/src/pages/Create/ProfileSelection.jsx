@@ -5,6 +5,9 @@ const ProfileSelection = () => {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [roleError, setRoleError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Check if user already has a role
@@ -22,7 +25,52 @@ const ProfileSelection = () => {
 
   const handleContinue = () => {
     if (selectedRole) {
-      navigate(selectedRole === "jobseeker" ? "/create/jobseeker" : "/create/employer");
+      setShowConfirmModal(true);
+    }
+  };
+
+  const handleConfirmRole = async () => {
+    try {
+      setIsSubmitting(true);
+      setRoleError(null);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setRoleError("Authentication required. Please log in again.");
+        return;
+      }
+
+      const response = await fetch("http://localhost:8000/api/auth/select-role", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: selectedRole }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setRoleError(result.message || "Unable to set role. Please try again.");
+        return;
+      }
+
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...storedUser,
+          role: selectedRole,
+        })
+      );
+
+      setShowConfirmModal(false);
+      navigate("/profile");
+    } catch (error) {
+      console.error(error);
+      setRoleError("Something went wrong while setting your role.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -193,12 +241,8 @@ const ProfileSelection = () => {
           <button
             style={{
               ...styles.primaryButton,
-              opacity: selectedRole
-                ? 1
-                : 0.5,
-              cursor: selectedRole
-                ? "pointer"
-                : "not-allowed",
+              opacity: selectedRole ? 1 : 0.5,
+              cursor: selectedRole ? "pointer" : "not-allowed",
             }}
             disabled={!selectedRole}
             onClick={handleContinue}
@@ -207,6 +251,37 @@ const ProfileSelection = () => {
           </button>
         </div>
       </div>
+
+      {showConfirmModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowConfirmModal(false)}>
+          <div
+            style={styles.modalContainer}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={styles.modalHeading}>Confirm Role</h2>
+            <p style={styles.modalText}>
+              You selected <strong>{selectedRole}</strong>. Are you sure you want to continue with this role?
+            </p>
+            {roleError && <p style={styles.errorText}>{roleError}</p>}
+            <div style={styles.modalButtons}>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                style={styles.confirmButton}
+                onClick={handleConfirmRole}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -445,6 +520,60 @@ backButton: {
     fontWeight: "700",
     cursor: "pointer",
     backdropFilter: "blur(12px)",
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 50,
+  },
+  modalContainer: {
+    width: "min(560px, 90vw)",
+    background: "#0f172a",
+    borderRadius: "24px",
+    padding: "28px",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  modalHeading: {
+    margin: 0,
+    marginBottom: "16px",
+    fontSize: "1.8rem",
+    color: "#fff",
+  },
+  modalText: {
+    color: "#cbd5e1",
+    marginBottom: "24px",
+    lineHeight: "1.7",
+  },
+  modalButtons: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "12px",
+  },
+  cancelButton: {
+    padding: "12px 18px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "transparent",
+    color: "#fff",
+    cursor: "pointer",
+  },
+  confirmButton: {
+    padding: "12px 18px",
+    borderRadius: "12px",
+    border: "none",
+    background: "linear-gradient(90deg, #10b981, #3b82f6)",
+    color: "#fff",
+    cursor: "pointer",
+  },
+  errorText: {
+    color: "#f87171",
+    marginBottom: "16px",
   },
 };
 

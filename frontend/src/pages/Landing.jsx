@@ -408,6 +408,16 @@ export default function Landing() {
         </div>
       </section>
 
+      {userData?.role === "employer" && (
+        <button
+          style={styles.fab}
+          onClick={() => navigate("/create/job")}
+          title="Post Job"
+        >
+          +
+        </button>
+      )}
+
       {/* Footer */}
       <footer style={{
         ...styles.footer,
@@ -1088,5 +1098,24 @@ const styles = {
     padding: "24px",
     color:
       "rgba(255,255,255,0.6)",
+  },
+
+  fab: {
+    position: "fixed",
+    left: "24px",
+    bottom: "24px",
+    width: "72px",
+    height: "72px",
+    borderRadius: "50%",
+    background: "#2563eb",
+    color: "#fff",
+    border: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "36px",
+    cursor: "pointer",
+    boxShadow: "0 16px 40px rgba(37, 99, 235, 0.25)",
+    zIndex: 50,
   },
 };

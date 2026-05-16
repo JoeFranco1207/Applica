@@ -1,30 +1,36 @@
 
 import jwt from 'jsonwebtoken';
+import User from '../Model/UserSchema.js';
 import AppError from '../Middleware/AppError.js';
-import AppSuccessful from '../Middleware/AppSuccessful.js';
 
 export const protection = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  try{
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(new AppError("Unauthorized", 401));
+  try {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return next(new AppError("Unauthorized", 401));
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return next(new AppError("Unauthorized", 401));
+    }
+
+    req.user = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified,
+    };
+
+    next();
+  } catch (err) {
+    console.log(err);
+    next(new AppError("Unauthorized", 401));
   }
-
-  const token = authHeader.split(" ")[1];
-
-  const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
-
-  req.user = {
-    id: decoded.id,
-    email: decoded.email
-  };
-
-  next();
-}catch(err){
-  next(err);
- console.log(err)
-}
 };
 
 

@@ -201,3 +201,11 @@ export const getProfileService = async (userId) => {
 
   return user;
 };
+
+export const getUserByIdService = async (userId) => {
+  const user = await User.findById(userId).select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode');
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+  return user;
+};

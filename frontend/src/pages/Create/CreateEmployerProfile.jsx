@@ -60,6 +60,10 @@ const CreateEmployerProfile = () => {
     dateEstablished: "",
   });
 
+  const [companyLogo, setCompanyLogo] = useState("");
+  const [companyLogoPreview, setCompanyLogoPreview] = useState("");
+  const [existingCompanyLogo, setExistingCompanyLogo] = useState("");
+
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
@@ -115,6 +119,10 @@ const CreateEmployerProfile = () => {
                 ? existing.dateEstablished.split("T")[0]
                 : "",
             });
+            if (existing.companyLogo) {
+              setExistingCompanyLogo(existing.companyLogo);
+              setCompanyLogoPreview(existing.companyLogo);
+            }
             setIsEditing(true);
             setEditable(false);
           }
@@ -150,6 +158,7 @@ const CreateEmployerProfile = () => {
       data?.companyLocation?.city,
       data?.companyLocation?.barangay,
       data?.companyLocation?.otherDetails,
+      data?.companyLogo || existingCompanyLogo,
     ];
 
     const filled = fields.reduce((c, v) => c + (!!v ? 1 : 0), 0);
@@ -177,6 +186,21 @@ const CreateEmployerProfile = () => {
     }
   };
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCompanyLogo(reader.result);
+        setCompanyLogoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      showMessage("Please select a valid image file", "error");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -200,9 +224,10 @@ const CreateEmployerProfile = () => {
         website: formData.website,
         contactNumber: formData.contactNumber,
         dateEstablished: formData.dateEstablished,
+        companyLogo: companyLogo || existingCompanyLogo || "",
       };
 
-      await axios.put(
+      const response = await axios.put(
         "http://localhost:8000/api/employer/profile",
         payload,
         {
@@ -212,8 +237,25 @@ const CreateEmployerProfile = () => {
         }
       );
 
+      const storedUser = JSON.parse(
+        localStorage.getItem("user") || "{}"
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...storedUser,
+          ...payload,
+          companyLogo: payload.companyLogo,
+          companyLocation: payload.companyLocation,
+          dateEstablished: payload.dateEstablished,
+        })
+      );
+
       showMessage(
-        "Company profile created successfully!",
+        isEditing
+          ? "Company profile updated successfully!"
+          : "Company profile created successfully!",
         "success"
       );
 
@@ -343,6 +385,42 @@ const CreateEmployerProfile = () => {
                   required
                   disabled={!editable}
                 />
+              </div>
+
+              {/* Company Logo */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Company Logo
+                </label>
+
+                <input
+                  id="employerCompanyLogoInput"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  style={styles.hiddenInput}
+                  disabled={!editable}
+                />
+
+                <label
+                  htmlFor="employerCompanyLogoInput"
+                  style={styles.imageUploadCircle}
+                >
+                  {(companyLogoPreview || existingCompanyLogo) ? (
+                    <img
+                      src={companyLogoPreview || existingCompanyLogo}
+                      alt="Logo preview"
+                      style={styles.imageUploadPreview}
+                    />
+                  ) : (
+                    <div style={styles.uploadPlaceholder}>
+                      <span style={styles.uploadIcon}>📷</span>
+                      <span style={styles.uploadText}>
+                        Click to upload
+                      </span>
+                    </div>
+                  )}
+                </label>
               </div>
 
               {/* Description */}
@@ -771,8 +849,58 @@ const styles = {
     fontSize: "1rem",
   },
 
+  hiddenInput: {
+    display: "none",
+  },
+  imageUploadCircle: {
+    marginTop: "12px",
+    width: "150px",
+    height: "150px",
+    borderRadius: "50%",
+    border: "2px dashed rgba(255,255,255,0.4)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    overflow: "hidden",
+  },
+  imageUploadPreview: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+  uploadPlaceholder: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    color: "#cbd5e1",
+    fontSize: "0.95rem",
+    textAlign: "center",
+  },
+  uploadIcon: {
+    fontSize: "1.8rem",
+  },
+  uploadText: {
+    fontSize: "0.9rem",
+  },
+  imagePreviewWrapper: {
+    marginTop: "12px",
+    maxWidth: "180px",
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.15)",
+  },
+
+  imagePreview: {
+    width: "100%",
+    display: "block",
+  },
+
   message: {
-    padding: "14px",
     borderRadius: "12px",
     fontWeight: "600",
     marginBottom: "10px",

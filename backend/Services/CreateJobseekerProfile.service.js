@@ -8,18 +8,18 @@ import {sendVerificationEmail, sendForgotPasswordEmail} from '../Services/NodeMa
 import Jobseeker from '../Model/JobseekerSchema.js';
 
 
-export const jobseekerProfileService = async (userId, profileData) => {
+export const jobseekerProfileService = async (userId, profileData = {}) => {
     const {
       citizenShip,
-        location,
-        experience,
-        education,
-        resume,
-        profilePicture,
-        bio
+      location,
+      experience,
+      education,
+      resume,
+      profilePicture,
+      bio,
     } = profileData;
 
- const user = await User.findById(userId);
+    const user = await User.findById(userId);
 
     if (!user) {
       throw new AppError("User not found", 404);
@@ -28,14 +28,30 @@ export const jobseekerProfileService = async (userId, profileData) => {
     if (user.role !== "jobseeker") {
       throw new AppError("You must be a jobseeker", 403);
     }
-    if(!location || !location.region || !location.city || !location.barangay){
-        throw new AppError("Incomplete location data", 400);
-    };
 
-    if(user.jobseekerProfile){
-        throw new AppError("Jobseeker profile already exists", 400);
+    if (!citizenShip) {
+      throw new AppError("citizenShip is required", 400);
     }
-   
+
+    if (!location || !location.region || !location.city || !location.barangay) {
+      throw new AppError("Incomplete location data", 400);
+    }
+
+    if (!experience) {
+      throw new AppError("Experience is required", 400);
+    }
+
+    if (!education) {
+      throw new AppError("Education is required", 400);
+    }
+
+    if (!resume) {
+      throw new AppError("Resume is required", 400);
+    }
+
+    if (user.jobseekerProfile) {
+      throw new AppError("Jobseeker profile already exists", 400);
+    }
 
     user.citizenShip = citizenShip;
     user.location = location;
@@ -51,13 +67,16 @@ export const jobseekerProfileService = async (userId, profileData) => {
 }
 
 
-export const updateJobseekerProfileService = async (userId, profileData) => {
+export const updateJobseekerProfileService = async (userId, profileData = {}) => {
 
      const user = await User.findById(userId);
   
-    
-     if(!user){throw new AppError("User doesn't Exists", 400);}
-     if (user.role !== "jobseeker"){throw new AppError("Not authorized", 403);}
+     if (!user) {
+       throw new AppError("User doesn't exists", 400);
+     }
+     if (user.role !== "jobseeker") {
+       throw new AppError("Not authorized", 403);
+     }
   
      const allowedFields = [
         "citizenShip",
@@ -66,15 +85,22 @@ export const updateJobseekerProfileService = async (userId, profileData) => {
         "education",
         "resume",
         "profilePicture",
-        "bio"
+        "bio",
       ];
   
-      
     for (const field of Object.keys(profileData)) {
-    if (allowedFields.includes(field)) {
-    user[field] = profileData[field];
+      if (allowedFields.includes(field)) {
+        user[field] = profileData[field];
       }
     }
+
+    if (profileData.location) {
+      const location = profileData.location;
+      if (!location.region || !location.city || !location.barangay) {
+        throw new AppError("Incomplete location data", 400);
+      }
+    }
+
      await user.save();
      return user;
   }

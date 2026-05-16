@@ -31,9 +31,13 @@ const CreateJobseekerProfile = () => {
     experience: "",
     education: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editable, setEditable] = useState(true);
 
   const [profilePicture, setProfilePicture] =
-    useState(null);
+    useState("");
+  const [profilePicturePreview, setProfilePicturePreview] =
+    useState("");
 
   const [resumeFile, setResumeFile] =
     useState(null);
@@ -41,6 +45,10 @@ const CreateJobseekerProfile = () => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] =
     useState("");
+
+  const [progress, setProgress] = useState(0);
+  const [existingResumeName, setExistingResumeName] = useState("");
+  const [existingProfilePicture, setExistingProfilePicture] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -61,6 +69,69 @@ const CreateJobseekerProfile = () => {
       `https://maps.google.com/maps?q=${encodedLocation}&t=&z=15&ie=UTF8&iwloc=&output=embed`
     );
   }, [formData.location]);
+
+  // preload profile when logged in
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get("http://localhost:8000/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const user = response.data?.data;
+        if (user && user.role === "jobseeker") {
+          setFormData((prev) => ({
+            ...prev,
+            bio: user.bio || "",
+            citizenShip: user.citizenShip || prev.citizenShip,
+            location: {
+              region: user.location?.region || prev.location.region,
+              city: user.location?.city || prev.location.city,
+              barangay: user.location?.barangay || prev.location.barangay,
+              otherDetails: user.location?.otherDetails || prev.location.otherDetails,
+            },
+            experience: user.experience || "",
+            education: user.education || "",
+          }));
+
+            if (user.resume) setExistingResumeName(user.resume);
+            if (user.profilePicture) {
+              setExistingProfilePicture(user.profilePicture);
+              setProfilePicturePreview(user.profilePicture);
+            }
+            // mark as existing profile
+            setIsEditing(true);
+            setEditable(false);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // compute progress
+  useEffect(() => {
+    const fields = [
+      formData.bio,
+      formData.citizenShip,
+      formData.location.region,
+      formData.location.city,
+      formData.location.barangay,
+      formData.experience,
+      formData.education,
+      existingResumeName || resumeFile,
+      profilePicture || existingProfilePicture,
+    ];
+
+    const filled = fields.reduce((acc, v) => (v ? acc + 1 : acc), 0);
+    const pct = Math.round((filled / fields.length) * 100);
+    setProgress(pct);
+  }, [formData, resumeFile, existingResumeName, profilePicture, existingProfilePicture]);
 
   const showMessage = (text, type) => {
     setMessage(text);
@@ -97,7 +168,12 @@ const CreateJobseekerProfile = () => {
     const file = e.target.files[0];
 
     if (file && file.type.startsWith("image/")) {
-      setProfilePicture(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setProfilePicture(reader.result);
+        setProfilePicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     } else {
       showMessage(
         "Please select a valid image file",
@@ -147,7 +223,7 @@ const CreateJobseekerProfile = () => {
         return;
       }
 
-      if (!resumeFile) {
+      if (!existingResumeName && !resumeFile) {
         showMessage(
           "Resume is required",
           "error"
@@ -157,53 +233,22 @@ const CreateJobseekerProfile = () => {
         return;
       }
 
-      const formDataToSend = new FormData();
-
-      formDataToSend.append(
-        "bio",
-        formData.bio
-      );
-
-      formDataToSend.append(
-        "citizenShip",
-        formData.citizenShip
-      );
-
-      formDataToSend.append(
-        "location",
-        JSON.stringify(formData.location)
-      );
-
-      formDataToSend.append(
-        "experience",
-        formData.experience
-      );
-
-      formDataToSend.append(
-        "education",
-        formData.education
-      );
-
-      if (profilePicture) {
-        formDataToSend.append(
-          "profilePicture",
-          profilePicture
-        );
-      }
-
-      formDataToSend.append(
-        "resume",
-        resumeFile
-      );
+      const body = {
+        bio: formData.bio,
+        citizenShip: formData.citizenShip,
+        location: formData.location,
+        experience: formData.experience,
+        education: formData.education,
+        resume: existingResumeName || resumeFile?.name || "",
+        profilePicture: profilePicture || existingProfilePicture || "",
+      };
 
       await axios.put(
         "http://localhost:8000/api/jobseeker/profile",
-        formDataToSend,
+        body,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type":
-              "multipart/form-data",
           },
         }
       );
@@ -255,13 +300,32 @@ const CreateJobseekerProfile = () => {
       <div style={styles.main}>
         <div style={styles.card}>
           <h1 style={styles.title}>
-            Create Jobseeker Profile
+            {isEditing ? "Edit Jobseeker Profile" : "Create Jobseeker Profile"}
           </h1>
 
           <p style={styles.subtitle}>
             Complete your profile to apply for
             jobs
           </p>
+
+          <div style={styles.progressContainer}>
+            <div style={styles.progressLabel}>Profile completion</div>
+            <div style={styles.progressBar}>
+              <div style={{ ...styles.progressFill, width: `${progress}%` }}></div>
+            </div>
+            <div style={styles.progressPercent}>{progress}%</div>
+          </div>
+
+          {isEditing && !editable && (
+            <div style={{ marginBottom: 12 }}>
+              <button
+                onClick={() => setEditable(true)}
+                style={{ padding: '8px 12px', borderRadius: 8, background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer' }}
+              >
+                Edit
+              </button>
+            </div>
+          )}
 
           {message && (
             <div
@@ -292,11 +356,33 @@ const CreateJobseekerProfile = () => {
               </label>
 
               <input
+                id="jobseekerProfilePictureInput"
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
-                style={styles.input}
+                style={styles.hiddenInput}
+                disabled={!editable}
               />
+
+              <label
+                htmlFor="jobseekerProfilePictureInput"
+                style={styles.imageUploadCircle}
+              >
+                {(profilePicturePreview || existingProfilePicture) ? (
+                  <img
+                    src={profilePicturePreview || existingProfilePicture}
+                    alt="Profile preview"
+                    style={styles.imageUploadPreview}
+                  />
+                ) : (
+                  <div style={styles.uploadPlaceholder}>
+                    <span style={styles.uploadIcon}>📷</span>
+                    <span style={styles.uploadText}>
+                      Click to upload
+                    </span>
+                  </div>
+                )}
+              </label>
             </div>
 
             {/* BIO */}
@@ -311,6 +397,7 @@ const CreateJobseekerProfile = () => {
                 onChange={handleInputChange}
                 placeholder="Tell employers about yourself..."
                 style={styles.textarea}
+                disabled={!editable}
               />
             </div>
 
@@ -326,6 +413,7 @@ const CreateJobseekerProfile = () => {
                 onChange={handleInputChange}
                 placeholder="Describe your experience..."
                 style={styles.textarea}
+                disabled={!editable}
               />
             </div>
 
@@ -341,6 +429,7 @@ const CreateJobseekerProfile = () => {
                 onChange={handleInputChange}
                 placeholder="Educational background..."
                 style={styles.textarea}
+                disabled={!editable}
               />
             </div>
 
@@ -355,7 +444,13 @@ const CreateJobseekerProfile = () => {
                 accept=".pdf,.doc,.docx"
                 onChange={handleResumeChange}
                 style={styles.input}
+                disabled={!editable}
               />
+              {existingResumeName && !resumeFile && (
+                <p style={styles.hintText}>
+                  Current resume: {existingResumeName}
+                </p>
+              )}
             </div>
 
             {/* CITIZENSHIP */}
@@ -369,6 +464,7 @@ const CreateJobseekerProfile = () => {
                 value={formData.citizenShip}
                 onChange={handleInputChange}
                 style={styles.input}
+                disabled={!editable}
               >
                 <option value="Filipino">
                   Filipino
@@ -398,6 +494,7 @@ const CreateJobseekerProfile = () => {
                   }
                   onChange={handleInputChange}
                   style={styles.input}
+                  disabled={!editable}
                 >
                   <option value="">
                     Select Region
@@ -428,6 +525,7 @@ const CreateJobseekerProfile = () => {
                   onChange={handleInputChange}
                   placeholder="City"
                   style={styles.input}
+                  disabled={!editable}
                 />
               </div>
             </div>
@@ -447,6 +545,7 @@ const CreateJobseekerProfile = () => {
                   onChange={handleInputChange}
                   placeholder="Barangay"
                   style={styles.input}
+                  disabled={!editable}
                 />
               </div>
 
@@ -465,6 +564,7 @@ const CreateJobseekerProfile = () => {
                   onChange={handleInputChange}
                   placeholder="Street / Landmark"
                   style={styles.input}
+                  disabled={!editable}
                 />
               </div>
             </div>
@@ -487,7 +587,7 @@ const CreateJobseekerProfile = () => {
               <button
                 type="button"
                 style={styles.cancelBtn}
-                onClick={() => navigate("/profile")}
+                onClick={() => navigate("/create")}
               >
                 Cancel
               </button>
@@ -495,10 +595,14 @@ const CreateJobseekerProfile = () => {
               <button
                 type="submit"
                 style={styles.submitBtn}
-                disabled={loading}
+                disabled={loading || !editable}
               >
                 {loading
-                  ? "Creating..."
+                  ? isEditing
+                    ? "Saving..."
+                    : "Creating..."
+                  : isEditing
+                  ? "Save Changes"
                   : "Create Profile"}
               </button>
             </div>
@@ -680,6 +784,89 @@ const styles = {
     borderRadius: "12px",
     fontWeight: "600",
     marginBottom: "10px",
+  },
+  hiddenInput: {
+    display: "none",
+  },
+  imageUploadCircle: {
+    marginTop: "12px",
+    width: "150px",
+    height: "150px",
+    borderRadius: "50%",
+    border: "2px dashed rgba(255,255,255,0.4)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    overflow: "hidden",
+  },
+  imageUploadPreview: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+  uploadPlaceholder: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    color: "#cbd5e1",
+    fontSize: "0.95rem",
+    textAlign: "center",
+  },
+  uploadIcon: {
+    fontSize: "1.8rem",
+  },
+  uploadText: {
+    fontSize: "0.9rem",
+  },
+  imagePreviewWrapper: {
+    marginTop: "12px",
+    maxWidth: "160px",
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.12)",
+  },
+  imagePreview: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+  },
+  hintText: {
+    marginTop: "8px",
+    fontSize: "0.9rem",
+    color: "#d1d5db",
+  },
+  progressContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "18px",
+  },
+  progressLabel: {
+    fontSize: "14px",
+    color: "#cbd5e1",
+    minWidth: "140px",
+  },
+  progressBar: {
+    flex: 1,
+    height: "12px",
+    background: "rgba(255,255,255,0.08)",
+    borderRadius: "8px",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, #16a34a 0%, #3b82f6 100%)",
+  },
+  progressPercent: {
+    minWidth: "48px",
+    textAlign: "right",
+    color: "#cbd5e1",
+    fontWeight: "700",
   },
 };
 

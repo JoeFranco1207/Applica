@@ -7,6 +7,7 @@ import User from "./Model/UserSchema.js";
 import Job from "./Model/JobSchema.js";
 import JobseekerRouter from "./Routes/JobseekerRouter.js";
 import EmployerRouter from "./Routes/EmployerRouter.js";
+import JobsRouter from "./Routes/JobsRouter.js";
 import AdminRouter from "./Routes/AdminRouter.js";
 dotenv.config();
 const app = express();
@@ -17,7 +18,9 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+import PostRouter from './Routes/PostRouter.js';
 app.use("/api/admin", AdminRouter);
 
 app.use((req, res, next) => {
@@ -33,21 +36,10 @@ app.use((req, res, next) => {
 
 
 app.use("/api/auth", Router);
-app.get("/api/jobs", async (req, res, next) => {
-  try {
-    const jobs = await Job.find().populate("createdBy", "firstName email");
-    res.success({
-      statusCode: 200,
-      status: "success",
-      message: "Jobs fetched successfully",
-      data: jobs,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+app.use("/api/jobs", JobsRouter);
 app.use("/api/jobseeker", JobseekerRouter);
 app.use("/api/employer", EmployerRouter);
+app.use('/api/posts', PostRouter);
 app.get('/', async(req,res)=>{
   
     const user = await User.find();

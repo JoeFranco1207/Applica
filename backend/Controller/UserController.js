@@ -1,4 +1,4 @@
-import  {registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService} from "../Services/User.service.js";
+import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService } from '../Services/User.service.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
 import jwt from 'jsonwebtoken';
@@ -124,6 +124,16 @@ export const getProfile = async (req, res, next) => {
   try {
     const user = await getProfileService(req.user.id);
     return res.success(new AppSuccessful("Profile retrieved successfully", 200, user));
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+};
+
+export const getUserById = async (req, res, next) => {
+  try {
+    const user = await getUserByIdService(req.params.id);
+    return res.success(new AppSuccessful('User profile fetched', 200, user));
   } catch (err) {
     console.log(err);
     return next(err);

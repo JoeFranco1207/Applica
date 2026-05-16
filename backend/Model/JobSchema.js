@@ -18,7 +18,22 @@ export const jobSchema = new mongoose.Schema({
          required: true
     },
     location: String,
-     salary: Number,
+    salary: Number,
+    views: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
+    likes: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
+    applicants: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
 
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

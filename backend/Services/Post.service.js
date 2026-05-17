@@ -75,6 +75,22 @@ export const getAllPostsService = async (options = {}) => {
       } catch (err) {
         console.log('Error enriching post with user data:', err);
       }
+      // Ensure comments have authorName and authorAvatar populated
+      if (Array.isArray(postObj.comments) && postObj.comments.length > 0) {
+        await Promise.all(postObj.comments.map(async (c) => {
+          try {
+            if (!c.authorName || !c.authorAvatar) {
+              const cu = await User.findById(c.author);
+              if (cu) {
+                c.authorName = c.authorName || `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email;
+                c.authorAvatar = c.authorAvatar || (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || null;
+              }
+            }
+          } catch (err) {
+            /* ignore */
+          }
+        }));
+      }
       return postObj;
     })
   );
@@ -97,6 +113,22 @@ export const getPostByIdService = async (postId) => {
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
+  }
+  // Ensure comments have authorName and authorAvatar populated
+  if (Array.isArray(postObj.comments) && postObj.comments.length > 0) {
+    await Promise.all(postObj.comments.map(async (c) => {
+      try {
+        if (!c.authorName || !c.authorAvatar) {
+          const cu = await User.findById(c.author);
+          if (cu) {
+            c.authorName = c.authorName || `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email;
+            c.authorAvatar = c.authorAvatar || (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || null;
+          }
+        }
+      } catch (err) {
+        /* ignore */
+      }
+    }));
   }
   
   return postObj;
@@ -230,7 +262,8 @@ export const addCommentService = async (userId, postId, commentContent) => {
     });
   }
 
-  return post;
+  // Return an enriched post object so frontend always receives fresh author data
+  return await getPostByIdService(post._id);
 };
 
 export const deleteCommentService = async (userId, postId, commentId) => {
@@ -247,7 +280,8 @@ export const deleteCommentService = async (userId, postId, commentId) => {
 
   post.comments.splice(commentIndex, 1);
   await post.save();
-  return post;
+  // Return an enriched post object so frontend always receives fresh author data
+  return await getPostByIdService(post._id);
 };
 
 // View functionality

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './PostCard.css';
+import CommentModal from './CommentModal';
 
 const PostCard = ({ post, onUpdate }) => {
-  const [showComments, setShowComments] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
   const [currentPost, setCurrentPost] = useState(post);
@@ -49,11 +51,20 @@ const PostCard = ({ post, onUpdate }) => {
     }
   };
 
-  const handleComment = async () => {
-    if (!commentText.trim()) return;
+  const handleCommentAdded = (updatedPost) => {
+    console.log('Comment added! Updated post:', updatedPost);
+    setCurrentPost(updatedPost);
+    onUpdate(updatedPost);
+  };
 
+  const submitComment = async () => {
+    if (!commentText.trim()) {
+      alert('Please write a comment');
+      return;
+    }
+
+    setIsSubmittingComment(true);
     try {
-      console.log('Adding comment:', commentText);
       const response = await axios.post(
         `http://localhost:8000/api/posts/${currentPost._id}/comment`,
         { content: commentText },
@@ -61,12 +72,17 @@ const PostCard = ({ post, onUpdate }) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      console.log('Comment response:', response.data);
+      console.log('Comment submitted:', response.data);
       setCommentText('');
+      setShowCommentModal(false);
       setCurrentPost(response.data.data);
       onUpdate(response.data.data);
+      alert('Comment posted!');
     } catch (error) {
-      console.error('Error adding comment:', error.response?.data || error.message);
+      console.error('Error submitting comment:', error);
+      alert('Failed to post comment: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
@@ -230,7 +246,7 @@ const PostCard = ({ post, onUpdate }) => {
         </button>
         <button
           className="action-btn"
-          onClick={() => setShowComments(!showComments)}
+          onClick={() => setShowCommentModal(true)}
           title="Comment"
         >
           💬 {currentPost.comments?.length || 0}
@@ -259,61 +275,146 @@ const PostCard = ({ post, onUpdate }) => {
       </div>
 
       {/* Comments Section */}
-      {showComments && (
+      {currentPost.comments && currentPost.comments.length > 0 && (
         <div className="comments-section">
-          {/* Add Comment */}
-          {(() => {
-            const postAuthorId = typeof currentPost.author === 'object' 
-              ? (currentPost.author._id || currentPost.author) 
-              : currentPost.author;
-            return userId?.toString() !== postAuthorId?.toString() && (
-              <div className="add-comment">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Write a comment..."
-                  rows="2"
-                />
-                <button onClick={handleComment} className="submit-comment-btn">
-                  Post Comment
-                </button>
-              </div>
-            );
-          })()}
-
-          {/* Comments List */}
           <div className="comments-list">
-            {currentPost.comments && currentPost.comments.length > 0 ? (
-              currentPost.comments.map((comment) => {
-                const commentAuthorId = typeof comment.author === 'object'
-                  ? (comment.author._id || comment.author)
-                  : comment.author;
-                return (
-                  <div key={comment._id} className="comment-item">
-                    <div className="comment-author">
-                      {comment.authorAvatar && (
-                        <img src={comment.authorAvatar} alt={comment.authorName} className="comment-avatar" />
-                      )}
-                      <div className="comment-info">
-                        <h4 className="comment-author-name">{comment.authorName}</h4>
-                        <span className="comment-time">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <p className="comment-text">{comment.content}</p>
-                    {userId?.toString() === commentAuthorId?.toString() && (
-                      <button
-                        className="delete-comment-btn"
-                        onClick={() => handleDeleteComment(comment._id)}
-                      >
-                        Delete
-                      </button>
+            {currentPost.comments.map((comment) => {
+              const commentAuthorId = typeof comment.author === 'object'
+                ? (comment.author._id || comment.author)
+                : comment.author;
+              return (
+                <div key={comment._id} className="comment-item">
+                  <div className="comment-author">
+                    {comment.authorAvatar && (
+                      <img src={comment.authorAvatar} alt={comment.authorName} className="comment-avatar" />
                     )}
+                    <div className="comment-info">
+                      <h4 className="comment-author-name">{comment.authorName}</h4>
+                      <span className="comment-time">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                );
-              })
-            ) : (
-              <p className="no-comments">No comments yet</p>
-            )}
+                  <p className="comment-text">{comment.content}</p>
+                  {userId?.toString() === commentAuthorId?.toString() && (
+                    <button
+                      className="delete-comment-btn"
+                      onClick={() => handleDeleteComment(comment._id)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {showCommentModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '10px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Reply</h2>
+              <button 
+                onClick={() => setShowCommentModal(false)}
+                style={{ 
+                  fontSize: '24px', 
+                  cursor: 'pointer', 
+                  border: 'none', 
+                  background: 'none', 
+                  padding: '0',
+                  color: '#666'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ 
+              backgroundColor: '#f5f5f5', 
+              padding: '12px', 
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <p style={{ margin: '0', fontSize: '14px', color: '#333' }}>
+                <strong>{currentPost.authorName}</strong>
+              </p>
+              <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#666' }}>
+                {currentPost.content}
+              </p>
+            </div>
+
+            <textarea 
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="What do you think?"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                minHeight: '100px',
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '14px',
+                marginBottom: '15px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit'
+              }}
+            />
+            
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                style={{
+                  backgroundColor: '#f0f0f0',
+                  color: '#333',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitComment}
+                disabled={isSubmittingComment || !commentText.trim()}
+                style={{
+                  backgroundColor: commentText.trim() && !isSubmittingComment ? '#1da1f2' : '#ccc',
+                  color: 'white',
+                  padding: '10px 24px',
+                  border: 'none',
+                  borderRadius: '20px',
+                  cursor: commentText.trim() && !isSubmittingComment ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                {isSubmittingComment ? 'Posting...' : 'Reply'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,8 @@
 import AppError from '../Middleware/AppError.js';
 import Notification from '../Model/NotificationSchema.js';
 import User from '../Model/UserSchema.js';
+import Job from '../Model/JobSchema.js';
+import Post from '../Model/PostSchema.js';
 import { sendNotificationToUser } from '../server.js';
 
 export const createNotificationService = async (notificationData) => {

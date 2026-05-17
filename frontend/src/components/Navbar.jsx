@@ -112,9 +112,6 @@ export default function Navbar() {
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>
             Browse Jobs
           </button>
-          <button style={styles.linkButton} onClick={() => navigate("/feed")}>
-            Feed
-          </button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Companies</button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Resources</button>
         </div>
@@ -395,6 +392,8 @@ const styles = {
     cursor: "pointer",
     color: "var(--text-h)",
     transition: "all 0.2s",
+    zIndex: 101,
+    position: "relative",
   },
   notificationDropdown: {
     position: "absolute",
@@ -418,6 +417,37 @@ const styles = {
     fontSize: 13,
     lineHeight: 1.4,
   },
+  notificationPanel: {
+    position: "absolute",
+    top: "100%",
+    right: 0,
+    marginTop: 8,
+    backgroundColor: "var(--surface-strong)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    minWidth: 320,
+    maxHeight: 500,
+    overflowY: "auto",
+    zIndex: 1001,
+  },
+  notificationPanelHeader: {
+    padding: "16px",
+    borderBottom: "1px solid var(--border)",
+    backgroundColor: "var(--surface-strong)",
+  },
+  notificationList: {
+    maxHeight: 420,
+    overflowY: "auto",
+  },
+  notificationItemPanel: {
+    padding: "12px 16px",
+    borderBottom: "1px solid var(--border)",
+    cursor: "pointer",
+    transition: "background 0.2s",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
   dropdown: {
     position: "absolute",
     right: 0,
@@ -427,7 +457,7 @@ const styles = {
     border: "1px solid #e0e0e0",
     boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
     overflow: "hidden",
-    zIndex: 10,
+    zIndex: 1000,
   },
   dropdownItem: {
     width: "100%",

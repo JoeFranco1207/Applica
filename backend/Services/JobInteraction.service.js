@@ -2,6 +2,7 @@ import Job from "../Model/JobSchema.js";
 import User from "../Model/UserSchema.js";
 import Notification from "../Model/NotificationSchema.js";
 import AppError from "../Middleware/AppError.js";
+import { createNotificationService } from "./Notification.service.js";
 
 export const getAllJobs = async () => {
   return Job.find()
@@ -56,20 +57,15 @@ export const applyToJob = async (jobId, userId) => {
   job.applicants.push(userId);
   await job.save();
   
-  // Create notification for employer when someone applies to their job
+  // Create real-time notification for employer when someone applies to their job
   if (job.createdBy.toString() !== userId.toString()) {
-    const applicant = await User.findById(userId);
-    if (applicant) {
-      await Notification.create({
-        type: 'apply',
-        recipient: job.createdBy,
-        actor: userId,
-        actorName: `${applicant.firstName || ''} ${applicant.lastName || ''}`.trim() || applicant.email,
-        actorAvatar: applicant.role === 'employer' ? applicant.companyLogo : applicant.profilePicture,
-        message: `applied for ${job.title || 'your job'}`,
-        jobId: job._id,
-      });
-    }
+    await createNotificationService({
+      type: 'apply',
+      recipient: job.createdBy,
+      actor: userId,
+      message: `applied for ${job.title || 'your job'}`,
+      jobId: job._id,
+    });
   }
   
   return job;

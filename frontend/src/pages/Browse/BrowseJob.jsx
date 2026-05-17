@@ -128,6 +128,55 @@ const RepostIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const BookmarkIcon = ({ filled = false, size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const BriefcaseIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 const samplePosts = [
   {
     id: 1,
@@ -1075,6 +1124,7 @@ export default function BrowseJob() {
               )}
             </div>
           ))}
+
           {filteredPosts.map((post) => (
             <div key={post.id} style={styles.xPostCard}>
               <div style={styles.postHeaderRow}>
@@ -1113,17 +1163,18 @@ export default function BrowseJob() {
 
               <div style={styles.postActionRow}>
                 <button
-                  style={savedJobIds.includes(post.id) ? styles.savedButton : styles.actionButton}
+                  style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
                   onClick={() => handleSave(post.id)}
+                  title={savedJobIds.includes(post.id) ? "Remove from saved" : "Save job"}
                 >
-                  {savedJobIds.includes(post.id) ? "Saved" : "Save"}
+                  <BookmarkIcon filled={savedJobIds.includes(post.id)} size={18} />
                 </button>
                 <button
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    ...(post.userLiked ? styles.savedButton : styles.actionButton),
+                    ...(post.userLiked ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton),
                   }}
                   onClick={() => handleToggleLike(post.id)}
                   disabled={jobActionLoading}
@@ -1136,14 +1187,16 @@ export default function BrowseJob() {
                   style={styles.actionButton}
                   onClick={() => handleApply(post.id, post.role)}
                   disabled={jobActionLoading}
+                  title="Apply for this job"
                 >
-                  Apply
+                  <BriefcaseIcon size={18} />
                 </button>
                 <button
                   style={styles.actionButton}
                   onClick={() => openJobModal(post.id)}
+                  title="View full job details"
                 >
-                  View details
+                  <ChevronRightIcon size={18} />
                 </button>
               </div>
             </div>

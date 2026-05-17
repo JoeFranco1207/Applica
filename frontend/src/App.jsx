@@ -13,7 +13,6 @@ import CreateJobseekerProfile from "./pages/Create/CreateJobseekerProfile";
 import CreateJob from "./pages/Create/CreateJob";
 import Profile from "./pages/Profile";
 import BrowseJob from "./pages/Browse/BrowseJob";
-import Feed from "./pages/Browse/Feed";
 
 function Layout() {
   return (
@@ -57,7 +56,6 @@ function App() {
           <Route path="/create/jobseeker" element={<CreateJobseekerProfile />} />
           <Route path="/auth" element={<Signup />} />
           <Route path="/explore" element={<BrowseJob />} />
-          <Route path="/feed" element={<Feed />} />
           <Route path="/create/job" element={<CreateJob />} />
           <Route path="/create" element={<Create />} />
           <Route path="/profile" element={<Profile />} />

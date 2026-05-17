@@ -2,6 +2,57 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+// Icon Components
+const BriefcaseIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+  </svg>
+);
+
+const CheckIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const ArrowLeftIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
 const CreateJob = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -19,7 +70,6 @@ const CreateJob = () => {
   const showMessage = (text, type) => {
     setMessage(text);
     setMessageType(type);
-
     setTimeout(() => {
       setMessage("");
       setMessageType("");
@@ -65,15 +115,13 @@ const CreateJob = () => {
         }
       );
 
-      showMessage("Job created successfully!", "success");
-
+      showMessage("Job posted successfully!", "success");
       setTimeout(() => {
         navigate("/profile");
       }, 1500);
     } catch (error) {
       showMessage(
-        error.response?.data?.message ||
-          "Error creating job",
+        error.response?.data?.message || "Error posting job",
         "error"
       );
     } finally {
@@ -83,138 +131,128 @@ const CreateJob = () => {
 
   return (
     <div style={styles.container}>
-      <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16 }}>
-        <button style={styles.backBtn} onClick={() => navigate("/profile")}>← Back</button>
+      <div style={styles.header}>
+        <button style={styles.backBtn} onClick={() => navigate("/profile")}>
+          <ArrowLeftIcon size={18} />
+        </button>
+        <h1 style={styles.headerTitle}>Post a Job</h1>
+        <div style={{ width: 40 }} />
       </div>
-      {/* MAIN */}
+
       <div style={styles.main}>
         <div style={styles.card}>
-          <div style={styles.leftSide}>
-            <h1 style={styles.title}>Create Job Posting</h1>
+          <div style={styles.cardHeader}>
+            <BriefcaseIcon size={24} />
+            <div>
+              <h2 style={styles.cardTitle}>Create Job Posting</h2>
+              <p style={styles.cardSubtitle}>Share your job opportunity with talented professionals</p>
+            </div>
+          </div>
 
-            <p style={styles.subtitle}>
-              Post a new job opportunity for your company
-            </p>
-
-            {message && (
-              <div
-                style={{
-                  ...styles.message,
-                  backgroundColor:
-                    messageType === "error"
-                      ? "#ffe5e5"
-                      : "#e5ffe8",
-                  color:
-                    messageType === "error"
-                      ? "#c0392b"
-                      : "#27ae60",
-                }}
-              >
-                {message}
-              </div>
-            )}
-
-            <form
-              onSubmit={handleSubmit}
-              style={styles.form}
+          {message && (
+            <div
+              style={{
+                ...styles.messageBox,
+                backgroundColor:
+                  messageType === "error"
+                    ? "rgba(220, 38, 38, 0.1)"
+                    : "rgba(34, 197, 94, 0.1)",
+                borderColor:
+                  messageType === "error"
+                    ? "#dc2626"
+                    : "#22c55e",
+                color:
+                  messageType === "error"
+                    ? "#dc2626"
+                    : "#22c55e",
+              }}
             >
-              {/* Job Title */}
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Job Title *</label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="e.g., Senior React Developer"
+                style={styles.input}
+                required
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Description *</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Describe the role and responsibilities..."
+                style={styles.textarea}
+                required
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Requirements *</label>
+              <textarea
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleInputChange}
+                placeholder="List key requirements and qualifications..."
+                style={styles.textarea}
+                required
+              />
+            </div>
+
+            <div style={styles.twoColumnGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Job Title *
-                </label>
+                <label style={styles.label}>Location</label>
                 <input
                   type="text"
-                  name="title"
-                  value={formData.title}
+                  name="location"
+                  value={formData.location}
                   onChange={handleInputChange}
-                  placeholder="e.g., Senior React Developer"
+                  placeholder="e.g., Manila, NCR"
                   style={styles.input}
-                  required
                 />
               </div>
 
-              {/* Description */}
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Job Description *
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
+                <label style={styles.label}>Salary (₱)</label>
+                <input
+                  type="number"
+                  name="salary"
+                  value={formData.salary}
                   onChange={handleInputChange}
-                  placeholder="Describe the job role and responsibilities"
-                  style={styles.textarea}
-                  required
+                  placeholder="e.g., 150000"
+                  style={styles.input}
                 />
               </div>
+            </div>
 
-              {/* Requirements */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Requirements *
-                </label>
-                <textarea
-                  name="requirements"
-                  value={formData.requirements}
-                  onChange={handleInputChange}
-                  placeholder="List key requirements and qualifications"
-                  style={styles.textarea}
-                  required
-                />
-              </div>
-
-              {/* Location */}
-              <div style={styles.grid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Manila, NCR"
-                    style={styles.input}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
-                    Salary (₱)
-                  </label>
-                  <input
-                    type="number"
-                    name="salary"
-                    value={formData.salary}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 150000"
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-
-              {/* BUTTONS */}
-              <div style={styles.buttonContainer}>
-                <button
-                  type="button"
-                  style={styles.cancelBtn}
-                  onClick={() => navigate("/profile")}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  style={styles.submitBtn}
-                  disabled={loading}
-                >
-                  {loading ? "Creating..." : "Post Job"}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div style={styles.formActions}>
+              <button
+                type="button"
+                style={styles.secondaryBtn}
+                onClick={() => navigate("/profile")}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={styles.primaryBtn}
+                disabled={loading}
+              >
+                <CheckIcon size={18} />
+                <span>{loading ? "Posting..." : "Post Job"}</span>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -224,155 +262,168 @@ const CreateJob = () => {
 const styles = {
   container: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(to right, #0f172a, #1e293b)",
-    fontFamily: "Arial",
-    color: "#fff",
+    backgroundColor: "var(--bg)",
+    color: "var(--text-h)",
+    display: "flex",
+    flexDirection: "column",
   },
 
-  navbar: {
-    height: "70px",
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(10px)",
+  header: {
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0 40px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
-  },
-
-  logoContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-
-  logo: {
-    width: "45px",
-  },
-
-  logoText: {
-    fontSize: "1.5rem",
-    fontWeight: "bold",
+    padding: "16px 20px",
+    borderBottom: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
   },
 
   backBtn: {
     background: "transparent",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.3)",
-    padding: "10px 18px",
-    borderRadius: "10px",
+    border: "none",
+    color: "var(--text-h)",
     cursor: "pointer",
+    padding: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "8px",
+    transition: "background 0.2s",
+  },
+
+  headerTitle: {
+    fontSize: "20px",
+    fontWeight: "700",
+    margin: 0,
   },
 
   main: {
+    flex: 1,
     display: "flex",
     justifyContent: "center",
-    padding: "40px 20px",
+    alignItems: "flex-start",
+    padding: "24px 20px",
   },
 
   card: {
     width: "100%",
-    maxWidth: "900px",
-    background: "rgba(255,255,255,0.08)",
-    borderRadius: "24px",
-    backdropFilter: "blur(12px)",
-    padding: "40px",
-    boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+    maxWidth: "600px",
+    backgroundColor: "var(--surface-strong)",
+    borderRadius: "12px",
+    border: "1px solid var(--border)",
+    padding: "24px",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
   },
 
-  leftSide: {
-    width: "100%",
+  cardHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "24px",
   },
 
-  title: {
-    fontSize: "2.5rem",
-    marginBottom: "10px",
+  cardTitle: {
+    fontSize: "18px",
+    fontWeight: "700",
+    margin: "0 0 4px 0",
   },
 
-  subtitle: {
-    color: "#cbd5e1",
-    marginBottom: "30px",
+  cardSubtitle: {
+    fontSize: "13px",
+    color: "var(--text-muted)",
+    margin: 0,
   },
 
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
-  },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
+    gap: "16px",
   },
 
   formGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "6px",
   },
 
   label: {
     fontWeight: "600",
-    fontSize: "0.95rem",
+    fontSize: "13px",
+    color: "var(--text-h)",
   },
 
   input: {
-    padding: "14px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.1)",
-    color: "#fff",
-    fontSize: "1rem",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "13px",
+    fontFamily: "inherit",
     outline: "none",
+    transition: "border-color 0.2s",
   },
 
   textarea: {
-    minHeight: "100px",
-    padding: "14px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.1)",
-    color: "#fff",
-    resize: "vertical",
-    fontSize: "1rem",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "13px",
+    fontFamily: "inherit",
     outline: "none",
+    minHeight: "90px",
+    resize: "vertical",
+    transition: "border-color 0.2s",
   },
 
-  buttonContainer: {
+  twoColumnGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "12px",
+  },
+
+  formActions: {
     display: "flex",
+    gap: "12px",
     justifyContent: "flex-end",
-    gap: "15px",
-    marginTop: "20px",
+    marginTop: "8px",
   },
 
-  cancelBtn: {
-    padding: "14px 24px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.2)",
-    background: "transparent",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "600",
-  },
-
-  submitBtn: {
-    padding: "14px 24px",
-    borderRadius: "12px",
+  primaryBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 16px",
+    backgroundColor: "var(--primary)",
+    color: "var(--cta-text)",
     border: "none",
-    background: "#3b82f6",
-    color: "#fff",
+    borderRadius: "8px",
+    fontWeight: "600",
+    fontSize: "13px",
     cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "1rem",
+    transition: "opacity 0.2s",
   },
 
-  message: {
-    padding: "14px",
-    borderRadius: "12px",
+  secondaryBtn: {
+    padding: "10px 16px",
+    backgroundColor: "transparent",
+    color: "var(--text-h)",
+    border: "1px solid var(--border)",
+    borderRadius: "8px",
     fontWeight: "600",
-    marginBottom: "10px",
+    fontSize: "13px",
+    cursor: "pointer",
+    transition: "background 0.2s",
+  },
+
+  messageBox: {
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid",
+    fontSize: "13px",
+    fontWeight: "600",
+    marginBottom: "16px",
   },
 };
 

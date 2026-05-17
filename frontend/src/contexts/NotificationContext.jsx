@@ -15,6 +15,7 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [socket, setSocket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
 
   // Initialize socket connection
   useEffect(() => {
@@ -22,16 +23,24 @@ export const NotificationProvider = ({ children }) => {
     const userId = localStorage.getItem('userId');
 
     if (token && userId) {
+      console.log('Initializing Socket.IO connection for user:', userId);
+      
       const newSocket = io('http://localhost:8000', {
         auth: {
           token,
         },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5,
       });
 
       newSocket.on('connect', () => {
-        console.log('Connected to notifications server');
+        console.log('Connected to notifications server with socket ID:', newSocket.id);
+        setIsConnected(true);
         // Register user with socket server
         newSocket.emit('register', userId);
+        console.log('Registered user:', userId);
       });
 
       newSocket.on('notification', (notification) => {
@@ -42,7 +51,7 @@ export const NotificationProvider = ({ children }) => {
           id: Date.now(),
           ...notification,
           read: false,
-          createdAt: new Date(),
+          createdAt: notification.createdAt || new Date(),
         };
         
         setNotifications((prev) => [newNotif, ...prev]);
@@ -56,6 +65,15 @@ export const NotificationProvider = ({ children }) => {
 
       newSocket.on('disconnect', () => {
         console.log('Disconnected from notifications server');
+        setIsConnected(false);
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+      });
+
+      newSocket.on('error', (error) => {
+        console.error('Socket.IO error:', error);
       });
 
       setSocket(newSocket);
@@ -87,6 +105,7 @@ export const NotificationProvider = ({ children }) => {
     removeNotification,
     clearNotifications,
     markAsRead,
+    isConnected,
   };
 
   return (
@@ -95,3 +114,4 @@ export const NotificationProvider = ({ children }) => {
     </NotificationContext.Provider>
   );
 };
+

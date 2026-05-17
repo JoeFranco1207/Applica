@@ -796,6 +796,9 @@ export default function BrowseJob() {
       likes: likesCount,
       userLiked,
       createdById: job.createdBy?._id,
+      employerEmail: job.createdBy?.email,
+      employerAvatar: job.createdBy?.role === 'employer' ? job.createdBy?.companyLogo : job.createdBy?.profilePicture,
+      employerName: `${job.createdBy?.firstName || ""} ${job.createdBy?.lastName || ""}`.trim() || job.createdBy?.email,
     };
   });
 
@@ -1128,19 +1131,25 @@ export default function BrowseJob() {
           {filteredPosts.map((post) => (
             <div key={post.id} style={styles.xPostCard}>
               <div style={styles.postHeaderRow}>
-                <div style={styles.postAvatar}>{post.company.charAt(0)}</div>
+                <div style={styles.postAvatar}>
+                  {post.employerAvatar ? (
+                    <img src={post.employerAvatar} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  ) : (
+                    post.employerName?.charAt(0) || post.company.charAt(0)
+                  )}
+                </div>
                 <div style={styles.postHeading}>
                   <div style={styles.postCompanyRow}>
                     <span style={styles.postCompany}>{post.company}</span>
                     <span style={styles.postDot}>·</span>
                     <span style={styles.postMeta}>{post.postedAt}</span>
                   </div>
-                  <p style={styles.postTagline}>{post.location}</p>
-                  {post.createdById && (
-                    <p style={styles.postMeta}>
-                      Employer ID: {post.createdById.slice(0, 8)}
+                  {post.employerEmail && (
+                    <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#0f766e', fontSize: '12px', fontWeight: '500', textAlign: 'left' }}>
+                      {post.employerEmail}
                     </p>
                   )}
+                  <p style={{ ...styles.postTagline, textAlign: 'left' }}>{post.location}</p>
                 </div>
               </div>
 
@@ -1333,7 +1342,26 @@ export default function BrowseJob() {
               <button style={styles.modalClose} onClick={closeJobModal}>✕</button>
             </div>
 
-            <p style={styles.modalCompany}>{modalJob.companyName} · {modalJob.location || 'Remote'}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: '800', fontSize: '18px', flexShrink: 0 }}>
+                {modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? (
+                  <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                ) : modalJob.createdBy?.profilePicture ? (
+                  <img src={modalJob.createdBy.profilePicture} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                ) : (
+                  (modalJob.createdBy?.firstName?.charAt(0) || modalJob.companyName?.charAt(0) || 'E')
+                )}
+              </div>
+              <div>
+                <p style={styles.modalCompany}>{modalJob.companyName} · {modalJob.location || 'Remote'}</p>
+                {modalJob.createdBy?.email && (
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                    {modalJob.createdBy.email}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div style={styles.modalBody}>
               <p style={styles.postText}>{modalJob.description}</p>
               <h4>Requirements</h4>

@@ -152,6 +152,12 @@
   border-color: #e74c3c;
 }
 
+.action-btn.reposted {
+  color: #27ae60;
+  background: #d5f4e6;
+  border-color: #27ae60;
+}
+
 /* Comments Section */
 .comments-section {
   padding: 16px 0;

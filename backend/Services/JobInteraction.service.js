@@ -9,7 +9,7 @@ export const getAllJobs = async () => {
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
-      select: "firstName lastName email companyName role",
+      select: "firstName lastName email companyName role profilePicture companyLogo",
     });
 };
 
@@ -74,7 +74,7 @@ export const applyToJob = async (jobId, userId) => {
 export const getJobById = async (jobId) => {
   const job = await Job.findById(jobId).populate({
     path: "createdBy",
-    select: "firstName lastName email companyName role",
+    select: "firstName lastName email companyName role profilePicture companyLogo",
   });
 
   if (!job) {
@@ -89,7 +89,7 @@ export const getEmployerJobs = async (employerId) => {
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
-      select: "firstName lastName email companyName role",
+      select: "firstName lastName email companyName role profilePicture companyLogo",
     })
     .populate({
       path: "views",

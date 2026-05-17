@@ -1,6 +1,9 @@
 import User from '../Model/UserSchema.js';
 import Employer from '../Model/EmployerSchema.js';
 import Jobseeker from '../Model/JobseekerSchema.js';
+import Post from '../Model/PostSchema.js';
+import Resume from '../Model/ResumeSchema.js';
+import Job from '../Model/JobSchema.js';
 import AppError from '../Middleware/AppError.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import { doHash, doHashValidation  } from '../validator/Hashing.js';
@@ -209,4 +212,25 @@ export const getUserByIdService = async (userId) => {
     throw new AppError('User not found', 404);
   }
   return user;
+};
+
+export const deleteUserService = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  await Promise.all([
+    Post.deleteMany({ author: userId }),
+    Resume.deleteMany({ jobseeker: userId }),
+    Job.deleteMany({ createdBy: userId }),
+    Post.updateMany({ likes: userId }, { $pull: { likes: userId } }),
+    Job.updateMany(
+      { $or: [{ views: userId }, { likes: userId }, { applicants: userId }] },
+      { $pull: { views: userId, likes: userId, applicants: userId } }
+    ),
+  ]);
+
+  await User.deleteOne({ _id: userId });
+  return { message: 'User deleted successfully' };
 };

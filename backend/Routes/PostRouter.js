@@ -8,6 +8,12 @@ import {
 	deletePostController,
 	getPostsByAuthorController,
 	togglePostLikeController,
+	addCommentController,
+	deleteCommentController,
+	recordViewController,
+	sharePostController,
+	repostController,
+	removeRepostController,
 } from '../Controller/PostController.js';
 
 const router = express.Router();
@@ -15,11 +21,16 @@ const router = express.Router();
 router.get('/', protection, getPostsController);
 router.post('/', protection, restrictTo('jobseeker', 'employer'), createPostController);
 
+router.get('/author/:authorId', protection, getPostsByAuthorController);
+router.post('/:id/like', protection, togglePostLikeController);
+router.post('/:id/comment', protection, addCommentController);
+router.delete('/:id/comment/:commentId', protection, deleteCommentController);
+router.post('/:id/view', protection, recordViewController);
+router.post('/:id/share', protection, sharePostController);
+router.post('/:id/repost', protection, repostController);
+router.delete('/:id/repost', protection, removeRepostController);
 router.get('/:id', protection, getPostController);
 router.patch('/:id', protection, updatePostController);
 router.delete('/:id', protection, deletePostController);
-router.post('/:id/like', protection, togglePostLikeController);
-
-router.get('/author/:authorId', protection, getPostsByAuthorController);
 
 export default router;

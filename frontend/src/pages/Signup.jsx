@@ -900,9 +900,10 @@ const styles = {
   page: {
     minHeight: "100vh",
     display: "flex",
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--bg)",
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "var(--text)",
   },
 
   leftSection: {
@@ -919,7 +920,7 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     padding: "30px",
-    background: "#ffffff",
+    background: "var(--surface)",
   },
 
   brand: {
@@ -948,11 +949,12 @@ const styles = {
   card: {
     width: "100%",
     maxWidth: "470px",
-    backgroundColor: "#fff",
+    backgroundColor: "var(--surface)",
     padding: "40px",
     borderRadius: "24px",
     boxShadow:
-      "0 20px 50px rgba(0,0,0,0.08)",
+      "var(--shadow)",
+    border: "1px solid var(--border)",
   },
 
   heading: {
@@ -974,7 +976,7 @@ const styles = {
     position: "absolute",
     left: "16px",
     transition: "all 0.3s ease",
-    backgroundColor: "#fff",
+    backgroundColor: "var(--surface)",
     paddingLeft: "4px",
     paddingRight: "4px",
     pointerEvents: "none",
@@ -985,22 +987,22 @@ const styles = {
     padding: "14px 16px",
     borderRadius: "12px",
     border:
-      "1.5px solid #d0d0d0",
+      "1.5px solid var(--border)",
     outline: "none",
     fontSize: "15px",
     boxSizing: "border-box",
-    backgroundColor: "#fff",
-    color: "#000",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--text)",
   },
 
   passwordWrapper: {
     display: "flex",
     alignItems: "center",
     border:
-      "1.5px solid #d0d0d0",
+      "1.5px solid var(--border)",
     borderRadius: "12px",
     overflow: "hidden",
-    backgroundColor: "#fff",
+    backgroundColor: "var(--surface-alt)",
   },
 
   passwordInput: {
@@ -1009,8 +1011,8 @@ const styles = {
     outline: "none",
     padding: "14px 16px",
     fontSize: "15px",
-    backgroundColor: "#fff",
-    color: "#000",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--text)",
   },
 
   showButton: {
@@ -1027,8 +1029,7 @@ const styles = {
     padding: "14px",
     border: "none",
     borderRadius: "12px",
-    background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
+    background: "var(--primary)",
     color: "#fff",
     fontWeight: "700",
     fontSize: "16px",
@@ -1039,11 +1040,11 @@ const styles = {
   footerText: {
     textAlign: "center",
     marginTop: "24px",
-    color: "#666",
+    color: "var(--text-muted)",
   },
 
   link: {
-    color: "#2563eb",
+    color: "var(--primary)",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -1094,12 +1095,13 @@ const styles = {
   },
 
   modalContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: "var(--surface)",
     padding: "40px",
     borderRadius: "24px",
     width: "90%",
     maxWidth: "450px",
     position: "relative",
+    border: "1px solid var(--border)",
   },
 
   closeButton: {
@@ -1116,12 +1118,12 @@ const styles = {
     fontSize: "28px",
     fontWeight: "800",
     marginBottom: "16px",
-    color: "#000",
+    color: "var(--text)",
   },
 
   modalText: {
     fontSize: "15px",
-    color: "#666",
+    color: "var(--text-muted)",
     marginBottom: "28px",
     lineHeight: "1.6",
   },

@@ -1,6 +1,132 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import "./BrowseJob.css";
+
+const HeartIcon = ({ filled = false, size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
+const ImageIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21 15 16 10 5 21" />
+  </svg>
+);
+
+const LocationIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
+const SmilieIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" />
+    <line x1="15" y1="9" x2="15.01" y2="9" />
+  </svg>
+);
+
+const CommentIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const ShareIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
+const RepostIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <polyline points="17 2 21 6 17 10" />
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+    <polyline points="7 22 3 18 7 14" />
+    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  </svg>
+);
 
 const samplePosts = [
   {
@@ -100,6 +226,8 @@ export default function BrowseJob() {
   const [jobActionLoading, setJobActionLoading] = useState(false);
   const [showJobModal, setShowJobModal] = useState(false);
   const [modalJob, setModalJob] = useState(null);
+  const [userLikes, setUserLikes] = useState(new Set());
+  const [feedNotifications, setFeedNotifications] = useState([]);
 
   const handleApply = async (jobId, jobTitle) => {
     if (!token) {
@@ -126,6 +254,7 @@ export default function BrowseJob() {
       if (modalJob && modalJob._id === updatedJob._id) {
         setModalJob(updatedJob);
       }
+      
       alert(`Application recorded for ${jobTitle}.`);
     } catch (error) {
       console.error("Apply error", error);
@@ -236,7 +365,7 @@ export default function BrowseJob() {
     });
   };
 
-  const handleShare = (role) => {
+  const handleShareJob = (role) => {
     const message = `Check out this job: ${role} on Applica.`;
     if (navigator.share) {
       navigator.share({ title: role, text: message }).catch(() => {});
@@ -424,6 +553,17 @@ export default function BrowseJob() {
       if (selectedPost?._id === updatedPost._id) {
         setSelectedPost(updatedPost);
       }
+
+      const isLiked = updatedPost.likes?.some((id) => id.toString() === currentUserId?.toString());
+      if (isLiked) {
+        setUserLikes((prev) => new Set([...prev, postId]));
+      } else {
+        setUserLikes((prev) => {
+          const updated = new Set(prev);
+          updated.delete(postId);
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Toggle post like error', err);
     }
@@ -434,6 +574,68 @@ export default function BrowseJob() {
       openJobModal(post.jobId);
     } else {
       openPostModal(post);
+    }
+  };
+
+  const dismissNotification = async (notificationId) => {
+    setFeedNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    
+    // Mark as read in backend
+    try {
+      await axios.patch(
+        `http://localhost:8000/api/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Error marking notification as read", error);
+    }
+  };
+
+  const handleRepost = async (postId) => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+    const post = socialPosts.find((p) => p._id === postId);
+    if (!post) return;
+    
+    // Create a repost
+    try {
+      const repostContent = `Reposted from ${post.authorName}: "${post.content.substring(0, 50)}..."`;
+      const response = await axios.post(
+        'http://localhost:8000/api/posts',
+        {
+          content: repostContent,
+          tags: post.tags || [],
+          location: post.location,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setSocialPosts((prev) => [response.data.data, ...prev]);
+      alert('Post reposted successfully!');
+    } catch (error) {
+      console.error('Repost error', error);
+    }
+  };
+
+  const handleSharePost = (postId) => {
+    const post = socialPosts.find((p) => p._id === postId);
+    if (!post) return;
+    
+    const message = `${post.authorName}: ${post.content}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Applica Post', text: message }).catch(() => {});
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(message).then(() => {
+        alert('Post link copied to clipboard!');
+      });
     }
   };
 
@@ -467,8 +669,44 @@ export default function BrowseJob() {
       }
     };
 
+    const fetchNotifications = async () => {
+      if (!token) return;
+      try {
+        const response = await axios.get("http://localhost:8000/api/notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        // Safely extract notifications array
+        const notificationsArray = response.data?.data?.notifications || [];
+        
+        // Only show unread notifications as feed notifications
+        const unreadNotifs = notificationsArray.filter((n) => !n.read);
+        const formattedNotifs = unreadNotifs.map((n) => ({
+          id: n._id,
+          type: n.type,
+          author: n.actorName,
+          message: n.message,
+          postId: n.postId,
+          jobId: n.jobId,
+        }));
+        
+        setFeedNotifications(formattedNotifs);
+      } catch (error) {
+        console.error("Notifications fetch error:", error?.response?.status, error?.message);
+        // Don't throw - silently fail, notifications are optional
+      }
+    };
+
     fetchJobs();
     fetchSocialPosts();
+    fetchNotifications();
+    
+    // Poll for new notifications every 5 seconds
+    const notificationInterval = setInterval(fetchNotifications, 5000);
+    
+    return () => clearInterval(notificationInterval);
   }, [token]);
 
   const tabs = ["For you", "Trending", "Saved"];
@@ -646,23 +884,22 @@ export default function BrowseJob() {
         <div style={styles.feedColumn}>
           {currentUser?.role === "jobseeker" && (
             <div style={styles.postComposerCard}>
-              <h2 style={styles.postComposerTitle}>Share a job search update</h2>
-              <p style={styles.postComposerSubtitle}>
-                Post short updates, questions, or memes for your network.
-              </p>
-              <textarea
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="What's on your mind?"
-                style={styles.postComposerTextarea}
-              />
-              <input
-                value={newPostTags}
-                onChange={(e) => setNewPostTags(e.target.value)}
-                placeholder="Tags (comma separated)"
-                style={styles.postComposerInput}
-              />
-              
+              <div style={styles.composerTop}>
+                <div style={styles.composerAvatar}>
+                  {currentUser?.avatar ? (
+                    <img src={currentUser.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  ) : (
+                    currentUser?.firstName?.charAt(0) || "U"
+                  )}
+                </div>
+                <textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder="What's on your mind?"
+                  style={styles.composerTextarea}
+                />
+              </div>
+
               {mediaPreview && (
                 <div style={styles.mediaPreviewContainer}>
                   {newPostMedia?.type === 'video' ? (
@@ -670,43 +907,60 @@ export default function BrowseJob() {
                   ) : (
                     <img src={mediaPreview} alt="preview" style={styles.mediaPreviewItem} />
                   )}
-                  <button onClick={removeMediaPreview} style={styles.removeMediaButton}>✕ Remove</button>
+                  <button onClick={removeMediaPreview} style={styles.removeMediaButton}>✕</button>
                 </div>
               )}
 
               {newPostLocation && (
-                <div style={styles.locationTag}>
-                  📍 {newPostLocation.city}, {newPostLocation.region}
-                  <button onClick={() => setNewPostLocation(null)} style={{ marginLeft: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                <div style={styles.locationTagComposer}>
+                  <LocationIcon size={14} />
+                  {newPostLocation.city}, {newPostLocation.region}
+                  <button onClick={() => setNewPostLocation(null)} style={{ marginLeft: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
                 </div>
               )}
 
-              <div style={styles.composerActions}>
-                <label style={styles.actionIcon}>
-                  📎
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={handleMediaUpload}
-                    disabled={uploadingMedia}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+              <input
+                value={newPostTags}
+                onChange={(e) => setNewPostTags(e.target.value)}
+                placeholder="Tags (comma separated)"
+                style={styles.composerTagsInput}
+              />
+
+              <div style={styles.composerDivider} />
+              <div style={styles.composerBottom}>
+                <div style={styles.composerActionButtons}>
+                  <label style={styles.composerActionIcon} title="Attach media">
+                    <ImageIcon size={18} />
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={handleMediaUpload}
+                      disabled={uploadingMedia}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <button
+                    style={styles.composerActionIcon}
+                    onClick={() => setShowLocationModal(true)}
+                    title="Add location"
+                  >
+                    <LocationIcon size={18} />
+                  </button>
+                  <button
+                    style={styles.composerActionIcon}
+                    title="Add emoji"
+                  >
+                    <SmilieIcon size={18} />
+                  </button>
+                </div>
                 <button
-                  style={styles.actionIcon}
-                  onClick={() => setShowLocationModal(true)}
+                  style={styles.composerPostButton}
+                  onClick={handleCreatePost}
+                  disabled={uploadingMedia || !newPostContent.trim()}
                 >
-                  📍
+                  {uploadingMedia ? "Uploading..." : "Post"}
                 </button>
               </div>
-
-              <button
-                style={styles.postComposerButton}
-                onClick={handleCreatePost}
-                disabled={uploadingMedia}
-              >
-                {uploadingMedia ? "Uploading..." : "Post update"}
-              </button>
             </div>
           )}
 
@@ -746,8 +1000,9 @@ export default function BrowseJob() {
               <div style={styles.postBody} onClick={() => openPostOrJob(post)}>
                 <p style={styles.postText}>{post.content}</p>
                 {post.location && (
-                  <p style={{ ...styles.postMeta, marginTop: '8px' }}>
-                    📍 {post.location.city}, {post.location.region}
+                  <p style={{ ...styles.postMeta, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <LocationIcon size={14} />
+                    {post.location.city}, {post.location.region}
                   </p>
                 )}
               </div>
@@ -769,6 +1024,45 @@ export default function BrowseJob() {
                   ))}
                 </div>
               )}
+
+              <div style={styles.postEngagementDivider} />
+              
+              <div style={styles.postEngagementBar}>
+                <button
+                  style={{
+                    ...styles.engagementButton,
+                    color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
+                  }}
+                  onClick={() => togglePostLike(post._id)}
+                  title="Like this post"
+                >
+                  <HeartIcon 
+                    filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
+                    size={16} 
+                  />
+                  <span>{post.likes?.length || 0}</span>
+                </button>
+                <button style={styles.engagementButton} title="Comment on this post">
+                  <CommentIcon size={16} />
+                  <span>0</span>
+                </button>
+                <button 
+                  style={styles.engagementButton} 
+                  title="Repost this"
+                  onClick={() => handleRepost(post._id)}
+                >
+                  <RepostIcon size={16} />
+                  <span>0</span>
+                </button>
+                <button 
+                  style={styles.engagementButton} 
+                  title="Share this post"
+                  onClick={() => handleSharePost(post._id)}
+                >
+                  <ShareIcon size={16} />
+                </button>
+              </div>
+
               {editingPostId === post._id && (
                 <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                   <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
@@ -826,12 +1120,17 @@ export default function BrowseJob() {
                 </button>
                 <button
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     ...(post.userLiked ? styles.savedButton : styles.actionButton),
                   }}
                   onClick={() => handleToggleLike(post.id)}
                   disabled={jobActionLoading}
+                  title={post.userLiked ? 'Unlike this post' : 'Like this post'}
                 >
-                  {post.userLiked ? `Unlike (${post.likes})` : `Like (${post.likes})`}
+                  <HeartIcon filled={post.userLiked} size={16} />
+                  <span>{post.likes}</span>
                 </button>
                 <button
                   style={styles.actionButton}
@@ -949,12 +1248,17 @@ export default function BrowseJob() {
 
             <div style={styles.modalActions}>
               <button
-                style={styles.actionButton}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  ...styles.actionButton,
+                }}
                 onClick={() => togglePostLike(selectedPost._id)}
+                title="Like this post"
               >
-                {selectedPost.likes?.some((id) => id.toString() === currentUserId?.toString())
-                  ? `Unlike (${selectedPost.likes.length})`
-                  : `Like (${selectedPost.likes?.length || 0})`}
+                <HeartIcon filled={selectedPost.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
+                <span>{selectedPost.likes?.length || 0}</span>
               </button>
               <button
                 style={styles.actionButton}
@@ -1003,11 +1307,18 @@ export default function BrowseJob() {
 
             <div style={styles.modalActions}>
               <button
-                style={styles.actionButton}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  ...styles.actionButton,
+                }}
                 onClick={() => handleToggleLike(modalJob._id)}
                 disabled={jobActionLoading}
+                title="Like this job"
               >
-                {modalJob.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'Unlike' : 'Like'}
+                <HeartIcon filled={modalJob.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
+                <span>{modalJob.likes?.length || 0}</span>
               </button>
               <button
                 style={styles.actionButton}
@@ -1050,10 +1361,11 @@ export default function BrowseJob() {
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
                       cursor: 'pointer',
                       textAlign: 'left',
+                      color: 'var(--text)',
                     }}
                   >
                     {city}, {region}
@@ -1076,6 +1388,49 @@ export default function BrowseJob() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div style={styles.notificationToastContainer}>
+        {feedNotifications.map((notif) => (
+          <div key={notif.id} style={styles.notificationToast}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'white', lineHeight: '1.3' }}>
+                  {notif.type === 'like' ? '❤️' : '📨'} {notif.author}
+                </div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', marginTop: '6px', lineHeight: '1.4' }}>
+                  {notif.message}
+                </div>
+              </div>
+              <button
+                onClick={() => dismissNotification(notif.id)}
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  lineHeight: '1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '24px',
+                  minHeight: '24px',
+                  transition: 'background 0.2s',
+                  flexShrink: 0,
+                }}
+                onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.25)'}
+                onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
+                title="Dismiss notification"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1083,173 +1438,278 @@ export default function BrowseJob() {
 const styles = {
   container: {
     minHeight: "100vh",
-    backgroundColor: "#e5e7eb",
-    fontFamily: "Arial, sans-serif",
+    backgroundColor: "var(--bg)",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
     paddingBottom: "60px",
-    color: "#0f172a",
+    color: "var(--text)",
   },
   pageHeader: {
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
-    padding: "30px 20px 20px",
+    padding: "12px 20px 8px",
+    borderBottom: "1px solid var(--border)",
   },
   title: {
-    fontSize: "36px",
+    fontSize: "28px",
     fontWeight: "800",
-    marginBottom: "10px",
+    marginBottom: "2px",
+    letterSpacing: "-0.5px",
   },
   subtitle: {
-    fontSize: "16px",
-    lineHeight: "1.7",
+    fontSize: "12px",
+    lineHeight: "1.4",
     maxWidth: "760px",
-    color: "#475569",
-    marginBottom: "24px",
+    color: "var(--text-muted)",
+    marginBottom: "8px",
   },
   tabs: {
     display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-    marginBottom: "20px",
+    gap: "0",
+    flexWrap: "nowrap",
+    marginBottom: "0",
+    borderBottom: "1px solid var(--border)",
+    marginLeft: "-20px",
+    marginRight: "-20px",
+    paddingLeft: "20px",
+    overflowX: "auto",
   },
   tab: {
-    padding: "10px 18px",
-    borderRadius: "999px",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#0f172a",
+    padding: "12px 16px",
+    borderRadius: "0",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    background: "transparent",
+    color: "var(--text-muted)",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "14px",
+    transition: "all 0.2s",
+    whiteSpace: "nowrap",
   },
   activeTab: {
-    padding: "10px 18px",
-    borderRadius: "999px",
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#ffffff",
+    padding: "12px 16px",
+    borderRadius: "0",
+    border: "none",
+    borderBottom: "2px solid var(--primary)",
+    background: "transparent",
+    color: "var(--primary)",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "14px",
+    whiteSpace: "nowrap",
   },
   searchBarRow: {
-    marginBottom: "18px",
+    marginBottom: "8px",
+    paddingTop: "8px",
   },
   searchInput: {
     width: "100%",
-    maxWidth: "760px",
-    padding: "14px 18px",
-    borderRadius: "16px",
-    border: "1px solid #d1d5db",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "15px",
+    boxSizing: "border-box",
+    padding: "10px 14px",
+    borderRadius: "24px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    fontSize: "13px",
     outline: "none",
+    transition: "all 0.2s",
   },
   categoryChips: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "10px",
+    display: "none",
   },
   chip: {
-    padding: "10px 16px",
-    borderRadius: "999px",
-    border: "1px solid #d1d5db",
-    background: "#ffffff",
-    color: "#0f172a",
+    padding: "6px 12px",
+    borderRadius: "20px",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
     cursor: "pointer",
     fontWeight: "600",
+    fontSize: "12px",
+    transition: "all 0.2s",
   },
   filterRow: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    marginBottom: "18px",
+    flexWrap: "nowrap",
+    gap: "8px",
+    marginBottom: "0",
+    overflowX: "auto",
+    paddingBottom: "2px",
   },
   filterSelect: {
-    padding: "12px 14px",
-    borderRadius: "14px",
-    border: "1px solid #d1d5db",
-    background: "#ffffff",
-    color: "#0f172a",
-    fontSize: "14px",
+    padding: "8px 12px",
+    borderRadius: "20px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    fontSize: "11px",
     outline: "none",
-    minWidth: "170px",
+    minWidth: "115px",
+    fontWeight: "600",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   activeChip: {
-    padding: "10px 16px",
-    borderRadius: "999px",
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#ffffff",
+    padding: "6px 12px",
+    borderRadius: "20px",
+    border: "1px solid var(--primary)",
+    background: "rgba(29, 78, 216, 0.1)",
+    color: "var(--primary)",
     cursor: "pointer",
     fontWeight: "700",
+    fontSize: "12px",
   },
   feedSection: {
     display: "grid",
-    gridTemplateColumns: "1.45fr 0.85fr",
-    gap: "24px",
-    maxWidth: "1100px",
+    gridTemplateColumns: "1.5fr 1fr",
+    gap: "0",
+    maxWidth: "1200px",
     margin: "0 auto",
-    padding: "0 20px 40px",
+    padding: "0",
+    minHeight: "calc(100vh - 200px)",
   },
   feedColumn: {
     display: "grid",
-    gap: "18px",
+    gap: "0",
+    borderRight: "1px solid var(--border)",
   },
   postComposerCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "22px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-    display: "grid",
-    gap: "14px",
-  },
-  postComposerTitle: {
-    fontSize: "20px",
-    fontWeight: "800",
-    margin: 0,
-  },
-  postComposerSubtitle: {
-    margin: 0,
-    color: "#64748b",
-    fontSize: "14px",
-    lineHeight: "1.6",
-  },
-  postComposerTextarea: {
-    width: "100%",
-    minHeight: "120px",
-    borderRadius: "18px",
-    border: "1px solid #cbd5e1",
-    padding: "14px 16px",
-    fontSize: "15px",
-    color: "#0f172a",
-    resize: "vertical",
-    outline: "none",
-  },
-  postComposerInput: {
-    width: "100%",
-    borderRadius: "18px",
-    border: "1px solid #cbd5e1",
-    padding: "14px 16px",
-    fontSize: "15px",
-    color: "#0f172a",
-    outline: "none",
-  },
-  postComposerButton: {
-    width: "fit-content",
-    padding: "12px 20px",
-    borderRadius: "14px",
+    background: "var(--surface)",
+    borderRadius: "0",
+    padding: "16px",
     border: "none",
-    background: "#2563eb",
+    borderBottom: "1px solid var(--border)",
+    boxShadow: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  composerTop: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "flex-start",
+  },
+  composerAvatar: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    background: "var(--primary)",
+    color: "#ffffff",
+    display: "grid",
+    placeItems: "center",
+    fontWeight: "800",
+    fontSize: "18px",
+    flexShrink: 0,
+    marginTop: "8px",
+  },
+composerTextarea: {
+  width: "100%",
+  minHeight: "60px",
+  borderRadius: "12px",
+  border: "1px solid var(--border)",
+  padding: "12px 14px",
+  fontSize: "15px",
+  color: "var(--text)",
+  background: "var(--surface-alt)",
+  outline: "none",
+  overflow: "hidden",
+  fontFamily: "inherit",
+  transition: "border-color 0.2s, box-shadow 0.2s",
+  resize: "none",
+  lineHeight: "1.5",
+},
+  locationTagComposer: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    background: "rgba(29, 78, 216, 0.1)",
+    color: "var(--primary)",
+    fontSize: "12px",
+    fontWeight: "600",
+    marginLeft: "60px",
+    width: "fit-content",
+  },
+ composerTagsInput: {
+  width: "100%",
+  borderRadius: "12px",
+  border: "1px solid var(--border)",
+  padding: "10px 12px",
+  fontSize: "12px",
+  color: "var(--text)",
+  background: "var(--surface-alt)",
+  outline: "none",
+  transition: "border-color 0.2s",
+  boxSizing: "border-box",
+},
+  composerDivider: {
+    height: "1px",
+    background: "var(--border)",
+    marginLeft: "-16px",
+    marginRight: "-16px",
+    marginTop: "8px",
+    marginBottom: "8px",
+  },
+  composerBottom: {
+
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+   width: "100%",
+  boxSizing: "border-box",
+  paddingLeft: "60px",
+    gap: "12px",
+  },
+  composerActionButtons: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
+  composerActionIcon: {
+    fontSize: "18px",
+    cursor: "pointer",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    background: "transparent",
+    border: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "background 0.2s",
+    color: "var(--primary)",
+  },
+  composerPostButton: {
+    padding: "10px 24px",
+    borderRadius: "20px",
+    border: "none",
+    background: "var(--primary)",
     color: "#ffffff",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "14px",
+    transition: "opacity 0.2s",
+    minWidth: "80px",
+  },
+  postComposerTitle: {
+    fontSize: "18px",
+    fontWeight: "700",
+    margin: 0,
+    color: "var(--text-h)",
+  },
+  postComposerSubtitle: {
+    margin: 0,
+    color: "var(--text-muted)",
+    fontSize: "13px",
+    lineHeight: "1.4",
   },
   mediaPreviewContainer: {
     position: "relative",
     borderRadius: "12px",
     overflow: "hidden",
     marginTop: "8px",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "var(--surface-alt)",
   },
   mediaPreviewItem: {
     width: "100%",
@@ -1261,7 +1721,7 @@ const styles = {
     position: "absolute",
     top: "8px",
     right: "8px",
-    background: "#ef4444",
+    background: "rgba(0, 0, 0, 0.6)",
     color: "#ffffff",
     border: "none",
     borderRadius: "50%",
@@ -1269,234 +1729,319 @@ const styles = {
     height: "32px",
     cursor: "pointer",
     fontWeight: "700",
+    transition: "background 0.2s",
   },
   locationTag: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    background: "#e0f2fe",
-    color: "#0369a1",
-    fontSize: "14px",
+    gap: "6px",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    background: "rgba(29, 78, 216, 0.1)",
+    color: "var(--primary)",
+    fontSize: "12px",
     fontWeight: "600",
-    marginTop: "8px",
+    marginTop: "0",
+    marginLeft: "60px",
   },
   composerActions: {
     display: "flex",
-    gap: "12px",
+    gap: "8px",
     justifyContent: "flex-start",
   },
   actionIcon: {
-    fontSize: "20px",
+    fontSize: "18px",
     cursor: "pointer",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    background: "#f1f5f9",
-    border: "1px solid #cbd5e1",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    background: "transparent",
+    border: "none",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    transition: "background 0.2s",
+    color: "var(--primary)",
   },
   socialFeedHeading: {
-    marginTop: "4px",
-    marginBottom: "4px",
+    marginTop: "0",
+    marginBottom: "0",
+    padding: "16px 20px",
+    borderBottom: "1px solid var(--border)",
   },
   socialPostCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "20px",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+    background: "var(--surface)",
+    borderRadius: "0",
+    padding: "16px 20px",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
+    boxShadow: "none",
+    transition: "background 0.2s",
+    "&:hover": {
+      background: "rgba(255,255,255,0.02)",
+    },
   },
   socialPostHeader: {
     display: "flex",
-    gap: "14px",
-    marginBottom: "14px",
+    gap: "12px",
+    marginBottom: "12px",
   },
   sidebarColumn: {
     display: "grid",
-    gap: "18px",
+    gap: "0",
+    paddingLeft: "20px",
   },
   xPostCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "20px",
-    boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-    border: "1px solid #e2e8f0",
+    background: "var(--surface)",
+    borderRadius: "0",
+    padding: "16px 20px",
+    boxShadow: "none",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
+    transition: "background 0.2s",
   },
   postHeaderRow: {
     display: "flex",
-    gap: "14px",
-    marginBottom: "16px",
+    gap: "12px",
+    marginBottom: "12px",
   },
   postAvatar: {
     width: "48px",
     height: "48px",
     borderRadius: "50%",
-    background: "#2563eb",
+    background: "var(--primary)",
     color: "#ffffff",
     display: "grid",
     placeItems: "center",
     fontWeight: "800",
     fontSize: "18px",
+    flexShrink: 0,
   },
   postHeading: {
     minWidth: 0,
+    flex: 1,
   },
   postCompanyRow: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
     flexWrap: "wrap",
   },
   postCompany: {
-    fontSize: "15px",
+    fontSize: "14px",
     fontWeight: "800",
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   postDot: {
-    color: "#94a3b8",
+    color: "var(--text-muted)",
+    fontSize: "12px",
   },
   postMeta: {
-    color: "#64748b",
+    color: "var(--text-muted)",
     fontSize: "13px",
   },
   postTagline: {
-    margin: "6px 0 0 0",
-    color: "#475569",
-    fontSize: "14px",
+    margin: "4px 0 0 0",
+    color: "var(--text-muted)",
+    fontSize: "13px",
   },
   postBody: {
-    marginBottom: "16px",
+    marginBottom: "12px",
+    cursor: "pointer",
   },
   postRole: {
-    fontSize: "22px",
+    fontSize: "20px",
     fontWeight: "800",
-    margin: "0 0 12px 0",
-    lineHeight: "1.2",
+    margin: "0 0 8px 0",
+    lineHeight: "1.3",
+    color: "var(--text-h)",
   },
   postText: {
-    fontSize: "15px",
-    lineHeight: "1.8",
-    color: "#334155",
+    fontSize: "14px",
+    lineHeight: "1.6",
+    color: "var(--text)",
     margin: 0,
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
   },
   postTags: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "10px",
-    marginBottom: "16px",
+    gap: "8px",
+    marginBottom: "12px",
   },
   postTag: {
-    color: "#2563eb",
+    color: "var(--primary)",
     fontWeight: "700",
+    fontSize: "12px",
+  },
+  postEngagementDivider: {
+    height: "1px",
+    background: "var(--border)",
+    margin: "12px -20px 0",
+    marginRight: "-20px",
+  },
+  postEngagementBar: {
+    display: "flex",
+    justifyContent: "space-around",
+    gap: "0",
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    color: "var(--text-muted)",
     fontSize: "13px",
+    marginLeft: "-20px",
+    marginRight: "-20px",
+    paddingLeft: "20px",
+    paddingRight: "20px",
+  },
+  engagementButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "none",
+    border: "none",
+    color: "var(--text-muted)",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "500",
+    padding: "8px 12px",
+    borderRadius: "50%",
+    transition: "color 0.2s, background 0.2s",
+    "&:hover": {
+      background: "rgba(29, 78, 216, 0.1)",
+      color: "var(--primary)",
+    },
   },
   postStatsRow: {
     display: "flex",
-    gap: "16px",
+    gap: "14px",
     flexWrap: "wrap",
-    color: "#64748b",
-    fontSize: "14px",
-    marginBottom: "16px",
+    color: "var(--text-muted)",
+    fontSize: "13px",
+    marginBottom: "12px",
+    paddingBottom: "12px",
+    borderBottom: "1px solid var(--border)",
   },
   postStatItem: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
   },
   postActionRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-    gap: "10px",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "8px",
   },
   actionButton: {
-    borderRadius: "14px",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#0f172a",
-    padding: "12px 10px",
-    fontWeight: "700",
+    borderRadius: "6px",
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "var(--text-muted)",
+    padding: "8px 12px",
+    fontWeight: "600",
     cursor: "pointer",
+    fontSize: "13px",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
   },
   profileLinkButton: {
-    borderRadius: "14px",
-    border: "1px solid #cbd5e1",
-    background: "#eef2ff",
-    color: "#1d4ed8",
-    padding: "10px 14px",
+    borderRadius: "20px",
+    border: "1px solid var(--primary)",
+    background: "transparent",
+    color: "var(--primary)",
+    padding: "8px 14px",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "13px",
+    transition: "all 0.2s",
   },
   savedButton: {
-    borderRadius: "14px",
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#ffffff",
-    padding: "12px 10px",
-    fontWeight: "700",
+    borderRadius: "6px",
+    border: "1px solid transparent",
+    background: "rgba(29, 78, 216, 0.1)",
+    color: "var(--primary)",
+    padding: "8px 12px",
+    fontWeight: "600",
     cursor: "pointer",
+    fontSize: "13px",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
   },
   sidebarCard: {
-    background: "#ffffff",
-    borderRadius: "24px",
-    padding: "20px",
-    boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-    border: "1px solid #e2e8f0",
+    background: "transparent",
+    borderRadius: "0",
+    padding: "16px 0",
+    boxShadow: "none",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
   },
   sidebarHeader: {
-    marginBottom: "18px",
+    marginBottom: "12px",
   },
   sidebarTitle: {
-    fontSize: "18px",
+    fontSize: "16px",
     fontWeight: "800",
     margin: 0,
+    color: "var(--text-h)",
   },
   sidebarSubtitle: {
-    margin: "8px 0 0 0",
-    fontSize: "14px",
-    color: "#64748b",
+    margin: "6px 0 0 0",
+    fontSize: "13px",
+    color: "var(--text-muted)",
   },
   trendingList: {
     display: "grid",
-    gap: "10px",
+    gap: "0",
   },
   trendingItem: {
     width: "100%",
     textAlign: "left",
-    padding: "12px 14px",
-    borderRadius: "16px",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    color: "#2563eb",
+    padding: "12px 0",
+    borderRadius: "0",
+    background: "transparent",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
+    color: "var(--primary)",
     fontWeight: "700",
     cursor: "pointer",
+    fontSize: "13px",
+    transition: "background 0.2s",
   },
   companyList: {
     listStyle: "none",
     padding: 0,
     margin: 0,
     display: "grid",
-    gap: "10px",
+    gap: "0",
   },
   companyItem: {
-    padding: "12px 14px",
-    borderRadius: "16px",
-    background: "#f8fafc",
-    color: "#0f172a",
+    padding: "12px 0",
+    borderRadius: "0",
+    background: "transparent",
+    color: "var(--text)",
     fontWeight: "600",
+    fontSize: "13px",
+    borderBottom: "1px solid var(--border)",
   },
   shortcutButton: {
     width: "100%",
-    padding: "14px 16px",
-    borderRadius: "16px",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#0f172a",
+    padding: "12px 0",
+    borderRadius: "0",
+    border: "none",
+    borderBottom: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
     fontWeight: "700",
     cursor: "pointer",
-    marginBottom: "10px",
+    fontSize: "13px",
+    transition: "opacity 0.2s",
+    marginBottom: "0",
+    textAlign: "left",
   },
   modalOverlay: {
     position: "fixed",
@@ -1506,35 +2051,78 @@ const styles = {
     placeItems: "center",
     zIndex: 2000,
     padding: "20px",
+    backdropFilter: "blur(5px)",
   },
   modalCard: {
     width: "100%",
-    maxWidth: "900px",
-    background: "#fff",
-    color: "#0f172a",
+    maxWidth: "600px",
+    background: "var(--surface)",
+    color: "var(--text)",
     borderRadius: "16px",
-    padding: "20px",
-    boxShadow: "0 10px 40px rgba(2,6,23,0.4)",
+    padding: "0",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+    border: "1px solid var(--border)",
+    display: "flex",
+    flexDirection: "column",
+    maxHeight: "90vh",
+    overflow: "hidden",
   },
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "8px",
+    padding: "16px 20px",
+    borderBottom: "1px solid var(--border)",
+    flexShrink: 0,
   },
   modalClose: {
     background: "transparent",
     border: "none",
     fontSize: "20px",
     cursor: "pointer",
+    color: "var(--text-muted)",
+    padding: "4px 8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.2s",
   },
   modalCompany: {
-    color: "#475569",
+    color: "var(--text-muted)",
     marginTop: 0,
     marginBottom: "12px",
+    fontSize: "13px",
   },
   modalBody: {
-    maxHeight: "60vh",
-    overflow: "auto",
+    maxHeight: "calc(90vh - 120px)",
+    overflowY: "auto",
+    padding: "20px",
+    flex: 1,
+  },
+  modalActions: {
+    display: "flex",
+    gap: "10px",
+    padding: "12px 20px",
+    borderTop: "1px solid var(--border)",
+    flexShrink: 0,
+  },
+  notificationToastContainer: {
+    position: "fixed",
+    bottom: "80px",
+    left: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    maxWidth: "320px",
+    zIndex: 999,
+  },
+  notificationToast: {
+    background: "linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%)",
+    color: "white",
+    padding: "14px 16px",
+    borderRadius: "12px",
+    boxShadow: "0 8px 24px rgba(29, 78, 216, 0.4)",
+    animation: "slideIn 0.3s ease-out",
+    border: "1px solid rgba(255,255,255,0.1)",
   },
 };

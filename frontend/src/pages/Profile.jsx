@@ -455,118 +455,6 @@ export default function Profile() {
       backgroundColor: isDarkMode ? "#1a1a1a" : "#f8fafc",
       color: isDarkMode ? "#ffffff" : "#000",
     }}>
-      {/* Navbar */}
-      <nav style={{
-        ...styles.navbar,
-        backgroundColor: isDarkMode ? "#0f0f0f" : "#ffffff",
-      }}>
-        <div style={styles.navContent}>
-          <div
-            style={styles.logo}
-            onClick={() => navigate("/")}
-          >
-            <img
-              src="/src/assets/Applica_Logo.png"
-              alt="Applica"
-              style={styles.logoImage}
-            />
-            <span style={styles.logoText}>
-              Applica
-            </span>
-          </div>
-
-          <div style={styles.navLinks}>
-            <a
-              href="#"
-              style={{
-                ...styles.navLink,
-                color: isDarkMode ? "#ccc" : "#666",
-              }}
-            >
-              Browse Jobs
-            </a>
-            <a
-              href="#"
-              style={{
-                ...styles.navLink,
-                color: isDarkMode ? "#ccc" : "#666",
-              }}
-            >
-              Companies
-            </a>
-            <a
-              href="#"
-              style={{
-                ...styles.navLink,
-                color: isDarkMode ? "#ccc" : "#666",
-              }}
-            >
-              Resources
-            </a>
-          </div>
-
-          <div style={styles.navActions}>
-            <ThemeSwitch 
-              isDarkMode={isDarkMode} 
-              toggleTheme={toggleTheme} 
-            />
-
-            <div style={styles.profileMenu}>
-              <button
-                style={styles.profileButton}
-                onClick={() =>
-                  setUserMenuOpen(!userMenuOpen)
-                }
-              >
-                <span style={styles.profileIcon}>
-                  ⋯
-                </span>
-              </button>
-
-              {userMenuOpen && (
-                <div style={{
-                  ...styles.dropdown,
-                  backgroundColor: isDarkMode ? "#2a2a2a" : "#ffffff",
-                  borderColor: isDarkMode ? "#444" : "#e0e0e0",
-                }}>
-                  <button
-                    style={{
-                      ...styles.dropdownItem,
-                      color: isDarkMode ? "#ccc" : "#333",
-                      borderColor: isDarkMode ? "#444" : "#f0f0f0",
-                    }}
-                    onClick={() =>
-                      navigate("/profile")
-                    }
-                  >
-                    My Profile
-                  </button>
-                  <button
-                    style={{
-                      ...styles.dropdownItem,
-                      color: isDarkMode ? "#ccc" : "#333",
-                      borderColor: isDarkMode ? "#444" : "#f0f0f0",
-                    }}
-                  >
-                    Settings
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      ...styles.dropdownItem,
-                      color: "#ff4757",
-                      borderBottom: "none",
-                    }}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Main Content */}
       <div style={styles.mainContent}>
         <div style={{
@@ -778,12 +666,23 @@ export default function Profile() {
               borderColor: isDarkMode ? "#333" : "#f0f0f0",
               backgroundColor: isDarkMode ? "#0f0f0f" : "#ffffff",
             }}>
-              <h2 style={{
-                ...styles.sectionTitle,
-                color: isDarkMode ? "#ffffff" : "#000",
-              }}>
-                Employer Profile
-              </h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h2 style={{
+                  ...styles.sectionTitle,
+                  color: isDarkMode ? "#ffffff" : "#000",
+                  margin: 0,
+                }}>
+                  Employer Profile
+                </h2>
+                {isOwnProfile && (
+                  <button
+                    style={styles.smallEditButton}
+                    onClick={() => navigate("/create/employer")}
+                  >
+                    Edit Profile
+                  </button>
+                )}
+              </div>
 
               <div style={styles.detailsGrid}>
                 <div style={styles.detailItem}>
@@ -1108,6 +1007,7 @@ export default function Profile() {
             </h2>
 
             <div style={styles.statusContainer}>
+              {(completion < 100) && (
               <div style={styles.statusItem}>
                 <span style={{
                   ...styles.statusLabel,
@@ -1134,6 +1034,7 @@ export default function Profile() {
                   {completion}% complete
                 </span>
               </div>
+              )}
             </div>
           </div>
 
@@ -1533,6 +1434,17 @@ const styles = {
   statusValue: {
     fontSize: "14px",
     color: "#666",
+  },
+
+  smallEditButton: {
+    padding: "8px 14px",
+    borderRadius: "10px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "13px",
   },
 
   loadingText: {

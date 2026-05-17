@@ -83,22 +83,9 @@ const CreateJob = () => {
 
   return (
     <div style={styles.container}>
-      {/* NAVBAR */}
-      <nav style={styles.navbar}>
-        <div style={styles.logoContainer}>
-          <img
-            src="/src/assets/Applica_Logo.png"
-            alt="logo"
-            style={styles.logo}
-          />
-          <h2 style={styles.logoText}>Applica</h2>
-        </div>
-
-        <button style={styles.backBtn} onClick={() => navigate("/profile")}>
-          ← Back
-        </button>
-      </nav>
-
+      <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16 }}>
+        <button style={styles.backBtn} onClick={() => navigate("/profile")}>← Back</button>
+      </div>
       {/* MAIN */}
       <div style={styles.main}>
         <div style={styles.card}>

@@ -34,6 +34,29 @@ const postSchema = new mongoose.Schema(
       },
     },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    comments: [
+      {
+        _id: mongoose.Schema.Types.ObjectId,
+        author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        authorName: String,
+        authorAvatar: String,
+        content: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    views: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    shares: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        sharedAt: { type: Date, default: Date.now },
+      },
+    ],
+    reposts: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        repostedAt: { type: Date, default: Date.now },
+      },
+    ],
     archived: {
       type: Boolean,
       default: false,

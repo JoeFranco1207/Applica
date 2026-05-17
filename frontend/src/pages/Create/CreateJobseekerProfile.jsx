@@ -282,28 +282,9 @@ const CreateJobseekerProfile = () => {
 
   return (
     <div style={styles.container}>
-      {/* NAVBAR */}
-      <nav style={styles.navbar}>
-        <div style={styles.logoContainer}>
-          <img
-            src="/src/assets/Applica_Logo.png"
-            alt="logo"
-            style={styles.logo}
-          />
-
-          <h2 style={styles.logoText}>
-            Applica
-          </h2>
-        </div>
-
-        <button
-          style={styles.backBtn}
-          onClick={() => navigate("/profile")}
-        >
-          ← Back
-        </button>
-      </nav>
-
+      <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16 }}>
+        <button style={styles.backBtn} onClick={() => navigate("/profile")}>← Back</button>
+      </div>
       {/* MAIN */}
       <div style={styles.main}>
         <div style={styles.card}>
@@ -624,10 +605,9 @@ const CreateJobseekerProfile = () => {
 const styles = {
   container: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(to right, #0f172a, #1e293b)",
-    fontFamily: "Arial",
-    color: "#fff",
+    background: "var(--bg)",
+    fontFamily: "Arial, sans-serif",
+    color: "var(--text)",
   },
 
   navbar: {
@@ -638,8 +618,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "0 40px",
-    borderBottom:
-      "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid var(--border)",
   },
 
   logoContainer: {
@@ -655,13 +634,13 @@ const styles = {
   logoText: {
     fontSize: "1.5rem",
     fontWeight: "bold",
+    color: "var(--text-h)",
   },
 
   backBtn: {
     background: "transparent",
-    color: "#fff",
-    border:
-      "1px solid rgba(255,255,255,0.3)",
+    color: "var(--text-h)",
+    border: "1px solid var(--border)",
     padding: "10px 18px",
     borderRadius: "10px",
     cursor: "pointer",
@@ -676,21 +655,22 @@ const styles = {
   card: {
     width: "100%",
     maxWidth: "1000px",
-    background: "rgba(255,255,255,0.08)",
+    background: "var(--surface)",
     borderRadius: "24px",
     backdropFilter: "blur(12px)",
     padding: "40px",
-    boxShadow:
-      "0 10px 40px rgba(0,0,0,0.3)",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border)",
   },
 
   title: {
     fontSize: "2.5rem",
     marginBottom: "10px",
+    color: "var(--text-h)",
   },
 
   subtitle: {
-    color: "#cbd5e1",
+    color: "var(--muted)",
     marginBottom: "30px",
   },
 
@@ -715,15 +695,15 @@ const styles = {
   label: {
     fontWeight: "600",
     fontSize: "0.95rem",
+    color: "var(--text-h)",
   },
 
   input: {
     padding: "14px",
     borderRadius: "12px",
-    border:
-      "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.1)",
-    color: "#fff",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
     fontSize: "1rem",
     outline: "none",
   },
@@ -732,10 +712,9 @@ const styles = {
     minHeight: "120px",
     padding: "14px",
     borderRadius: "12px",
-    border:
-      "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.1)",
-    color: "#fff",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
     resize: "vertical",
     fontSize: "1rem",
     outline: "none",
@@ -744,14 +723,14 @@ const styles = {
   locationTitle: {
     marginTop: "20px",
     fontSize: "1.5rem",
+    color: "var(--text-h)",
   },
 
   mapContainer: {
     marginTop: "20px",
     borderRadius: "20px",
     overflow: "hidden",
-    border:
-      "2px solid rgba(255,255,255,0.1)",
+    border: "2px solid var(--border)",
   },
 
   map: {
@@ -768,10 +747,9 @@ const styles = {
   cancelBtn: {
     padding: "14px 24px",
     borderRadius: "12px",
-    border:
-      "1px solid rgba(255,255,255,0.2)",
+    border: "1px solid var(--border)",
     background: "transparent",
-    color: "#fff",
+    color: "var(--text-h)",
     cursor: "pointer",
     fontWeight: "600",
   },
@@ -780,8 +758,8 @@ const styles = {
     padding: "14px 24px",
     borderRadius: "12px",
     border: "none",
-    background: "#3b82f6",
-    color: "#fff",
+    background: "var(--primary)",
+    color: "var(--cta-text)",
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "1rem",
@@ -801,8 +779,8 @@ const styles = {
     width: "150px",
     height: "150px",
     borderRadius: "50%",
-    border: "2px dashed rgba(255,255,255,0.4)",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    border: "2px dashed var(--border)",
+    backgroundColor: "var(--surface-alt)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

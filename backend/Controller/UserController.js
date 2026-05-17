@@ -1,4 +1,4 @@
-import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService } from '../Services/User.service.js';
+import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService, deleteUserService } from '../Services/User.service.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
 import jwt from 'jsonwebtoken';
@@ -124,6 +124,21 @@ export const getProfile = async (req, res, next) => {
   try {
     const user = await getProfileService(req.user.id);
     return res.success(new AppSuccessful("Profile retrieved successfully", 200, user));
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+};
+
+export const deleteUser = async (req, res, next) => {
+  try {
+    const result = await deleteUserService(req.user.id);
+    res.clearCookie('Authorization', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+    });
+    return res.success(new AppSuccessful('User account deleted successfully', 200, result));
   } catch (err) {
     console.log(err);
     return next(err);

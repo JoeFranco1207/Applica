@@ -1,0 +1,197 @@
+/* X.com-style Feed */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+/* Hide filter scrollbar for cleaner look */
+::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
+
+/* Smooth scrolling */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Composer improvements */
+textarea:focus,
+input:focus {
+  border-color: var(--primary) !important;
+  background-color: var(--surface) !important;
+}
+
+/* Hover effects for composer action icons */
+[title="Attach media"],
+[title="Add location"],
+[title="Add emoji"] {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+[title="Attach media"]:hover,
+[title="Add location"]:hover,
+[title="Add emoji"]:hover {
+  background-color: rgba(29, 78, 216, 0.1);
+  color: var(--primary);
+}
+
+/* Composer textarea focus effect */
+textarea[placeholder="What's on your mind?"]:focus {
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.1);
+}
+
+/* Post button hover and disabled states */
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+
+/* Search and filter section improvements */
+div[style*="overflowX: \"auto\""] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for modal content - visible only on hover */
+div[style*="overflow-y: auto"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+  background: rgba(105, 105, 105, 0.3);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+div[style*="overflow-y: auto"]:hover::-webkit-scrollbar-thumb {
+  background: rgba(105, 105, 105, 0.5);
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(105, 105, 105, 0.8);
+}
+
+/* Textarea scrollbar */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(105, 105, 105, 0.3);
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(105, 105, 105, 0.6);
+}
+
+/* Smooth transitions */
+button {
+  transition: all 0.15s ease-in-out;
+}
+
+/* Toast notification animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Engagement button hover effects */
+button[title="Like this post"],
+button[title="Comment on this post"],
+button[title="Repost this"],
+button[title="Share this post"] {
+  transition: all 0.2s ease;
+}
+
+button[title="Like this post"]:hover,
+button[title="Comment on this post"]:hover,
+button[title="Repost this"]:hover,
+button[title="Share this post"]:hover {
+  color: var(--primary);
+  transform: scale(1.1);
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Post card hover effect */
+div[style*="borderBottom: 1px solid"] {
+  transition: background-color 0.2s;
+}
+
+div[style*="borderBottom: 1px solid"]:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Dark mode hover */
+[data-theme="dark"] div[style*="borderBottom: 1px solid"]:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Smooth modal appearance */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+div[style*="position: fixed"][style*="backgroundColor: rgba(0,0,0,0.5)"] {
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+/* Search input styling */
+input[placeholder*="Search"] {
+  transition: all 0.2s;
+}
+
+input[placeholder*="Search"]:focus {
+  background-color: var(--surface);
+  border-color: var(--primary);
+}
+
+/* Filter and chip styling */
+select {
+  transition: all 0.2s;
+}
+
+select:hover {
+  border-color: var(--primary);
+}
+
+select:focus {
+  border-color: var(--primary);
+  background-color: var(--surface);
+}
+
+

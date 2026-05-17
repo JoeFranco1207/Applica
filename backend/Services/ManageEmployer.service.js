@@ -1,6 +1,7 @@
 import Admin from "../Model/AdminSchema.js";
 import Employer from "../Model/EmployerSchema.js";
 import AppError from "../Middleware/AppError.js";
+import { deleteUserService } from './User.service.js';
 import { doHash, doHashValidation } from "../validator/Hashing.js";
 import jwt from 'jsonwebtoken';
 
@@ -120,8 +121,7 @@ export const deleteEmployer = async (employerId) => {
     if (!employer) {
       throw new AppError("Employer not found", 404);
     }
-    await Employer.findByIdAndDelete(employerId);
-    return { message: "Employer deleted successfully" };
+    return deleteUserService(employerId);
 }
 
 

@@ -84,33 +84,6 @@ const ProfileSelection = () => {
       <div style={styles.glow1}></div>
       <div style={styles.glow2}></div>
 
-      {/* NAVBAR */}
-      <nav style={styles.navbar}>
-        <div style={styles.logoContainer}>
-          <div
-            style={styles.logoWrapper}
-            onClick={handleBack}
-          >
-            <img
-              src="/src/assets/Applica_Logo.png"
-              alt="Applica"
-              style={styles.logoImage}
-            />
-
-            <span style={styles.logoText}>
-              Applica
-            </span>
-          </div>
-
-          <button
-            style={styles.backButton}
-            onClick={handleBack}
-          >
-            ← Back
-          </button>
-        </div>
-      </nav>
-
       {/* MAIN */}
       <div style={styles.main}>
         <div style={styles.heroSection}>

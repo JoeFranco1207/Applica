@@ -4,6 +4,37 @@ import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
 import axios from "axios";
 
+const HeartIcon = ({ filled = false, size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
+const CommentIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const RepostIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="17 1 21 5 17 9" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <polyline points="7 23 3 19 7 15" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+
+const ShareIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
 const calculateEmployerProfileCompletion = (user) => {
   if (!user || user.role !== "employer") return 0;
 
@@ -76,6 +107,13 @@ export default function Profile() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [myPosts, setMyPosts] = useState([]);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [replyingToCommentId, setReplyingToCommentId] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
 
   const navigate = useNavigate();
   const { id: profileId } = useParams();
@@ -191,6 +229,77 @@ export default function Profile() {
   const closeApplicantModal = () => {
     setSelectedApplicant(null);
     setShowApplicantModal(false);
+  };
+
+  const openPostModal = (post) => {
+    setSelectedPost(post);
+    setCommentText("");
+    setShowPostModal(true);
+  };
+
+  const closePostModal = () => {
+    setShowPostModal(false);
+    setSelectedPost(null);
+    setCommentText("");
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim() || !selectedPost) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setCommentLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/post/${selectedPost._id}/comment`,
+        { content: commentText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data && response.data.data) {
+        setSelectedPost(response.data.data);
+        setCommentText("");
+        const updatedPosts = myPosts.map((p) =>
+          p._id === selectedPost._id ? response.data.data : p
+        );
+        setMyPosts(updatedPosts);
+      }
+    } catch (error) {
+      console.error("Error posting comment:", error);
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const submitReply = async (commentId) => {
+    if (!replyText.trim() || !selectedPost) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setReplyLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/post/${selectedPost._id}/comment/${commentId}/reply`,
+        { content: replyText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data && response.data.data) {
+        setSelectedPost(response.data.data);
+        setReplyText("");
+        setReplyingToCommentId(null);
+        const updatedPosts = myPosts.map((p) =>
+          p._id === selectedPost._id ? response.data.data : p
+        );
+        setMyPosts(updatedPosts);
+      }
+    } catch (error) {
+      console.error("Error posting reply:", error);
+    } finally {
+      setReplyLoading(false);
+    }
   };
 
   const openImageModal = () => {
@@ -1051,23 +1160,284 @@ export default function Profile() {
                 Your Posts
               </h2>
 
-              <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 16 }}>
                 {myPosts.map((post) => (
-                  <div key={post._id} style={{ padding: 12, borderRadius: 12, border: '1px solid #e6eef9', background: isDarkMode ? '#071022' : '#fff' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center' }}>
-                        {post.authorAvatar ? <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user?.firstName?.charAt(0) || 'U')}
+                  <div 
+                    key={post._id} 
+                    onClick={() => openPostModal(post)}
+                    style={{ padding: 16, borderRadius: 18, border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', background: isDarkMode ? '#071022' : '#fff', cursor: 'pointer', transition: 'all 0.3s ease', }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#3f3f46' : '#d1d5db'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#1f2937' : '#e6eef9'}
+                  >
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        {post.authorAvatar ? (
+                          <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          user?.firstName?.charAt(0) || 'U'
+                        )}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
                           <strong style={{ color: isDarkMode ? '#fff' : '#0f172a' }}>{post.authorName}</strong>
-                          <span style={{ color: '#64748b', fontSize: 12 }}>{new Date(post.createdAt).toLocaleString()}</span>
+                          <span style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>{new Date(post.createdAt).toLocaleString()}</span>
                         </div>
-                        <p style={{ margin: '8px 0 0 0', color: isDarkMode ? '#cbd5e1' : '#334155' }}>{post.content}</p>
+                        {post.tags?.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                            {post.tags.map((tag, index) => (
+                              <span key={`${post._id}-tag-${index}`} style={{ fontSize: 12, color: '#2563eb', background: isDarkMode ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: 999 }}>{`#${tag}`}</span>
+                            ))}
+                          </div>
+                        )}
+                        <p style={{ margin: '12px 0 0 0', color: isDarkMode ? '#cbd5e1' : '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{post.content}</p>
+                        {post.media?.data && (
+                          <div style={{ marginTop: 14, borderRadius: 16, overflow: 'hidden', background: '#000' }}>
+                            <img src={post.media.data} alt="Post media" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 320 }} />
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 14, color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 12, alignItems: 'center' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><HeartIcon size={16} filled={post.likes?.length > 0} />{post.likes?.length || 0}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CommentIcon size={16} />{post.comments?.length || 0}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><RepostIcon size={16} />{post.reposts?.length || 0}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ShareIcon size={16} />{post.shares?.length || 0}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {showPostModal && selectedPost && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={closePostModal}>
+              <div 
+                style={{ 
+                  background: isDarkMode ? '#0f172a' : '#fff', 
+                  borderRadius: 18, 
+                  maxWidth: 600, 
+                  width: '90%', 
+                  maxHeight: '85vh', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+                }} 
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, borderBottom: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', gap: 16 }}>
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ margin: 0, color: isDarkMode ? '#fff' : '#000', fontSize: 18 }}>Post details</h2>
+                    <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: 13 }}>
+                      {selectedPost.authorName || 'Unknown author'} · {selectedPost.authorRole || 'User'}
+                    </p>
+                  </div>
+                  <button style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: isDarkMode ? '#cbd5e1' : '#334155' }} onClick={closePostModal}>✕</button>
+                </div>
+
+                {/* Modal Action Buttons (Edit, Archive, Delete) - only show for post owner */}
+                {isOwnProfile && (
+                  <div style={{ display: 'flex', gap: 8, padding: '0 20px', paddingTop: 8, borderBottom: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9' }}>
+                    <button style={{ padding: '8px 12px', fontSize: 13, background: isDarkMode ? '#1f2937' : '#f1f5f9', border: 'none', borderRadius: 8, color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer' }}>Edit</button>
+                    <button style={{ padding: '8px 12px', fontSize: 13, background: isDarkMode ? '#1f2937' : '#f1f5f9', border: 'none', borderRadius: 8, color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer' }}>Archive</button>
+                    <button style={{ padding: '8px 12px', fontSize: 13, background: '#fee2e2', border: 'none', borderRadius: 8, color: '#991b1b', cursor: 'pointer' }}>Delete</button>
+                  </div>
+                )}
+
+                {/* Modal Body - Scrollable */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20, color: isDarkMode ? '#e2e8f0' : '#334155' }}>
+                  {/* Post Header with Avatar and Time */}
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div 
+                      style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, cursor: 'pointer' }}
+                      onClick={() => { closePostModal(); navigate(`/profile/${selectedPost.author}`); }}
+                    >
+                      {selectedPost.authorAvatar ? (
+                        <img src={selectedPost.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        selectedPost.authorName?.charAt(0) || 'U'
+                      )}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, color: isDarkMode ? '#cbd5e1' : '#64748b', fontSize: 13 }}>
+                        {new Date(selectedPost.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Post Content */}
+                  <p style={{ margin: '0 0 16px 0', color: isDarkMode ? '#e2e8f0' : '#334155', lineHeight: 1.7 }}>{selectedPost.content}</p>
+
+                  {/* Post Media */}
+                  {selectedPost.media?.data && (
+                    <div style={{ marginBottom: 16, borderRadius: 14, overflow: 'hidden' }}>
+                      <img src={selectedPost.media.data} alt="post media" style={{ width: '100%', maxHeight: 320, objectFit: 'cover' }} />
+                    </div>
+                  )}
+
+                  {/* Post Tags */}
+                  {selectedPost.tags?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                      {selectedPost.tags.map((tag, index) => (
+                        <span key={`${selectedPost._id}-modal-tag-${index}`} style={{ fontSize: 12, color: '#2563eb', background: isDarkMode ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: 999 }}>#{tag}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Comments Section */}
+                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9' }}>
+                    <h3 style={{ margin: '0 0 12px', fontSize: 16, color: isDarkMode ? '#e2e8f0' : '#334155' }}>Comments</h3>
+                    {selectedPost.comments?.length > 0 ? (
+                      <div style={{ display: 'grid', gap: 14, maxHeight: 360, overflowY: 'auto', paddingRight: 6, marginBottom: 16 }}>
+                        {selectedPost.comments.map((comment) => (
+                          <div key={comment._id}>
+                            {/* Comment */}
+                            <div style={{ display: 'flex', gap: 10 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12 }}>
+                                {comment.authorAvatar ? (
+                                  <img src={comment.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  comment.authorName?.charAt(0) || 'U'
+                                )}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <p style={{ margin: 0, fontWeight: 600, color: isDarkMode ? '#e2e8f0' : '#334155' }}>{comment.authorName || 'Commenter'}</p>
+                                <p style={{ margin: '4px 0 0', fontSize: 12, color: isDarkMode ? '#94a3b8' : '#64748b' }}>{new Date(comment.createdAt).toLocaleString()}</p>
+                                <p style={{ margin: '6px 0 8px', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1.6 }}>{comment.content}</p>
+                                <button 
+                                  onClick={() => setReplyingToCommentId(replyingToCommentId === comment._id ? null : comment._id)}
+                                  style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 0 }}
+                                >
+                                  {replyingToCommentId === comment._id ? 'Cancel' : 'Reply'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Reply Input for this Comment */}
+                            {replyingToCommentId === comment._id && (
+                              <div style={{ marginLeft: 46, marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <textarea
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  placeholder="Write a reply..."
+                                  style={{
+                                    width: '100%',
+                                    minHeight: 60,
+                                    padding: 10,
+                                    borderRadius: 8,
+                                    border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9',
+                                    background: isDarkMode ? '#1a202c' : '#f8fafc',
+                                    color: isDarkMode ? '#e2e8f0' : '#334155',
+                                    fontSize: 12,
+                                    resize: 'vertical',
+                                    fontFamily: 'inherit'
+                                  }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                  <button
+                                    onClick={() => { setReplyText(''); setReplyingToCommentId(null); }}
+                                    style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 12 }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => submitReply(comment._id)}
+                                    style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontSize: 12, opacity: replyLoading || !replyText.trim() ? 0.6 : 1 }}
+                                    disabled={replyLoading || !replyText.trim()}
+                                  >
+                                    {replyLoading ? 'Replying...' : 'Reply'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Replies */}
+                            {comment.replies?.length > 0 && (
+                              <div style={{ marginLeft: 46, marginTop: 12, display: 'grid', gap: 10, borderLeft: isDarkMode ? '2px solid #1f2937' : '2px solid #e6eef9', paddingLeft: 12 }}>
+                                {comment.replies.map((reply) => (
+                                  <div key={reply._id} style={{ display: 'flex', gap: 8 }}>
+                                    <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', background: '#10b981', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 11 }}>
+                                      {reply.authorAvatar ? (
+                                        <img src={reply.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      ) : (
+                                        reply.authorName?.charAt(0) || 'U'
+                                      )}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: isDarkMode ? '#e2e8f0' : '#334155' }}>{reply.authorName || 'Replier'}</p>
+                                      <p style={{ margin: '2px 0 0', fontSize: 11, color: isDarkMode ? '#94a3b8' : '#64748b' }}>{new Date(reply.createdAt).toLocaleString()}</p>
+                                      <p style={{ margin: '4px 0 0', fontSize: 13, color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1.5 }}>{reply.content}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: '#64748b', margin: '0 0 16px 0', fontSize: 13 }}>No comments yet. Be the first to add one.</p>
+                    )}
+
+                    {/* Comment Input */}
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Write a comment..."
+                      style={{ 
+                        width: '100%', 
+                        minHeight: 80, 
+                        padding: 12, 
+                        borderRadius: 12, 
+                        border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', 
+                        background: isDarkMode ? '#1a202c' : '#f8fafc',
+                        color: isDarkMode ? '#e2e8f0' : '#334155',
+                        fontSize: 13,
+                        resize: 'vertical',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+                      <button
+                        style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 13 }}
+                        onClick={() => setCommentText('')}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontSize: 13, opacity: commentLoading || !commentText.trim() ? 0.6 : 1 }}
+                        onClick={submitComment}
+                        disabled={commentLoading || !commentText.trim()}
+                      >
+                        {commentLoading ? 'Posting...' : 'Post comment'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer - Stats and Actions */}
+                <div style={{ display: 'flex', gap: 16, padding: 16, borderTop: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', background: isDarkMode ? '#0a0f1a' : '#f8fafc', flexWrap: 'wrap' }}>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
+                    <HeartIcon size={16} filled={selectedPost.likes?.length > 0} />
+                    <span>{selectedPost.likes?.length || 0}</span>
+                  </button>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
+                    <CommentIcon size={16} />
+                    <span>{selectedPost.comments?.length || 0}</span>
+                  </button>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
+                    <RepostIcon size={16} />
+                    <span>{selectedPost.reposts?.length || 0}</span>
+                  </button>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
+                    <ShareIcon size={16} />
+                    <span>{selectedPost.shares?.length || 0}</span>
+                  </button>
+                  <button style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 13 }} onClick={closePostModal}>
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

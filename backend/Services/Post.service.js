@@ -1,4 +1,5 @@
 import AppError from '../Middleware/AppError.js';
+import mongoose from 'mongoose';
 import Post from '../Model/PostSchema.js';
 import User from '../Model/UserSchema.js';
 import Notification from '../Model/NotificationSchema.js';
@@ -240,7 +241,7 @@ export const addCommentService = async (userId, postId, commentContent) => {
   if (!user) throw new AppError('User not found', 404);
 
   const comment = {
-    _id: new (require('mongoose')).Types.ObjectId(),
+    _id: new mongoose.Types.ObjectId(),
     author: userId,
     authorName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
     authorAvatar: user.role === 'employer' ? user.companyLogo : user.profilePicture,
@@ -281,6 +282,50 @@ export const deleteCommentService = async (userId, postId, commentId) => {
   post.comments.splice(commentIndex, 1);
   await post.save();
   // Return an enriched post object so frontend always receives fresh author data
+  return await getPostByIdService(post._id);
+};
+
+// Reply to comment functionality
+export const addReplyService = async (userId, postId, commentId, replyContent) => {
+  if (!replyContent || !replyContent.trim()) {
+    throw new AppError('Reply content is required', 400);
+  }
+
+  const post = await Post.findById(postId);
+  if (!post) throw new AppError('Post not found', 404);
+
+  const user = await User.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  const comment = post.comments.find((c) => c._id.toString() === commentId);
+  if (!comment) throw new AppError('Comment not found', 404);
+
+  const reply = {
+    _id: new mongoose.Types.ObjectId(),
+    author: userId,
+    authorName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+    authorAvatar: user.role === 'employer' ? user.companyLogo : user.profilePicture,
+    content: replyContent.trim(),
+    createdAt: new Date(),
+  };
+
+  if (!comment.replies) {
+    comment.replies = [];
+  }
+  comment.replies.push(reply);
+  await post.save();
+
+  // Create notification for comment author
+  if (comment.author.toString() !== userId.toString()) {
+    await createNotificationService({
+      type: 'reply',
+      recipient: comment.author,
+      actor: userId,
+      message: `replied to your comment`,
+      postId: post._id,
+    });
+  }
+
   return await getPostByIdService(post._id);
 };
 

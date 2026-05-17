@@ -9,6 +9,7 @@ import {
   togglePostLikeService,
   addCommentService,
   deleteCommentService,
+  addReplyService,
   recordViewService,
   sharePostService,
   repostService,
@@ -130,6 +131,30 @@ export const deleteCommentController = async (req, res, next) => {
     const post = await deleteCommentService(userId, postId, commentId);
     
     return res.status(200).json(new AppSuccessful('Comment deleted', 200, post));
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
+// Reply to comment endpoint
+export const addReplyController = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id: postId, commentId } = req.params;
+    const { content } = req.body;
+    const post = await addReplyService(userId, postId, commentId, content);
+    
+    // Emit real-time notification
+    sendNotificationToUser(post.author, {
+      type: 'reply',
+      actor: userId,
+      postId: postId,
+      message: `Someone replied to a comment on your post`,
+      timestamp: new Date(),
+    });
+    
+    return res.status(201).json(new AppSuccessful('Reply added', 201, post));
   } catch (err) {
     console.log(err);
     next(err);

@@ -10,6 +10,7 @@ import {
 	togglePostLikeController,
 	addCommentController,
 	deleteCommentController,
+	addReplyController,
 	recordViewController,
 	sharePostController,
 	repostController,
@@ -25,6 +26,7 @@ router.get('/author/:authorId', protection, getPostsByAuthorController);
 router.post('/:id/like', protection, togglePostLikeController);
 router.post('/:id/comment', protection, addCommentController);
 router.delete('/:id/comment/:commentId', protection, deleteCommentController);
+router.post('/:id/comment/:commentId/reply', protection, addReplyController);
 router.post('/:id/view', protection, recordViewController);
 router.post('/:id/share', protection, sharePostController);
 router.post('/:id/repost', protection, repostController);

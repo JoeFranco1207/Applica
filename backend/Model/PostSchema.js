@@ -42,6 +42,16 @@ const postSchema = new mongoose.Schema(
         authorAvatar: String,
         content: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
+        replies: [
+          {
+            _id: mongoose.Schema.Types.ObjectId,
+            author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+            authorName: String,
+            authorAvatar: String,
+            content: { type: String, required: true },
+            createdAt: { type: Date, default: Date.now },
+          },
+        ],
       },
     ],
     views: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

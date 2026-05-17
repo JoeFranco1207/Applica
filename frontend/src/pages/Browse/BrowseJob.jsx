@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./BrowseJob.css";
+import PostDetailsModal from "../../components/PostDetailsModal";
 
 const HeartIcon = ({ filled = false, size = 18 }) => (
   <svg
@@ -270,6 +271,11 @@ export default function BrowseJob() {
   const [editingTags, setEditingTags] = useState("");
   const [selectedPost, setSelectedPost] = useState(null);
   const [showPostModal, setShowPostModal] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [replyingToCommentId, setReplyingToCommentId] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
   const [jobLoading, setJobLoading] = useState(false);
   const [jobError, setJobError] = useState("");
   const [jobActionLoading, setJobActionLoading] = useState(false);
@@ -584,6 +590,72 @@ export default function BrowseJob() {
     setSelectedPost(null);
   };
 
+
+  const submitComment = async () => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+    if (!commentText.trim() || !selectedPost) {
+      alert('Please write a comment.');
+      return;
+    }
+
+    setCommentLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/posts/${selectedPost._id}/comment`,
+        { content: commentText.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedPost = response.data.data;
+      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      if (selectedPost?._id === updatedPost._id) {
+        setSelectedPost(updatedPost);
+      }
+      setCommentText('');
+    } catch (error) {
+      console.error('Comment post error', error);
+      alert('Failed to post comment. Please try again.');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const submitReply = async (commentId) => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+    if (!replyText.trim() || !selectedPost) {
+      alert('Please write a reply.');
+      return;
+    }
+
+    setReplyLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/posts/${selectedPost._id}/comment/${commentId}/reply`,
+        { content: replyText.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedPost = response.data.data;
+      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      if (selectedPost?._id === updatedPost._id) {
+        setSelectedPost(updatedPost);
+      }
+      setReplyText('');
+      setReplyingToCommentId(null);
+    } catch (error) {
+      console.error('Reply post error', error);
+      alert('Failed to post reply. Please try again.');
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
   const togglePostLike = async (postId) => {
     if (!token) {
       navigate('/auth');
@@ -650,26 +722,23 @@ export default function BrowseJob() {
       navigate('/auth');
       return;
     }
-    const post = socialPosts.find((p) => p._id === postId);
-    if (!post) return;
-    
-    // Create a repost
+
     try {
-      const repostContent = `Reposted from ${post.authorName}: "${post.content.substring(0, 50)}..."`;
       const response = await axios.post(
-        'http://localhost:8000/api/posts',
-        {
-          content: repostContent,
-          tags: post.tags || [],
-          location: post.location,
-        },
+        `http://localhost:8000/api/posts/${postId}/repost`,
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      setSocialPosts((prev) => [response.data.data, ...prev]);
+
+      const updatedPost = response.data.data;
+      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      if (selectedPost?._id === updatedPost._id) {
+        setSelectedPost(updatedPost);
+      }
       alert('Post reposted successfully!');
     } catch (error) {
       console.error('Repost error', error);
+      alert(error.response?.data?.message || 'Unable to repost this post.');
     }
   };
 
@@ -1094,9 +1163,13 @@ export default function BrowseJob() {
                   />
                   <span>{post.likes?.length || 0}</span>
                 </button>
-                <button style={styles.engagementButton} title="Comment on this post">
+                <button
+                  style={styles.engagementButton}
+                  title="View post and comment"
+                  onClick={() => openPostModal(post)}
+                >
                   <CommentIcon size={16} />
-                  <span>0</span>
+                  <span>{post.comments?.length || 0}</span>
                 </button>
                 <button 
                   style={styles.engagementButton} 
@@ -1104,7 +1177,7 @@ export default function BrowseJob() {
                   onClick={() => handleRepost(post._id)}
                 >
                   <RepostIcon size={16} />
-                  <span>0</span>
+                  <span>{post.reposts?.length || 0}</span>
                 </button>
                 <button 
                   style={styles.engagementButton} 
@@ -1127,6 +1200,7 @@ export default function BrowseJob() {
               )}
             </div>
           ))}
+
 
           {filteredPosts.map((post) => (
             <div key={post.id} style={styles.xPostCard}>
@@ -1255,82 +1329,20 @@ export default function BrowseJob() {
       </section>
 
       {showPostModal && selectedPost && (
-        <div style={styles.modalOverlay} onClick={closePostModal}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <div>
-                <h2 style={{ margin: 0 }}>Post details</h2>
-                <p style={{ margin: '8px 0 0', color: '#64748b' }}>
-                  {selectedPost.authorName || 'Unknown author'} · {selectedPost.authorRole}
-                </p>
-              </div>
-              <button style={styles.modalClose} onClick={closePostModal}>✕</button>
-            </div>
-
-            <div style={styles.socialPostHeader}>
-              <div style={styles.postAvatar}>
-                {selectedPost.authorAvatar ? (
-                  <img src={selectedPost.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                ) : (
-                  selectedPost.authorName?.charAt(0) || 'U'
-                )}
-              </div>
-              <div style={{ marginLeft: 16 }}>
-                <button
-                  style={styles.profileLinkButton}
-                  onClick={() => navigate(`/profile/${selectedPost.author}`)}
-                >
-                  View profile
-                </button>
-                <p style={{ margin: '8px 0 0', color: '#334155' }}>
-                  {new Date(selectedPost.createdAt).toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            <div style={styles.modalBody}>
-              <p style={styles.postText}>{selectedPost.content}</p>
-              {selectedPost.media?.data && (
-                <div style={{ marginTop: 16 }}>
-                  <img
-                    src={selectedPost.media.data}
-                    alt="post media"
-                    style={{ width: '100%', borderRadius: 14, maxHeight: 320, objectFit: 'cover' }}
-                  />
-                </div>
-              )}
-              {selectedPost.tags?.length > 0 && (
-                <div style={styles.postTags}>
-                  {selectedPost.tags.map((tag, index) => (
-                    <span key={`${selectedPost._id}-modal-tag-${index}`} style={styles.postTag}>#{tag}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.modalActions}>
-              <button
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  ...styles.actionButton,
-                }}
-                onClick={() => togglePostLike(selectedPost._id)}
-                title="Like this post"
-              >
-                <HeartIcon filled={selectedPost.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
-                <span>{selectedPost.likes?.length || 0}</span>
-              </button>
-              <button
-                style={styles.actionButton}
-                onClick={() => closePostModal()}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <PostDetailsModal
+          post={selectedPost}
+          isOpen={showPostModal}
+          onClose={closePostModal}
+          onUpdate={(updatedPost) => {
+            setSocialPosts((prev) =>
+              prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
+            );
+            setSelectedPost(updatedPost);
+          }}
+          currentUserId={currentUserId}
+          userName={currentUser?.firstName || 'You'}
+          userAvatar={currentUser?.avatar}
+        />
       )}
 
       {/* Job Modal */}
@@ -1865,6 +1877,7 @@ composerTextarea: {
     display: "flex",
     gap: "12px",
     marginBottom: "12px",
+    alignItems: "center",
   },
   sidebarColumn: {
     display: "grid",
@@ -1955,6 +1968,55 @@ composerTextarea: {
     fontWeight: "700",
     fontSize: "12px",
   },
+  commentRow: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "flex-start",
+    padding: "14px",
+    borderRadius: "18px",
+    background: "var(--surface-alt)",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  commentAvatar: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    background: "var(--primary)",
+    color: "#ffffff",
+    display: "grid",
+    placeItems: "center",
+    fontWeight: "700",
+    flexShrink: 0,
+  },
+  commentBody: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    textAlign: "left",
+    minWidth: 0,
+  },
+  commentAuthor: {
+    margin: 0,
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "var(--text)",
+    textAlign: "left",
+  },
+  commentTime: {
+    margin: "4px 0 10px",
+    fontSize: "11px",
+    color: "var(--text-muted)",
+    textAlign: "left",
+  },
+  commentText: {
+    margin: 0,
+    whiteSpace: "pre-wrap",
+    color: "var(--text)",
+    fontSize: "14px",
+    lineHeight: "1.6",
+    textAlign: "left",
+  },
   postEngagementDivider: {
     height: "1px",
     background: "var(--border)",
@@ -2028,15 +2090,20 @@ composerTextarea: {
     gap: "6px",
   },
   profileLinkButton: {
-    borderRadius: "20px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "999px",
     border: "1px solid var(--primary)",
     background: "transparent",
     color: "var(--primary)",
     padding: "8px 14px",
     fontWeight: "700",
     cursor: "pointer",
-    fontSize: "13px",
+    fontSize: "12px",
     transition: "all 0.2s",
+    minWidth: "120px",
+    textAlign: "center",
   },
   savedButton: {
     borderRadius: "6px",
@@ -2052,6 +2119,24 @@ composerTextarea: {
     alignItems: "center",
     justifyContent: "center",
     gap: "6px",
+  },
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    display: "grid",
+    placeItems: "center",
+    padding: "24px",
+    zIndex: 1000,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: "520px",
+    background: "var(--surface)",
+    borderRadius: "20px",
+    padding: "24px",
+    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.15)",
+    color: "var(--text)",
   },
   sidebarCard: {
     background: "transparent",

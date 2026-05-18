@@ -9,7 +9,8 @@ const PostDetailsModal = ({
   onUpdate,
   currentUserId,
   userName,
-  userAvatar 
+  userAvatar,
+  highlightCommentId
 }) => {
   const [commentText, setCommentText] = useState('');
   const [replyingToCommentId, setReplyingToCommentId] = useState(null);
@@ -34,6 +35,25 @@ const PostDetailsModal = ({
       setIsLiked(!!hasLiked);
     }
   }, [post, currentUserId]);
+
+  // If a specific comment should be highlighted (from notification), scroll and highlight it
+  useEffect(() => {
+    if (!highlightCommentId || !currentPost) return;
+    setCommentsExpanded(true);
+    // small delay so the DOM renders
+    setTimeout(() => {
+      const el = document.getElementById(`comment-${highlightCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const prev = el.style.backgroundColor;
+        el.style.backgroundColor = 'rgba(255, 246, 145, 0.5)';
+        setTimeout(() => {
+          el.style.transition = 'background-color 0.4s ease';
+          el.style.backgroundColor = prev || 'transparent';
+        }, 3000);
+      }
+    }, 200);
+  }, [highlightCommentId, currentPost]);
 
   if (!isOpen || !currentPost) return null;
 
@@ -236,11 +256,61 @@ const PostDetailsModal = ({
           )}
         </div>
 
-        {/* Divider */}
+        <div className="post-stats-section-bottom">
+          <div className="stat-item">
+            <span className="stat-number">{currentPost.likes?.length || 0}</span>
+            <span className="stat-label">Likes</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-number">{currentPost.comments?.length || 0}</span>
+            <span className="stat-label">Comments</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-number">{currentPost.views?.length || 0}</span>
+            <span className="stat-label">Views</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-number">{currentPost.shares?.length || 0}</span>
+            <span className="stat-label">Shares</span>
+          </div>
+        </div>
+
         <div className="modal-divider"></div>
 
-        {/* Comments Section */}
-        <div className={`comments-container ${commentsExpanded ? 'expanded' : ''}`} onClick={() => setCommentsExpanded(true)}>
+        <div className={`comments-container ${commentsExpanded ? 'expanded' : ''}`}>
+          <div className="comments-top-bar">
+            <span className="comments-sort-label">Most relevant</span>
+            <span className="comments-sort-icon">▾</span>
+          </div>
+
+          <div className="comment-input-wrapper">
+            {userAvatar && (
+              <img src={userAvatar} alt={userName || 'You'} className="comment-input-avatar" />
+            )}
+            <textarea
+              value={commentText}
+              onFocus={expandComments}
+              onChange={(e) => {
+                setCommentText(e.target.value);
+                if (error) setError('');
+              }}
+              placeholder="Write a comment..."
+              className="comment-textarea"
+              rows="2"
+              disabled={isSubmittingComment}
+            />
+            <button
+              onClick={submitComment}
+              disabled={!commentText.trim() || isSubmittingComment}
+              className="submit-comment-btn"
+              type="button"
+            >
+              {isSubmittingComment ? 'Posting...' : 'Post'}
+            </button>
+          </div>
+
+          {error && <div className="error-message">{error}</div>}
+
           <div className="comments-list">
             {currentPost.comments && currentPost.comments.length > 0 ? (
               currentPost.comments.map((comment) => {
@@ -251,7 +321,7 @@ const PostDetailsModal = ({
                 const showReplies = expandedReplies.has(comment._id);
 
                 return (
-                  <div key={comment._id} className="comment-item">
+                  <div key={comment._id} id={`comment-${comment._id}`} className="comment-item">
                     <div className="comment-header">
                       {comment.authorAvatar && (
                         <img 
@@ -278,7 +348,6 @@ const PostDetailsModal = ({
                     </div>
                     <p className="comment-text">{comment.content}</p>
                     
-                    {/* Reply Button */}
                     <button
                       className="reply-trigger-btn"
                       onClick={() => {
@@ -293,7 +362,6 @@ const PostDetailsModal = ({
                       Reply
                     </button>
 
-                    {/* Reply Input */}
                     {replyingToCommentId === comment._id && (
                       <div className="reply-input-section">
                         <div className="reply-user-info">
@@ -329,7 +397,6 @@ const PostDetailsModal = ({
                       </div>
                     )}
 
-                    {/* Replies List */}
                     {comment.replies && comment.replies.length > 0 && (
                       <div className="replies-section">
                         <button
@@ -373,64 +440,6 @@ const PostDetailsModal = ({
                 <p>No comments yet. Be the first to comment!</p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Post Stats - Moved to Bottom */}
-        <div className="post-stats-section-bottom">
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.likes?.length || 0}</span>
-            <span className="stat-label">Likes</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.comments?.length || 0}</span>
-            <span className="stat-label">Comments</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.views?.length || 0}</span>
-            <span className="stat-label">Views</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.shares?.length || 0}</span>
-            <span className="stat-label">Shares</span>
-          </div>
-        </div>
-
-        {/* Comment Input Section */}
-        <div className="comment-input-section">
-          <div className="comment-input-header">
-            <div className="comment-user-info">
-              {userAvatar && (
-                <img src={userAvatar} alt={userName || 'You'} className="comment-user-avatar" />
-              )}
-              <span className="comment-username">{userName || 'You'}</span>
-            </div>
-          </div>
-
-          <textarea
-            value={commentText}
-            onFocus={expandComments}
-            onChange={(e) => {
-              setCommentText(e.target.value);
-              if (error) setError('');
-            }}
-            placeholder="Post your reply!"
-            className="comment-textarea"
-            rows="3"
-            disabled={isSubmittingComment}
-          />
-
-          {error && <div className="error-message">{error}</div>}
-
-          <div className="comment-submit-actions">
-            <button
-              onClick={submitComment}
-              disabled={!commentText.trim() || isSubmittingComment}
-              className="submit-comment-btn"
-              type="button"
-            >
-              {isSubmittingComment ? 'Posting...' : 'Post Comment'}
-            </button>
           </div>
         </div>
       </div>

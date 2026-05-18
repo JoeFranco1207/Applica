@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useNotification } from '../contexts/NotificationContext';
 import './NotificationPopup.css';
 
@@ -104,7 +106,33 @@ const NotificationPopup = () => {
         <div
           key={notification.id}
           className="notification-item"
-          style={{ borderLeftColor: getNotificationColor(notification.type) }}
+          style={{ borderLeftColor: getNotificationColor(notification.type), cursor: 'pointer' }}
+          onClick={async () => {
+            const token = localStorage.getItem('token');
+            // Try to mark notification as read on server if we have an id
+            try {
+              if (notification.id && token) {
+                await axios.post(`http://localhost:8000/api/notifications/${notification.id}/read`, {}, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+              }
+            } catch (err) {
+              // ignore read errors
+            }
+
+            // Navigate to post if available (include commentId if present)
+            if (notification.postId) {
+              // normalize post id which can be populated object or string
+              const pid = typeof notification.postId === 'string'
+                ? notification.postId
+                : (notification.postId && (notification.postId._id || notification.postId.id || notification.postId.toString())) || null;
+              if (pid) {
+                removeNotification(notification.id);
+                const commentQuery = notification.commentId ? `?commentId=${notification.commentId}` : '';
+                window.location.href = `/post/${pid}${commentQuery}`;
+              }
+            }
+          }}
         >
           <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
             {getNotificationIcon(notification.type)}

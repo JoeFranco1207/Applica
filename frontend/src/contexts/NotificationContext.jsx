@@ -48,11 +48,11 @@ export const NotificationProvider = ({ children }) => {
         
         // Add notification to state
         const newNotif = {
-          id: Date.now(),
-          ...notification,
-          read: false,
-          createdAt: notification.createdAt || new Date(),
-        };
+            id: notification._id || notification.id || Date.now(),
+            ...notification,
+            read: false,
+            createdAt: notification.createdAt || new Date(),
+          };
         
         setNotifications((prev) => [newNotif, ...prev]);
         setUnreadCount((prev) => prev + 1);

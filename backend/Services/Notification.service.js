@@ -6,7 +6,7 @@ import Post from '../Model/PostSchema.js';
 import { sendNotificationToUser } from '../server.js';
 
 export const createNotificationService = async (notificationData) => {
-  const { type, recipient, actor, message, postId, jobId } = notificationData;
+  const { type, recipient, actor, message, postId, jobId, commentId, replyId } = notificationData;
 
   if (!recipient || !actor) {
     throw new AppError('Recipient and actor are required', 400);
@@ -30,6 +30,8 @@ export const createNotificationService = async (notificationData) => {
     actorAvatar: actorUser.role === 'employer' ? actorUser.companyLogo : actorUser.profilePicture,
     message,
     postId,
+    commentId,
+    replyId,
     jobId,
     read: false,
   });
@@ -44,6 +46,8 @@ export const createNotificationService = async (notificationData) => {
       actorAvatar: notification.actorAvatar,
       message,
       postId,
+      commentId,
+      replyId,
       jobId,
       createdAt: notification.createdAt,
     });

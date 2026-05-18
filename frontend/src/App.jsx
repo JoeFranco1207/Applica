@@ -12,6 +12,7 @@ import CreateEmployerProfile from "./pages/Create/CreateEmployerProfile";
 import CreateJobseekerProfile from "./pages/Create/CreateJobseekerProfile";
 import CreateJob from "./pages/Create/CreateJob";
 import Profile from "./pages/Profile";
+import PostView from "./pages/PostView";
 import BrowseJob from "./pages/Browse/BrowseJob";
 import EmployerApplicants from "./pages/EmployerApplicants";
 
@@ -61,6 +62,7 @@ function App() {
           <Route path="/create" element={<Create />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/post/:id" element={<PostView />} />
           <Route path="/employer/applicants" element={<EmployerApplicants />} />
         </Route>
       </Routes>

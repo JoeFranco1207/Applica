@@ -260,6 +260,7 @@ export const addCommentService = async (userId, postId, commentContent) => {
       actor: userId,
       message: `commented on your post`,
       postId: post._id,
+      commentId: comment._id,
     });
   }
 
@@ -323,6 +324,8 @@ export const addReplyService = async (userId, postId, commentId, replyContent) =
       actor: userId,
       message: `replied to your comment`,
       postId: post._id,
+      commentId: comment._id,
+      replyId: reply._id,
     });
   }
 

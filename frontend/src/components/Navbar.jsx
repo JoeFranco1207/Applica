@@ -178,10 +178,35 @@ export default function Navbar() {
                         {dbNotifications.map((notif) => (
                           <div
                             key={notif._id}
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem('token');
+                                if (token) {
+                                  await fetch(`http://localhost:8000/api/notifications/${notif._id}/read`, {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                }
+                              } catch (err) {
+                                console.error('Failed to mark notification read', err);
+                              }
+
+                              // Navigate to post view, include commentId if present
+                              if (notif.postId) {
+                                const pid = typeof notif.postId === 'string'
+                                  ? notif.postId
+                                  : (notif.postId && (notif.postId._id || notif.postId.id || notif.postId.toString())) || null;
+                                if (pid) {
+                                  const commentQuery = notif.commentId ? `?commentId=${notif.commentId}` : '';
+                                  navigate(`/post/${pid}${commentQuery}`);
+                                }
+                              }
+                            }}
                             style={{
                               ...styles.notificationItemPanel,
                               backgroundColor: notif.read ? 'transparent' : 'rgba(52, 152, 219, 0.05)',
                               borderColor: "var(--border)",
+                              cursor: 'pointer'
                             }}
                           >
                             <div style={{display: 'flex', gap: '12px'}}>

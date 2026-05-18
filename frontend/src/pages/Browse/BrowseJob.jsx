@@ -1038,8 +1038,8 @@ export default function BrowseJob() {
             <div style={styles.postComposerCard}>
               <div style={styles.composerTop}>
                 <div style={styles.composerAvatar}>
-                  {currentUser?.avatar ? (
-                    <img src={currentUser.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  {currentUser?.profilePicture || currentUser?.companyLogo ? (
+                    <img src={currentUser.profilePicture || currentUser.companyLogo} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
                     currentUser?.firstName?.charAt(0) || "U"
                   )}
@@ -1360,7 +1360,7 @@ export default function BrowseJob() {
       </section>
 
       {showPostModal && selectedPost && (
-        <PostDetailsModal
+          <PostDetailsModal
           post={selectedPost}
           isOpen={showPostModal}
           onClose={closePostModal}
@@ -1372,7 +1372,7 @@ export default function BrowseJob() {
           }}
           currentUserId={currentUserId}
           userName={currentUser?.firstName || 'You'}
-          userAvatar={currentUser?.avatar}
+          userAvatar={currentUser?.profilePicture || currentUser?.companyLogo}
         />
       )}
 

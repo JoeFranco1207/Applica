@@ -27,6 +27,14 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Post',
     },
+    commentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+    },
+    replyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Reply',
+    },
     jobId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Job',

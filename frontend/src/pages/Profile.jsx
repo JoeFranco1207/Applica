@@ -35,6 +35,27 @@ const ShareIcon = ({ size = 16 }) => (
   </svg>
 );
 
+const EyeIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const BriefcaseIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v2" />
+  </svg>
+);
+
+const ClockIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <polyline points="12 7 12 12 15 15" />
+  </svg>
+);
+
 const calculateEmployerProfileCompletion = (user) => {
   if (!user || user.role !== "employer") return 0;
 
@@ -221,14 +242,107 @@ export default function Profile() {
     window.location.reload();
   };
 
-  const openApplicantModal = (applicant) => {
-    setSelectedApplicant(applicant);
+  const openApplicantModal = (applicant, jobId) => {
+    setSelectedApplicant({ ...applicant, jobId });
     setShowApplicantModal(true);
   };
 
   const closeApplicantModal = () => {
     setSelectedApplicant(null);
     setShowApplicantModal(false);
+  };
+
+  const selectedApplicantInfo = selectedApplicant?.user || selectedApplicant;
+
+  const handleApplicantStatusChange = async (jobId, applicantId, status) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const response = await axios.patch(
+        `http://localhost:8000/api/employer/my-jobs/${jobId}/applicants/${applicantId}/status`,
+        { status },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const updatedJob = response.data.data;
+      setEmployerJobs((prevJobs) =>
+        prevJobs.map((job) => (job._id === updatedJob._id ? updatedJob : job))
+      );
+
+      if (selectedApplicant && (selectedApplicant.user?._id || selectedApplicant._id) === applicantId) {
+        setSelectedApplicant((prev) => prev ? { ...prev, status } : prev);
+      }
+    } catch (error) {
+      console.error("Error updating applicant status:", error);
+      alert("Could not update applicant status. Please try again.");
+    }
+  };
+
+  const handleApplicantRemove = async (jobId, applicantId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const response = await axios.delete(
+        `http://localhost:8000/api/employer/my-jobs/${jobId}/applicants/${applicantId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const updatedJob = response.data.data;
+      setEmployerJobs((prevJobs) =>
+        prevJobs.map((job) => (job._id === updatedJob._id ? updatedJob : job))
+      );
+
+      if (selectedApplicant && (selectedApplicant.user?._id || selectedApplicant._id) === applicantId) {
+        closeApplicantModal();
+      }
+    } catch (error) {
+      console.error("Error removing applicant:", error);
+      alert("Could not remove applicant. Please try again.");
+    }
+  };
+
+  const handleJobDelete = async (jobId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
+      return;
+    }
+
+    if (!window.confirm("Delete this job posting? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await axios.delete(`http://localhost:8000/api/employer/my-jobs/${jobId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setEmployerJobs((prevJobs) => prevJobs.filter((job) => job._id !== jobId));
+      if (selectedJobId === jobId) {
+        setSelectedJobId(null);
+      }
+    } catch (error) {
+      console.error("Error deleting job:", error);
+      alert("Could not delete job. Please try again.");
+    }
   };
 
   const openPostModal = (post) => {
@@ -252,7 +366,7 @@ export default function Profile() {
     setCommentLoading(true);
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/post/${selectedPost._id}/comment`,
+        `http://localhost:8000/api/posts/${selectedPost._id}/comment`,
         { content: commentText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -281,7 +395,7 @@ export default function Profile() {
     setReplyLoading(true);
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/post/${selectedPost._id}/comment/${commentId}/reply`,
+        `http://localhost:8000/api/posts/${selectedPost._id}/comment/${commentId}/reply`,
         { content: replyText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -599,8 +713,12 @@ export default function Profile() {
                       style={styles.profileHeaderImage}
                     />
                   ) : (
-                    user?.firstName
-                      ? user.firstName.charAt(0).toUpperCase()
+                    (user?.role === "employer"
+                      ? user?.companyName?.charAt(0)
+                      : user?.firstName?.charAt(0))
+                      ? (user?.role === "employer"
+                        ? user.companyName.charAt(0).toUpperCase()
+                        : user.firstName.charAt(0).toUpperCase())
                       : "U"
                   )}
                 </div>
@@ -612,7 +730,7 @@ export default function Profile() {
                 ...styles.profileName,
                 color: "#ffffff",
               }}>
-                {user ? `${user.firstName} ${user.lastName}` : "User Profile"}
+                {user ? (user?.role === "employer" ? user.companyName : `${user.firstName} ${user.lastName}`) : "User Profile"}
               </h1>
               <p style={{
                 ...styles.profileEmail,
@@ -854,24 +972,45 @@ export default function Profile() {
                           <p style={styles.jobTitle}>{job.title}</p>
                           <p style={styles.jobMeta}>{job.companyName}</p>
                         </div>
-                        <button
-                          style={styles.interactionButton}
-                          onClick={() =>
-                            setSelectedJobId(
-                              selectedJobId === job._id ? null : job._id
-                            )
-                          }
-                        >
-                          {selectedJobId === job._id
-                            ? "Hide details"
-                            : "View interactions"}
-                        </button>
+                        <div style={styles.jobActionsRow}>
+                          <button
+                            style={styles.interactionButton}
+                            onClick={() =>
+                              setSelectedJobId(
+                                selectedJobId === job._id ? null : job._id
+                              )
+                            }
+                          >
+                            {selectedJobId === job._id
+                              ? "Hide details"
+                              : "Manage applicants"}
+                          </button>
+                          <button
+                            style={styles.deleteJobButton}
+                            onClick={() => handleJobDelete(job._id)}
+                          >
+                            Delete job
+                          </button>
+                        </div>
                       </div>
 
                       <div style={styles.jobStatsRow}>
-                        <span style={styles.jobStatItem}>👀 {job.views?.length || 0} views</span>
-                        <span style={styles.jobStatItem}>❤️ {job.likes?.length || 0} likes</span>
-                        <span style={styles.jobStatItem}>💼 {job.applicants?.length || 0} applicants</span>
+                        <span style={styles.jobStatItem}>
+                          <EyeIcon size={16} />
+                          <span>{job.views?.length || 0} views</span>
+                        </span>
+                        <span style={styles.jobStatItem}>
+                          <HeartIcon size={16} />
+                          <span>{job.likes?.length || 0} likes</span>
+                        </span>
+                        <span style={styles.jobStatItem}>
+                          <BriefcaseIcon size={16} />
+                          <span>{job.applicants?.length || 0} applicants</span>
+                        </span>
+                        <span style={styles.jobStatItem}>
+                          <ClockIcon size={16} />
+                          <span>{job.applicants?.filter((application) => (application.status || 'pending') === 'pending').length || 0} pending</span>
+                        </span>
                       </div>
 
                       {selectedJobId === job._id && (
@@ -905,21 +1044,67 @@ export default function Profile() {
                           <div style={styles.interactionGroup}>
                             <p style={styles.interactionLabel}>Applicants</p>
                             {job.applicants?.length ? (
-                              job.applicants.map((applicant) => (
-                                <div key={applicant._id} style={styles.applicantRow}>
-                                  <div>
-                                    <p style={styles.interactionText}>
-                                      {applicant.firstName} {applicant.lastName} • {applicant.email}
-                                    </p>
+                              job.applicants.map((applicant) => {
+                                const user = applicant.user || applicant;
+                                const status = applicant.status || "pending";
+                                return (
+                                  <div key={user._id} style={styles.applicantRow}>
+                                    <div style={styles.applicantDetails}>
+                                      {user.profilePicture && (
+                                        <img
+                                          src={user.profilePicture}
+                                          alt={`${user.firstName} avatar`}
+                                          style={styles.applicantAvatar}
+                                        />
+                                      )}
+                                      <div>
+                                        <p style={styles.interactionText}>
+                                          {user.firstName} {user.lastName} • {user.email}
+                                        </p>
+                                        <p style={styles.applicantStatus}>{status}</p>
+                                      </div>
+                                    </div>
+                                    <div style={styles.applicantActions}>
+                                      <button
+                                        style={styles.viewProfileButton}
+                                        onClick={() => openApplicantModal(applicant, job._id)}
+                                      >
+                                        View profile
+                                      </button>
+                                      {status !== "accepted" && (
+                                        <button
+                                          style={styles.statusButton}
+                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
+                                        >
+                                          Accept
+                                        </button>
+                                      )}
+                                      {status !== "rejected" && (
+                                        <button
+                                          style={styles.statusButtonSecondary}
+                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "rejected")}
+                                        >
+                                          Reject
+                                        </button>
+                                      )}
+                                      {status !== "reviewing" && (
+                                        <button
+                                          style={styles.statusButtonSecondary}
+                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
+                                        >
+                                          Reviewing
+                                        </button>
+                                      )}
+                                      <button
+                                        style={styles.statusButtonSecondary}
+                                        onClick={() => handleApplicantRemove(job._id, user._id)}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
                                   </div>
-                                  <button
-                                    style={styles.viewProfileButton}
-                                    onClick={() => openApplicantModal(applicant)}
-                                  >
-                                    View profile
-                                  </button>
-                                </div>
-                              ))
+                                );
+                              })
                             ) : (
                               <p style={styles.interactionText}>No applicants yet.</p>
                             )}
@@ -939,55 +1124,100 @@ export default function Profile() {
             <div style={styles.modalOverlay} onClick={closeApplicantModal}>
               <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
-                  <h2 style={styles.modalTitle}>{selectedApplicant.firstName} {selectedApplicant.lastName}</h2>
+                  <div style={styles.modalTitleRow}>
+                    {selectedApplicantInfo?.profilePicture ? (
+                      <img
+                        src={selectedApplicantInfo.profilePicture}
+                        alt="Applicant profile"
+                        style={styles.modalAvatar}
+                      />
+                    ) : null}
+                    <h2 style={styles.modalTitle}>{selectedApplicant.user?.firstName || selectedApplicant.firstName} {selectedApplicant.user?.lastName || selectedApplicant.lastName}</h2>
+                  </div>
                   <button style={styles.modalClose} onClick={closeApplicantModal}>✕</button>
                 </div>
                 <div style={styles.modalBody}>
                   <p style={styles.modalLabel}>Email</p>
-                  <p style={styles.modalValue}>{selectedApplicant.email}</p>
-                  {selectedApplicant.phoneNumber && (
+                  <p style={styles.modalValue}>{selectedApplicantInfo?.email}</p>
+                  <p style={styles.modalLabel}>Status</p>
+                  <p style={styles.modalValue}>{selectedApplicant.status || "pending"}</p>
+                  {selectedApplicant.jobId && (
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                      {selectedApplicant.status !== 'accepted' && (
+                        <button
+                          style={styles.statusButton}
+                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'accepted')}
+                        >
+                          Accept
+                        </button>
+                      )}
+                      {selectedApplicant.status !== 'rejected' && (
+                        <button
+                          style={styles.statusButtonSecondary}
+                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'rejected')}
+                        >
+                          Reject
+                        </button>
+                      )}
+                      {selectedApplicant.status !== 'reviewing' && (
+                        <button
+                          style={styles.statusButtonSecondary}
+                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'reviewing')}
+                        >
+                          Reviewing
+                        </button>
+                      )}
+                      <button
+                        style={styles.statusButtonSecondary}
+                        onClick={() => handleApplicantRemove(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  {selectedApplicantInfo?.phoneNumber && (
                     <>
                       <p style={styles.modalLabel}>Phone</p>
-                      <p style={styles.modalValue}>{selectedApplicant.phoneNumber}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.phoneNumber}</p>
                     </>
                   )}
-                  {selectedApplicant.bio && (
+                  {selectedApplicantInfo?.bio && (
                     <>
                       <p style={styles.modalLabel}>Bio</p>
-                      <p style={styles.modalValue}>{selectedApplicant.bio}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.bio}</p>
                     </>
                   )}
-                  {selectedApplicant.experience && (
+                  {selectedApplicantInfo?.experience && (
                     <>
                       <p style={styles.modalLabel}>Experience</p>
-                      <p style={styles.modalValue}>{selectedApplicant.experience}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.experience}</p>
                     </>
                   )}
-                  {selectedApplicant.education && (
+                  {selectedApplicantInfo?.education && (
                     <>
                       <p style={styles.modalLabel}>Education</p>
-                      <p style={styles.modalValue}>{selectedApplicant.education}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.education}</p>
                     </>
                   )}
-                  {selectedApplicant.citizenShip && (
+                  {selectedApplicantInfo?.citizenShip && (
                     <>
                       <p style={styles.modalLabel}>Citizenship</p>
-                      <p style={styles.modalValue}>{selectedApplicant.citizenShip}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.citizenShip}</p>
                     </>
                   )}
-                  {selectedApplicant.location && (
+                  {selectedApplicantInfo?.location && (
                     <>
                       <p style={styles.modalLabel}>Location</p>
                       <p style={styles.modalValue}>
-                        {selectedApplicant.location.region}, {selectedApplicant.location.city}, {selectedApplicant.location.barangay}
-                        {selectedApplicant.location.otherDetails ? ` • ${selectedApplicant.location.otherDetails}` : ""}
+                        {selectedApplicantInfo.location.region}, {selectedApplicantInfo.location.city}, {selectedApplicantInfo.location.barangay}
+                        {selectedApplicantInfo.location.otherDetails ? ` • ${selectedApplicantInfo.location.otherDetails}` : ""}
                       </p>
                     </>
                   )}
-                  {selectedApplicant.resume && (
+                  {selectedApplicantInfo?.resume && (
                     <>
                       <p style={styles.modalLabel}>Resume</p>
-                      <p style={styles.modalValue}>{selectedApplicant.resume}</p>
+                      <p style={styles.modalValue}>{selectedApplicantInfo.resume}</p>
                     </>
                   )}
                 </div>
@@ -1829,10 +2059,11 @@ const styles = {
   },
 
   jobCard: {
-    backgroundColor: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    backgroundColor: "#111827",
+    border: "1px solid #1f2937",
     borderRadius: "20px",
     padding: "22px",
+    color: "#f8fafc",
   },
 
   jobHeader: {
@@ -1847,12 +2078,13 @@ const styles = {
     fontSize: "18px",
     fontWeight: "700",
     margin: 0,
+    color: "#f8fafc",
   },
 
   jobMeta: {
     margin: "4px 0 0 0",
     fontSize: "14px",
-    color: "#475569",
+    color: "#cbd5e1",
   },
 
   interactionButton: {
@@ -1866,11 +2098,28 @@ const styles = {
     fontSize: "14px",
   },
 
+  jobActionsRow: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+  },
+
+  deleteJobButton: {
+    padding: "10px 18px",
+    borderRadius: "14px",
+    backgroundColor: "#1e40af",
+    color: "#ffffff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "14px",
+  },
+
   jobStatsRow: {
     display: "flex",
     flexWrap: "wrap",
     gap: "14px",
-    color: "#475569",
+    color: "#cbd5e1",
     fontSize: "14px",
     marginBottom: "18px",
   },
@@ -1878,7 +2127,11 @@ const styles = {
   jobStatItem: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "6px",
+    gap: "8px",
+    padding: "10px 14px",
+    borderRadius: "14px",
+    backgroundColor: "#1f2937",
+    color: "#e2e8f0",
   },
 
   interactionPanel: {
@@ -1886,8 +2139,8 @@ const styles = {
     gap: "16px",
     padding: "18px",
     borderRadius: "18px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
+    backgroundColor: "#0f172a",
+    border: "1px solid #1f2937",
   },
 
   interactionGroup: {
@@ -1898,12 +2151,12 @@ const styles = {
   interactionLabel: {
     margin: 0,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#cbd5e1",
   },
 
   interactionText: {
     margin: 0,
-    color: "#475569",
+    color: "#e2e8f0",
     fontSize: "14px",
   },
 
@@ -1920,15 +2173,85 @@ const styles = {
     gap: "12px",
     padding: "12px 14px",
     borderRadius: "14px",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#0f172a",
+    border: "1px solid #1f2937",
+    flexWrap: "wrap",
+  },
+
+  applicantStatus: {
+    margin: "6px 0 0",
+    padding: "4px 10px",
+    borderRadius: "999px",
+    backgroundColor: "#1f2937",
+    color: "#e2e8f0",
+    fontSize: "12px",
+    fontWeight: "700",
+    display: "inline-flex",
+    alignItems: "center",
+  },
+
+  applicantActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    alignItems: "center",
+  },
+
+  applicantDetails: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  applicantAvatar: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "50%",
+    objectFit: "cover",
     border: "1px solid #e2e8f0",
+  },
+
+  modalTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
+  modalAvatar: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "1px solid #e2e8f0",
+  },
+
+  statusButton: {
+    padding: "10px 14px",
+    borderRadius: "12px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+
+  statusButtonSecondary: {
+    padding: "10px 14px",
+    borderRadius: "12px",
+    backgroundColor: "transparent",
+    color: "#2563eb",
+    border: "1px solid #2563eb",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "12px",
   },
 
   viewProfileButton: {
     border: "1px solid #2563eb",
     borderRadius: "12px",
-    background: "#ffffff",
-    color: "#2563eb",
+    background: "#111827",
+    color: "#ffffff",
     cursor: "pointer",
     padding: "10px 14px",
     fontWeight: "700",

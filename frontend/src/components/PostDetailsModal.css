@@ -303,9 +303,13 @@
 
 .comments-container.expanded {
   flex: 1;
-  max-height: none;
+  max-height: 340px;
   cursor: default;
   background: transparent;
+}
+
+.comments-container.expanded .comments-list {
+  gap: 12px;
 }
 
 .comments-container::-webkit-scrollbar {
@@ -319,6 +323,10 @@
 .comments-container::-webkit-scrollbar-thumb {
   background: #ddd;
   border-radius: 3px;
+}
+
+.comments-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
 
 .comments-list {

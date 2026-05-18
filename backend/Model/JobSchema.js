@@ -1,5 +1,26 @@
 import mongoose, { setDriver } from "mongoose";
 
+const applicantSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "reviewing", "accepted", "rejected"],
+    default: "pending",
+  },
+  appliedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 export const jobSchema = new mongoose.Schema({
     title:{
         type: String,
@@ -30,8 +51,7 @@ export const jobSchema = new mongoose.Schema({
       default: [],
     },
     applicants: {
-      type: [mongoose.Schema.Types.ObjectId],
-      ref: "User",
+      type: [applicantSchema],
       default: [],
     },
 

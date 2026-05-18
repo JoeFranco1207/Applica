@@ -248,6 +248,7 @@ export default function BrowseJob() {
   const storedUser = localStorage.getItem("user");
   const currentUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUserId = currentUser?.id || currentUser?._id || null;
+  const isEmployer = currentUser?.role === 'employer';
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [locationFilter, setLocationFilter] = useState("All");
@@ -281,12 +282,38 @@ export default function BrowseJob() {
   const [jobActionLoading, setJobActionLoading] = useState(false);
   const [showJobModal, setShowJobModal] = useState(false);
   const [modalJob, setModalJob] = useState(null);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [applyJobInfo, setApplyJobInfo] = useState(null);
+  const [applyError, setApplyError] = useState("");
   const [userLikes, setUserLikes] = useState(new Set());
   const [feedNotifications, setFeedNotifications] = useState([]);
 
-  const handleApply = async (jobId, jobTitle) => {
+  const openApplyModal = (job) => {
     if (!token) {
       navigate("/auth");
+      return;
+    }
+    if (isEmployer) {
+      alert('Employers cannot apply for jobs. Switch to a jobseeker account to apply.');
+      return;
+    }
+    setApplyJobInfo(job);
+    setApplyError("");
+    setShowApplyModal(true);
+  };
+
+  const closeApplyModal = () => {
+    setShowApplyModal(false);
+    setApplyJobInfo(null);
+    setApplyError("");
+  };
+
+  const confirmApply = async () => {
+    if (!applyJobInfo) return;
+
+    const jobId = applyJobInfo._id || applyJobInfo.id;
+    if (!jobId) {
+      setApplyError("Unable to identify the job. Please refresh and try again.");
       return;
     }
 
@@ -306,14 +333,16 @@ export default function BrowseJob() {
       setJobs((prevJobs) =>
         prevJobs.map((job) => (job._id === updatedJob._id ? updatedJob : job))
       );
-      if (modalJob && modalJob._id === updatedJob._id) {
+      if (modalJob && (modalJob._id === updatedJob._id || modalJob.id === updatedJob._id)) {
         setModalJob(updatedJob);
       }
-      
-      alert(`Application recorded for ${jobTitle}.`);
+
+      setShowApplyModal(false);
+      setApplyJobInfo(null);
+      alert(`Your application for ${applyJobInfo.title} has been submitted.`);
     } catch (error) {
       console.error("Apply error", error);
-      alert("Unable to apply at the moment. Please try again.");
+      setApplyError("Unable to submit application. Please try again.");
     } finally {
       setJobActionLoading(false);
     }
@@ -839,6 +868,7 @@ export default function BrowseJob() {
     );
 
     return {
+      _id: job._id,
       id: job._id,
       company: job.companyName,
       role: job.title,
@@ -864,6 +894,7 @@ export default function BrowseJob() {
       views: viewsCount,
       likes: likesCount,
       userLiked,
+      createdBy: job.createdBy,
       createdById: job.createdBy?._id,
       employerEmail: job.createdBy?.email,
       employerAvatar: job.createdBy?.role === 'employer' ? job.createdBy?.companyLogo : job.createdBy?.profilePicture,
@@ -1267,10 +1298,10 @@ export default function BrowseJob() {
                   <span>{post.likes}</span>
                 </button>
                 <button
-                  style={styles.actionButton}
-                  onClick={() => handleApply(post.id, post.role)}
-                  disabled={jobActionLoading}
-                  title="Apply for this job"
+                  style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
+                  onClick={() => openApplyModal(post)}
+                  disabled={jobActionLoading || isEmployer}
+                  title={isEmployer ? "Employers cannot apply" : "Apply for this job"}
                 >
                   <BriefcaseIcon size={18} />
                 </button>
@@ -1414,15 +1445,96 @@ export default function BrowseJob() {
                 <span>{modalJob.likes?.length || 0}</span>
               </button>
               <button
-                style={styles.actionButton}
-                onClick={() => handleApply(modalJob._id, modalJob.title)}
-                disabled={jobActionLoading}
+                style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
+                onClick={() => openApplyModal(modalJob)}
+                disabled={jobActionLoading || isEmployer}
+                title={isEmployer ? 'Employers cannot apply' : 'Apply'}
               >
                 Apply
               </button>
               <button style={styles.actionButton} onClick={() => { navigator.share ? navigator.share({ title: modalJob.title, text: modalJob.description }) : alert(modalJob.title + '\n' + modalJob.description); }}>
                 Share
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showApplyModal && applyJobInfo && (
+        <div style={styles.modalOverlay} onClick={closeApplyModal}>
+          <div style={{ ...styles.modalCard, ...styles.applyModalCard }} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <div>
+                <h2 style={{ margin: 0 }}>{applyJobInfo.title || applyJobInfo.role || 'Job application'}</h2>
+                <p style={styles.modalCompany}>{applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Company'} · {applyJobInfo.location || 'Remote'}</p>
+              </div>
+              <button style={styles.modalClose} onClick={closeApplyModal}>✕</button>
+            </div>
+
+            <div style={styles.modalBody}>
+              <div style={styles.applyVerticalGrid}>
+                <div style={styles.applyProfileSection}>
+                  <div style={styles.companyBadge}>
+                    {(applyJobInfo.createdBy?.companyLogo || applyJobInfo.employerAvatar) ? (
+                      <img
+                        src={applyJobInfo.createdBy?.companyLogo || applyJobInfo.createdBy?.profilePicture || applyJobInfo.employerAvatar}
+                        alt="company logo"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      />
+                    ) : (
+                      <span style={{ fontWeight: 700 }}>{(applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Employer').charAt(0)}</span>
+                    )}
+                  </div>
+                  <div style={styles.applyProfileInfo}>
+                    <p style={styles.applyInfoTitle}>Posted by</p>
+                    <p style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-h)' }}>
+                      {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.createdBy?.companyName || applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Employer'}
+                    </p>
+                    <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'No email available'}
+                    </p>
+                    <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      {applyJobInfo.createdBy?.role || 'Employer'} · {applyJobInfo.location || 'Remote'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '16px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Job overview</p>
+                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.description || applyJobInfo.postedAt || 'No description provided.'}</p>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Requirements</p>
+                  <p style={{ margin: 0, lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.requirements || applyJobInfo.details?.join(', ') || 'No requirements provided.'}</p>
+                </div>
+
+                <div style={styles.applyInfoSection}>
+                  <p style={styles.applyInfoTitle}>Job details</p>
+                  <div style={styles.applyInfoRow}><span>Salary</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : 'Negotiable'}</span></div>
+                  <div style={styles.applyInfoRow}><span>Location</span><span>{applyJobInfo.location || 'Remote'}</span></div>
+                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>Category</span><span>{applyJobInfo.category}</span></div>}
+                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>Type</span><span>{applyJobInfo.jobType}</span></div>}
+                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>Experience</span><span>{applyJobInfo.experienceLevel}</span></div>}
+                  <div style={styles.applyInfoRow}><span>Applicants</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
+                  <div style={styles.applyInfoRow}><span>Posted</span><span>{applyJobInfo.createdAt ? new Date(applyJobInfo.createdAt).toLocaleDateString() : applyJobInfo.postedAt || 'Unknown'}</span></div>
+                </div>
+
+                <div style={styles.applyInfoSection}>
+                  <p style={styles.applyInfoTitle}>Company information</p>
+                  <div style={styles.applyInfoRow}><span>Employer</span><span>{applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || 'Employer'}</span></div>
+                  <div style={styles.applyInfoRow}><span>Email</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Not provided'}</span></div>
+                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>Company</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
+                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>Location</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
+                </div>
+              </div>
+
+              {applyError && <p style={{ color: '#b91c1c', margin: '14px 0 0' }}>{applyError}</p>}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', margin: '24px 20px 20px' }}>
+              <button style={styles.secondaryButton} onClick={closeApplyModal}>Cancel</button>
+              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>Confirm apply</button>
             </div>
           </div>
         </div>
@@ -2271,6 +2383,73 @@ composerTextarea: {
     padding: "12px 20px",
     borderTop: "1px solid var(--border)",
     flexShrink: 0,
+  },
+  applyModalCard: {
+    width: "min(760px, 90vw)",
+    maxWidth: "100%",
+    maxHeight: "90vh",
+    borderRadius: "24px",
+    padding: "0",
+    overflow: "hidden",
+  },
+  applyVerticalGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "18px",
+    alignItems: "start",
+  },
+  applySectionHeader: {
+    display: "flex",
+    gap: "16px",
+    alignItems: "center",
+  },
+  applyProfileSection: {
+    display: "flex",
+    gap: "16px",
+    alignItems: "center",
+    paddingBottom: "18px",
+    borderBottom: "1px solid var(--border)",
+  },
+  applyProfileInfo: {
+    display: "grid",
+    gap: "6px",
+    minWidth: 0,
+  },
+  companyBadge: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "50%",
+    background: "var(--primary)",
+    color: "#fff",
+    display: "grid",
+    placeItems: "center",
+    fontSize: "18px",
+    flexShrink: 0,
+  },
+  applyInfoSection: {
+    background: "rgba(15, 23, 42, 0.03)",
+    borderRadius: "18px",
+    padding: "18px",
+    display: "grid",
+    gap: "12px",
+  },
+  applyInfoTitle: {
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  applyInfoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "18px",
+    color: "#334155",
+    fontSize: "13px",
+    lineHeight: 1.6,
+  },
+  applySidebar: {
+    display: "grid",
+    gap: "18px",
   },
   notificationToastContainer: {
     position: "fixed",

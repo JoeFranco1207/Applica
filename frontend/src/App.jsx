@@ -13,6 +13,7 @@ import CreateJobseekerProfile from "./pages/Create/CreateJobseekerProfile";
 import CreateJob from "./pages/Create/CreateJob";
 import Profile from "./pages/Profile";
 import BrowseJob from "./pages/Browse/BrowseJob";
+import EmployerApplicants from "./pages/EmployerApplicants";
 
 function Layout() {
   return (
@@ -60,6 +61,7 @@ function App() {
           <Route path="/create" element={<Create />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/employer/applicants" element={<EmployerApplicants />} />
         </Route>
       </Routes>
     </NotificationProvider>

@@ -144,6 +144,12 @@ const PostDetailsModal = ({
     setExpandedReplies(newSet);
   };
 
+  const expandComments = () => {
+    if (!commentsExpanded) {
+      setCommentsExpanded(true);
+    }
+  };
+
   const handleBackdropClick = (e) => {
     if (e.target.className === 'post-details-backdrop') {
       onClose();
@@ -403,6 +409,7 @@ const PostDetailsModal = ({
 
           <textarea
             value={commentText}
+            onFocus={expandComments}
             onChange={(e) => {
               setCommentText(e.target.value);
               if (error) setError('');

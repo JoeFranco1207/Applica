@@ -36,6 +36,23 @@ const BellIcon = ({ size = 20, hasNotification = false }) => (
   </div>
 );
 
+const JobIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="3" y="7" width="18" height="14" rx="2" ry="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -114,6 +131,16 @@ export default function Navbar() {
           </button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Companies</button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Resources</button>
+          {user?.role === "employer" && (
+            <button
+              style={styles.linkButton}
+              onClick={() => navigate("/employer/applicants")}
+              title="View applicants"
+            >
+              <JobIcon size={16} />
+              <span style={styles.navIconText}>Applicants</span>
+            </button>
+          )}
         </div>
 
         <div style={styles.actions}>
@@ -327,6 +354,13 @@ const styles = {
     color: "inherit",
     fontSize: 14,
     padding: "6px 10px",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  navIconText: {
+    display: "inline-block",
+    lineHeight: 1,
   },
   actions: {
     display: "flex",

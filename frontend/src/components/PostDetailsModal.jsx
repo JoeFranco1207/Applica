@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostDetailsModal.css';
+
+const getUserId = (user) => {
+  if (!user) return null;
+  return typeof user === 'object' ? user._id || user.id || null : user;
+};
 
 const PostDetailsModal = ({ 
   post, 
@@ -22,8 +28,10 @@ const PostDetailsModal = ({
   const [currentPost, setCurrentPost] = useState(post);
   const [isLiked, setIsLiked] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const [viewRecorded, setViewRecorded] = useState(false);
 
   const token = localStorage.getItem('token');
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (post) {
@@ -54,6 +62,36 @@ const PostDetailsModal = ({
       }
     }, 200);
   }, [highlightCommentId, currentPost]);
+
+  useEffect(() => {
+    if (!post?._id) return;
+    setViewRecorded(false);
+  }, [post?._id]);
+
+  useEffect(() => {
+    if (!isOpen || !currentPost || viewRecorded) return;
+
+    const recordView = async () => {
+      try {
+        const response = await axios.post(
+          `http://localhost:8000/api/posts/${currentPost._id}/view`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const updatedPost = response.data.data || currentPost;
+        setCurrentPost(updatedPost);
+        if (onUpdate) onUpdate(updatedPost);
+      } catch (error) {
+        console.error('Error recording post view:', error.response?.data || error.message);
+      } finally {
+        setViewRecorded(true);
+      }
+    };
+
+    recordView();
+  }, [isOpen, currentPost, viewRecorded, onUpdate, token]);
 
   if (!isOpen || !currentPost) return null;
 
@@ -88,6 +126,46 @@ const PostDetailsModal = ({
       console.error('Error deleting comment:', error);
       alert('Failed to delete comment');
     }
+  };
+
+  const isCommentLiked = (comment) => {
+    if (!comment.likes) return false;
+    return comment.likes.some((id) => {
+      const likeId = typeof id === 'object' ? id._id || id : id;
+      return likeId.toString() === currentUserId?.toString();
+    });
+  };
+
+  const toggleCommentLike = async (commentId) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/posts/${currentPost._id}/comment/${commentId}/like`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setCurrentPost(response.data.data);
+      if (onUpdate) onUpdate(response.data.data);
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+    }
+  };
+
+  const formatRelativeTime = (dateValue) => {
+    const date = new Date(dateValue);
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+    const years = Math.floor(months / 12);
+    return `${years} year${years === 1 ? '' : 's'} ago`;
   };
 
   const submitComment = async () => {
@@ -202,11 +280,25 @@ const PostDetailsModal = ({
               <img 
                 src={currentPost.authorAvatar} 
                 alt={currentPost.authorName} 
-                className="post-author-avatar" 
+                className="post-author-avatar"
+                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+                onClick={() => {
+                  const authorId = getUserId(currentPost.author);
+                  if (authorId) navigate(`/profile/${authorId}`);
+                }}
               />
             )}
             <div className="post-author-info">
-              <h3 className="post-author-name">{currentPost.authorName}</h3>
+              <h3
+                className="post-author-name"
+                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+                onClick={() => {
+                  const authorId = getUserId(currentPost.author);
+                  if (authorId) navigate(`/profile/${authorId}`);
+                }}
+              >
+                {currentPost.authorName}
+              </h3>
               <p className="post-author-role">{currentPost.authorRole}</p>
               <span className="post-timestamp">
                 {new Date(currentPost.createdAt).toLocaleDateString()} at {new Date(currentPost.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -327,14 +419,35 @@ const PostDetailsModal = ({
                         <img 
                           src={comment.authorAvatar} 
                           alt={comment.authorName} 
-                          className="comment-avatar" 
+                          className="comment-avatar"
+                          style={{ cursor: comment.author ? 'pointer' : 'default' }}
+                          onClick={() => {
+                            const authorId = getUserId(comment.author);
+                            if (authorId) navigate(`/profile/${authorId}`);
+                          }}
                         />
                       )}
                       <div className="comment-author-info">
-                        <h4 className="comment-author-name">{comment.authorName}</h4>
-                        <span className="comment-timestamp">
-                          {new Date(comment.createdAt).toLocaleDateString()}
-                        </span>
+                        <div className="comment-author-top">
+                          <h4
+                            className="comment-author-name"
+                            style={{ cursor: comment.author ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              const authorId = getUserId(comment.author);
+                              if (authorId) navigate(`/profile/${authorId}`);
+                            }}
+                          >
+                            {comment.authorName}
+                          </h4>
+                          {comment.authorRole && (
+                            <span className="comment-author-role">{comment.authorRole}</span>
+                          )}
+                        </div>
+                        <div className="comment-meta-row">
+                          <span className="comment-timestamp">
+                            {formatRelativeTime(comment.createdAt)}
+                          </span>
+                        </div>
                       </div>
                       {canDeleteComment && (
                         <button
@@ -347,20 +460,32 @@ const PostDetailsModal = ({
                       )}
                     </div>
                     <p className="comment-text">{comment.content}</p>
-                    
-                    <button
-                      className="reply-trigger-btn"
-                      onClick={() => {
-                        if (replyingToCommentId === comment._id) {
-                          setReplyingToCommentId(null);
-                        } else {
-                          setReplyingToCommentId(comment._id);
-                          setReplyText('');
-                        }
-                      }}
-                    >
-                      Reply
-                    </button>
+                    <div className="comment-actions-row">
+                      <button
+                        className={`comment-like-btn ${isCommentLiked(comment) ? 'liked' : ''}`}
+                        onClick={() => toggleCommentLike(comment._id)}
+                        type="button"
+                        aria-label={isCommentLiked(comment) ? 'Unlike comment' : 'Like comment'}
+                      >
+                        <svg className="comment-like-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                        <span>{comment.likes?.length || 0}</span>
+                      </button>
+                      <button
+                        className="reply-trigger-btn"
+                        onClick={() => {
+                          if (replyingToCommentId === comment._id) {
+                            setReplyingToCommentId(null);
+                          } else {
+                            setReplyingToCommentId(comment._id);
+                            setReplyText('');
+                          }
+                        }}
+                      >
+                        Reply
+                      </button>
+                    </div>
 
                     {replyingToCommentId === comment._id && (
                       <div className="reply-input-section">
@@ -416,12 +541,31 @@ const PostDetailsModal = ({
                                       src={reply.authorAvatar} 
                                       alt={reply.authorName} 
                                       className="reply-avatar" 
+                                      style={{ cursor: reply.author ? 'pointer' : 'default' }}
+                                      onClick={() => {
+                                        const authorId = getUserId(reply.author);
+                                        if (authorId) navigate(`/profile/${authorId}`);
+                                      }}
                                     />
                                   )}
                                   <div className="reply-author-info">
-                                    <h5 className="reply-author-name">{reply.authorName}</h5>
+                                    <div className="reply-author-top">
+                                      <h5
+                                        className="reply-author-name"
+                                        style={{ cursor: reply.author ? 'pointer' : 'default' }}
+                                        onClick={() => {
+                                          const authorId = getUserId(reply.author);
+                                          if (authorId) navigate(`/profile/${authorId}`);
+                                        }}
+                                      >
+                                        {reply.authorName}
+                                      </h5>
+                                      {reply.authorRole && (
+                                        <span className="reply-author-role">{reply.authorRole}</span>
+                                      )}
+                                    </div>
                                     <span className="reply-timestamp">
-                                      {new Date(reply.createdAt).toLocaleDateString()}
+                                      {formatRelativeTime(reply.createdAt)}
                                     </span>
                                   </div>
                                 </div>

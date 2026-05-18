@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
@@ -12,6 +12,12 @@ export default function Landing() {
 
   const isAuthenticated =
     !!localStorage.getItem("token");
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/explore", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const userData = isAuthenticated
     ? JSON.parse(localStorage.getItem("user") || "{}")
@@ -246,16 +252,6 @@ export default function Landing() {
           </button>
         </div>
       </section>
-
-      {userData?.role === "employer" && (
-        <button
-          style={styles.fab}
-          onClick={() => navigate("/create/job")}
-          title="Post Job"
-        >
-          +
-        </button>
-      )}
 
       {/* Footer */}
       <footer style={{

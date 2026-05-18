@@ -4,6 +4,11 @@ import axios from "axios";
 import "./BrowseJob.css";
 import PostDetailsModal from "../../components/PostDetailsModal";
 
+const getUserId = (user) => {
+  if (!user) return null;
+  return typeof user === 'object' ? user._id || user.id || null : user;
+};
+
 const HeartIcon = ({ filled = false, size = 18 }) => (
   <svg
     width={size}
@@ -856,8 +861,27 @@ export default function BrowseJob() {
     return () => clearInterval(notificationInterval);
   }, [token]);
 
-  const tabs = ["For you", "Trending", "Saved"];
+  const tabs = ["For you", "Following", "Job", "Post", "Saved"];
   const [activeTab, setActiveTab] = useState("For you");
+
+  const showJobSection = ["For you", "Job", "Saved"].includes(activeTab);
+  const showPostSection = ["For you", "Following", "Post"].includes(activeTab);
+
+  const followingSocialPosts = currentUser?.following?.length
+    ? socialPosts.filter((post) => {
+        const authorId = getUserId(post.author);
+        return authorId && currentUser.following.includes(authorId);
+      })
+    : [];
+
+  const followingEmployerJobs = currentUser?.following?.length
+    ? jobs
+        .map((job) => ({
+          ...job,
+          createdById: job.createdBy?._id || job.createdBy,
+        }))
+        .filter((job) => currentUser.following.includes(job.createdById))
+    : [];
 
   const jobPosts = jobs.map((job) => {
     const viewsCount = Array.isArray(job.views) ? job.views.length : 0;
@@ -1034,7 +1058,7 @@ export default function BrowseJob() {
 
       <section style={styles.feedSection}>
         <div style={styles.feedColumn}>
-          {currentUser?.role === "jobseeker" && (
+          {showPostSection && currentUser?.role === "jobseeker" && (
             <div style={styles.postComposerCard}>
               <div style={styles.composerTop}>
                 <div style={styles.composerAvatar}>
@@ -1116,127 +1140,238 @@ export default function BrowseJob() {
             </div>
           )}
 
-          {socialPosts.length > 0 && (
-            <div style={styles.socialFeedHeading}>
-              <h3 style={styles.sidebarTitle}>Jobseeker updates</h3>
-            </div>
-          )}
-          {socialPosts.map((post) => (
-            <div key={post._id} style={styles.socialPostCard}>
-              <div style={styles.socialPostHeader}>
-                <div style={styles.postAvatar}>
-                  {post.authorAvatar ? (
-                    <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  ) : (
-                    post.authorName?.charAt(0) || "U"
+          {showPostSection && (
+            <>
+              {((activeTab === "Following" && (followingSocialPosts.length || followingEmployerJobs.length)) || (activeTab !== "Following" && socialPosts.length)) && (
+                <div style={styles.socialFeedHeading}>
+                  <h3 style={styles.sidebarTitle}>
+                    {activeTab === "Following" ? "Following updates" : "Jobseeker updates"}
+                  </h3>
+                  {activeTab === "Following" && !currentUser?.following?.length && (
+                    <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
+                      Follow users to see their posts here.
+                    </p>
                   )}
-                </div>
-                <div style={styles.postHeading}>
-                  <div style={styles.postCompanyRow}>
-                    <span style={{ ...styles.postCompany, cursor: post.author ? 'pointer' : 'default' }} onClick={() => post.author && navigate(`/profile/${post.author}`)}>{post.authorName || "Jobseeker"}</span>
-                    <span style={styles.postDot}>·</span>
-                    <span style={styles.postMeta}>{post.authorRole}</span>
-                  </div>
-                  <span style={styles.postMeta}>{new Date(post.createdAt).toLocaleString()}</span>
-                </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                  {post.author === currentUserId && (
-                    <>
-                      <button style={styles.actionButton} onClick={() => startEditPost(post)}>Edit</button>
-                      <button style={styles.actionButton} onClick={() => archivePost(post._id)}>Archive</button>
-                      <button style={{ ...styles.actionButton, background: '#ffefef', color: '#b91c1c' }} onClick={() => deletePost(post._id)}>Delete</button>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div style={styles.postBody} onClick={() => openPostOrJob(post)}>
-                <p style={styles.postText}>{post.content}</p>
-                {post.location && (
-                  <p style={{ ...styles.postMeta, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <LocationIcon size={14} />
-                    {post.location.city}, {post.location.region}
-                  </p>
-                )}
-              </div>
-
-              {post.media?.data && (
-                <div style={{ marginTop: '12px', borderRadius: '12px', overflow: 'hidden' }}>
-                  {post.media.type === 'video' ? (
-                    <video src={post.media.data} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} controls />
-                  ) : (
-                    <img src={post.media.data} alt="post media" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} />
+                  {activeTab === "Following" && currentUser?.following?.length && !followingSocialPosts.length && !followingEmployerJobs.length && (
+                    <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
+                      Followed users haven’t posted yet.
+                    </p>
                   )}
                 </div>
               )}
 
-              {post.tags?.length > 0 && (
-                <div style={styles.postTags}>
-                  {post.tags.map((tag, index) => (
-                    <span key={`${post._id || post.id}-social-tag-${index}`} style={styles.postTag}>#{tag}</span>
+              {activeTab === "Following" && followingEmployerJobs.length > 0 && (
+                <>
+                  {followingEmployerJobs.map((job) => (
+                    <div key={job._id} style={styles.xPostCard}>
+                      <div style={styles.postHeaderRow}>
+                        <div
+                          style={{
+                            ...styles.postAvatar,
+                            cursor: job.createdById ? 'pointer' : 'default',
+                          }}
+                          onClick={() => {
+                            if (job.createdById) navigate(`/profile/${job.createdById}`);
+                          }}
+                        >
+                          {job.createdBy?.companyLogo ? (
+                            <img src={job.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                          ) : (
+                            job.companyName?.charAt(0) || job.company?.charAt(0)
+                          )}
+                        </div>
+                        <div style={styles.postHeading}>
+                          <div style={styles.postCompanyRow}>
+                            <span style={styles.postCompany}>{job.companyName || job.company}</span>
+                            <span style={styles.postDot}>·</span>
+                            <span style={styles.postMeta}>{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recently'}</span>
+                          </div>
+                          {job.createdBy?.email && (
+                            <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#0f766e', fontSize: '12px', fontWeight: '500', textAlign: 'left' }}>
+                              {job.createdBy.email}
+                            </p>
+                          )}
+                          <p style={{ ...styles.postTagline, textAlign: 'left' }}>{job.location || 'Remote'}</p>
+                        </div>
+                      </div>
+
+                      <div style={styles.postBody}>
+                        <h2 style={styles.postRole}>{job.title || job.role}</h2>
+                        <p style={styles.postText}>{job.description}</p>
+                      </div>
+
+                      <div style={styles.postTags}>
+                        {(job.tags || []).map((tag, index) => (
+                          <span key={`${job._id}-follow-tag-${index}`} style={styles.postTag}>{tag}</span>
+                        ))}
+                      </div>
+
+                      <div style={styles.postStatsRow}>
+                        <span style={styles.postStatItem}>{Array.isArray(job.applicants) ? job.applicants.length : job.applicants || 0} applicants</span>
+                        <span style={styles.postStatItem}>{Array.isArray(job.views) ? job.views.length : job.views || 0} views</span>
+                        <span style={styles.postStatItem}>{Array.isArray(job.likes) ? job.likes.length : job.likes || 0} likes</span>
+                      </div>
+
+                      <div style={styles.postActionRow}>
+                        <button
+                          style={savedJobIds.includes(job._id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
+                          onClick={() => handleSave(job._id)}
+                          title={savedJobIds.includes(job._id) ? 'Remove from saved' : 'Save job'}
+                        >
+                          <BookmarkIcon filled={savedJobIds.includes(job._id)} size={18} />
+                        </button>
+                        <button
+                          style={styles.actionButton}
+                          onClick={() => openJobModal(job._id)}
+                          title="View job"
+                        >
+                          <ChevronRightIcon size={18} />
+                        </button>
+                      </div>
+                    </div>
                   ))}
-                </div>
+                </>
               )}
 
-              <div style={styles.postEngagementDivider} />
-              
-              <div style={styles.postEngagementBar}>
-                <button
-                  style={{
-                    ...styles.engagementButton,
-                    color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
-                  }}
-                  onClick={() => togglePostLike(post._id)}
-                  title="Like this post"
-                >
-                  <HeartIcon 
-                    filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
-                    size={16} 
-                  />
-                  <span>{post.likes?.length || 0}</span>
-                </button>
-                <button
-                  style={styles.engagementButton}
-                  title="View post and comment"
-                  onClick={() => openPostModal(post)}
-                >
-                  <CommentIcon size={16} />
-                  <span>{post.comments?.length || 0}</span>
-                </button>
-                <button 
-                  style={styles.engagementButton} 
-                  title="Repost this"
-                  onClick={() => handleRepost(post._id)}
-                >
-                  <RepostIcon size={16} />
-                  <span>{post.reposts?.length || 0}</span>
-                </button>
-                <button 
-                  style={styles.engagementButton} 
-                  title="Share this post"
-                  onClick={() => handleSharePost(post._id)}
-                >
-                  <ShareIcon size={16} />
-                </button>
-              </div>
-
-              {editingPostId === post._id && (
-                <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                  <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
-                  <input value={editingTags} onChange={(e) => setEditingTags(e.target.value)} placeholder="Tags (comma separated)" />
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button onClick={cancelEdit} style={styles.actionButton}>Cancel</button>
-                    <button onClick={saveEditPost} style={styles.postComposerButton}>Save</button>
+              {(activeTab === "Following" ? followingSocialPosts : socialPosts).map((post) => (
+                <div key={post._id} style={styles.socialPostCard}>
+                  <div style={styles.socialPostHeader}>
+                    <div
+                      style={{ ...styles.postAvatar, cursor: post.author ? 'pointer' : 'default' }}
+                      onClick={() => {
+                        const authorId = getUserId(post.author);
+                        if (authorId) navigate(`/profile/${authorId}`);
+                      }}
+                    >
+                      {post.authorAvatar ? (
+                        <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                      ) : (
+                        post.authorName?.charAt(0) || "U"
+                      )}
+                    </div>
+                    <div style={styles.postHeading}>
+                      <div style={styles.postCompanyRow}>
+                        <span
+                          style={{ ...styles.postCompany, cursor: post.author ? 'pointer' : 'default' }}
+                          onClick={() => {
+                            const authorId = getUserId(post.author);
+                            if (authorId) navigate(`/profile/${authorId}`);
+                          }}
+                        >
+                          {post.authorName || "Jobseeker"}
+                        </span>
+                        <span style={styles.postDot}>·</span>
+                        <span style={styles.postMeta}>{post.authorRole}</span>
+                      </div>
+                      <span style={styles.postMeta}>{new Date(post.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                      {post.author === currentUserId && (
+                        <>
+                          <button style={styles.actionButton} onClick={() => startEditPost(post)}>Edit</button>
+                          <button style={styles.actionButton} onClick={() => archivePost(post._id)}>Archive</button>
+                          <button style={{ ...styles.actionButton, background: '#ffefef', color: '#b91c1c' }} onClick={() => deletePost(post._id)}>Delete</button>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  <div style={styles.postBody} onClick={() => openPostOrJob(post)}>
+                    <p style={styles.postText}>{post.content}</p>
+                    {post.location && (
+                      <p style={{ ...styles.postMeta, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <LocationIcon size={14} />
+                        {post.location.city}, {post.location.region}
+                      </p>
+                    )}
+                  </div>
+
+                  {post.media?.data && (
+                    <div style={{ marginTop: '12px', borderRadius: '12px', overflow: 'hidden' }}>
+                      {post.media.type === 'video' ? (
+                        <video src={post.media.data} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} controls />
+                      ) : (
+                        <img src={post.media.data} alt="post media" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} />
+                      )}
+                    </div>
+                  )}
+
+                  {post.tags?.length > 0 && (
+                    <div style={styles.postTags}>
+                      {post.tags.map((tag, index) => (
+                        <span key={`${post._id || post.id}-social-tag-${index}`} style={styles.postTag}>#{tag}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={styles.postEngagementDivider} />
+                  
+                  <div style={styles.postEngagementBar}>
+                    <button
+                      style={{
+                        ...styles.engagementButton,
+                        color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
+                      }}
+                      onClick={() => togglePostLike(post._id)}
+                      title="Like this post"
+                    >
+                      <HeartIcon 
+                        filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
+                        size={16} 
+                      />
+                      <span>{post.likes?.length || 0}</span>
+                    </button>
+                    <button
+                      style={styles.engagementButton}
+                      title="View post and comment"
+                      onClick={() => openPostModal(post)}
+                    >
+                      <CommentIcon size={16} />
+                      <span>{post.comments?.length || 0}</span>
+                    </button>
+                    <button 
+                      style={styles.engagementButton} 
+                      title="Repost this"
+                      onClick={() => handleRepost(post._id)}
+                    >
+                      <RepostIcon size={16} />
+                      <span>{post.reposts?.length || 0}</span>
+                    </button>
+                    <button 
+                      style={styles.engagementButton} 
+                      title="Share this post"
+                      onClick={() => handleSharePost(post._id)}
+                    >
+                      <ShareIcon size={16} />
+                    </button>
+                  </div>
+
+                  {editingPostId === post._id && (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                      <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
+                      <input value={editingTags} onChange={(e) => setEditingTags(e.target.value)} placeholder="Tags (comma separated)" />
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={cancelEdit} style={styles.actionButton}>Cancel</button>
+                        <button onClick={saveEditPost} style={styles.postComposerButton}>Save</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              ))}
+            </>
+          )}
 
-
-          {filteredPosts.map((post) => (
+          {showJobSection && filteredPosts.map((post) => (
             <div key={post.id} style={styles.xPostCard}>
               <div style={styles.postHeaderRow}>
-                <div style={styles.postAvatar}>
+                <div
+                  style={{
+                    ...styles.postAvatar,
+                    cursor: post.createdById ? 'pointer' : 'default',
+                  }}
+                  onClick={() => {
+                    if (post.createdById) navigate(`/profile/${post.createdById}`);
+                  }}
+                >
                   {post.employerAvatar ? (
                     <img src={post.employerAvatar} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
@@ -1359,6 +1494,16 @@ export default function BrowseJob() {
         </aside>
       </section>
 
+      {isEmployer && (
+        <button
+          style={styles.fab}
+          onClick={() => navigate("/create/job")}
+          title="Post Job"
+        >
+          +
+        </button>
+      )}
+
       {showPostModal && selectedPost && (
           <PostDetailsModal
           post={selectedPost}
@@ -1386,7 +1531,25 @@ export default function BrowseJob() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: '800', fontSize: '18px', flexShrink: 0 }}>
+              <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: 'var(--primary)',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#fff',
+                fontWeight: '800',
+                fontSize: '18px',
+                flexShrink: 0,
+                cursor: modalJob.createdBy?._id ? 'pointer' : 'default',
+              }}
+              onClick={() => {
+                const authorId = getUserId(modalJob.createdBy);
+                if (authorId) navigate(`/profile/${authorId}`);
+              }}
+            >
                 {modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? (
                   <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 ) : modalJob.createdBy?.profilePicture ? (
@@ -1396,7 +1559,20 @@ export default function BrowseJob() {
                 )}
               </div>
               <div>
-                <p style={styles.modalCompany}>{modalJob.companyName} · {modalJob.location || 'Remote'}</p>
+                <p
+                  style={{
+                    ...styles.modalCompany,
+                    cursor: modalJob.createdBy?._id ? 'pointer' : 'default',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
+                  onClick={() => {
+                    const authorId = getUserId(modalJob.createdBy);
+                    if (authorId) navigate(`/profile/${authorId}`);
+                  }}
+                >
+                  {modalJob.companyName} · {modalJob.location || 'Remote'}
+                </p>
                 {modalJob.createdBy?.email && (
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
                     {modalJob.createdBy.email}
@@ -2450,6 +2626,24 @@ composerTextarea: {
   applySidebar: {
     display: "grid",
     gap: "18px",
+  },
+  fab: {
+    position: "fixed",
+    right: "24px",
+    bottom: "24px",
+    width: "56px",
+    height: "56px",
+    borderRadius: "50%",
+    backgroundColor: "#9ca3af",
+    color: "#ffffff",
+    border: "none",
+    display: "grid",
+    placeItems: "center",
+    fontSize: "28px",
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 16px 36px rgba(0, 0, 0, 0.18)",
+    zIndex: 2000,
   },
   notificationToastContainer: {
     position: "fixed",

@@ -495,6 +495,7 @@ const styles = {
     fontWeight: 800,
     color: "#0f172a",
   },
+  
   sectionCount: {
     fontSize: "0.9rem",
     fontWeight: 700,

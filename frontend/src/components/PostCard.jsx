@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
 import CommentModal from './CommentModal';
 
+const getUserId = (user) => {
+  if (!user) return null;
+  return typeof user === 'object' ? user._id || user.id || null : user;
+};
+
 const PostCard = ({ post, onUpdate }) => {
+  const navigate = useNavigate();
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -180,9 +187,6 @@ const PostCard = ({ post, onUpdate }) => {
     }
   };
 
-  React.useEffect(() => {
-    handleView();
-  }, [currentPost._id]);
 
   return (
     <div className="post-card">
@@ -190,10 +194,28 @@ const PostCard = ({ post, onUpdate }) => {
       <div className="post-header">
         <div className="author-info">
           {currentPost.authorAvatar && (
-            <img src={currentPost.authorAvatar} alt={currentPost.authorName} className="author-avatar" />
+            <img
+              src={currentPost.authorAvatar}
+              alt={currentPost.authorName}
+              className="author-avatar"
+              style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+              onClick={() => {
+                const authorId = getUserId(currentPost.author);
+                if (authorId) navigate(`/profile/${authorId}`);
+              }}
+            />
           )}
           <div className="author-details">
-            <h3 className="author-name">{currentPost.authorName}</h3>
+            <h3
+              className="author-name"
+              style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+              onClick={() => {
+                const authorId = getUserId(currentPost.author);
+                if (authorId) navigate(`/profile/${authorId}`);
+              }}
+            >
+              {currentPost.authorName}
+            </h3>
             <span className="author-role">{currentPost.authorRole}</span>
             <span className="post-time">{new Date(currentPost.createdAt).toLocaleDateString()}</span>
           </div>
@@ -286,10 +308,28 @@ const PostCard = ({ post, onUpdate }) => {
                 <div key={comment._id} className="comment-item">
                   <div className="comment-author">
                     {comment.authorAvatar && (
-                      <img src={comment.authorAvatar} alt={comment.authorName} className="comment-avatar" />
+                      <img
+                        src={comment.authorAvatar}
+                        alt={comment.authorName}
+                        className="comment-avatar"
+                        style={{ cursor: comment.author ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          const authorId = getUserId(comment.author);
+                          if (authorId) navigate(`/profile/${authorId}`);
+                        }}
+                      />
                     )}
                     <div className="comment-info">
-                      <h4 className="comment-author-name">{comment.authorName}</h4>
+                      <h4
+                        className="comment-author-name"
+                        style={{ cursor: comment.author ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          const authorId = getUserId(comment.author);
+                          if (authorId) navigate(`/profile/${authorId}`);
+                        }}
+                      >
+                        {comment.authorName}
+                      </h4>
                       <span className="comment-time">{new Date(comment.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>

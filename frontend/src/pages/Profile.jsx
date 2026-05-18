@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
+import PostDetailsModal from "../components/PostDetailsModal";
 import axios from "axios";
 
 const HeartIcon = ({ filled = false, size = 16 }) => (
@@ -32,6 +33,22 @@ const ShareIcon = ({ size = 16 }) => (
     <circle cx="18" cy="19" r="3" />
     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
+const FollowIcon = ({ followed = false, size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {followed ? (
+      <path d="M5 13l4 4L19 7" />
+    ) : (
+      <path d="M12 5v14M5 12h14" />
+    )}
+  </svg>
+);
+
+const ReportIcon = ({ filled = false, size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 3h14a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1z" />
   </svg>
 );
 
@@ -110,6 +127,8 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [employerJobs, setEmployerJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [modalJob, setModalJob] = useState(null);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [showApplicantModal, setShowApplicantModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -140,9 +159,16 @@ export default function Profile() {
   const { id: profileId } = useParams();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const storedUser = localStorage.getItem("user");
-  const currentUser = storedUser ? JSON.parse(storedUser) : null;
-  const currentUserId = currentUser?.id || currentUser?._id || null;
+  const [authUser, setAuthUser] = useState(storedUser ? JSON.parse(storedUser) : null);
+  const currentUserId = authUser?.id || authUser?._id || null;
   const isOwnProfile = !profileId || profileId === currentUserId;
+  const [followingIds, setFollowingIds] = useState(() => authUser?.following || []);
+  const [reportedIds, setReportedIds] = useState(() => authUser?.reportedUsers || []);
+
+  useEffect(() => {
+    setFollowingIds(authUser?.following || []);
+    setReportedIds(authUser?.reportedUsers || []);
+  }, [authUser]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -189,22 +215,42 @@ export default function Profile() {
     fetchUserProfile();
   }, [navigate, profileId]);
 
+  const openJobModal = (job) => {
+    setModalJob(job);
+    setShowJobModal(true);
+  };
+
+  const closeJobModal = () => {
+    setShowJobModal(false);
+    setModalJob(null);
+  };
+
   useEffect(() => {
     const fetchEmployerJobs = async () => {
       if (!user?.role || user.role !== "employer") return;
 
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
+      setMetricsLoading(true);
       try {
-        setMetricsLoading(true);
-        const response = await axios.get("http://localhost:8000/api/employer/my-jobs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        if (!profileId || profileId === currentUserId) {
+          const token = localStorage.getItem("token");
+          if (!token) return;
 
-        setEmployerJobs(response.data.data || []);
+          const response = await axios.get("http://localhost:8000/api/employer/my-jobs", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          setEmployerJobs(response.data.data || []);
+        } else {
+          const response = await axios.get("http://localhost:8000/api/jobs");
+          const allJobs = response.data.data || [];
+          const filteredJobs = allJobs.filter((job) => {
+            const creatorId = job.createdBy?._id || job.createdBy;
+            return creatorId?.toString() === profileId?.toString();
+          });
+          setEmployerJobs(filteredJobs);
+        }
       } catch (error) {
         console.error("Error fetching employer jobs:", error);
       } finally {
@@ -213,7 +259,7 @@ export default function Profile() {
     };
 
     fetchEmployerJobs();
-  }, [user]);
+  }, [user, profileId, currentUserId]);
 
   useEffect(() => {
     const fetchMyPosts = async () => {
@@ -240,6 +286,46 @@ export default function Profile() {
     setUserMenuOpen(false);
     navigate("/");
     window.location.reload();
+  };
+
+  const saveAuthUser = (updatedUser) => {
+    if (!updatedUser) return;
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    setAuthUser(updatedUser);
+  };
+
+  const profileUserId = user?._id || user?.id || profileId;
+  const isFollowingProfile = profileUserId ? followingIds.includes(profileUserId) : false;
+  const hasReportedProfile = profileUserId ? reportedIds.includes(profileUserId) : false;
+
+  const handleToggleFollow = () => {
+    if (!authUser || !profileUserId || isOwnProfile) return;
+
+    const nextFollowing = isFollowingProfile
+      ? followingIds.filter((id) => id !== profileUserId)
+      : [...followingIds, profileUserId];
+
+    setFollowingIds(nextFollowing);
+    saveAuthUser({
+      ...authUser,
+      following: nextFollowing,
+    });
+  };
+
+  const handleReportUser = () => {
+    if (!authUser || !profileUserId || isOwnProfile) return;
+    if (hasReportedProfile) {
+      alert("You have already reported this user.");
+      return;
+    }
+
+    const nextReported = [...reportedIds, profileUserId];
+    setReportedIds(nextReported);
+    saveAuthUser({
+      ...authUser,
+      reportedUsers: nextReported,
+    });
+    alert("User reported. Our team will review this account.");
   };
 
   const openApplicantModal = (applicant, jobId) => {
@@ -355,6 +441,13 @@ export default function Profile() {
     setShowPostModal(false);
     setSelectedPost(null);
     setCommentText("");
+  };
+
+  const handleUpdatedPost = (updatedPost) => {
+    setSelectedPost(updatedPost);
+    setMyPosts((prev) =>
+      prev.map((post) => (post._id === updatedPost._id ? updatedPost : post))
+    );
   };
 
   const submitComment = async () => {
@@ -693,11 +786,13 @@ export default function Profile() {
             <div style={styles.profileImageContainer}>
               <div
                 style={styles.profileImageLabel}
-                onClick={handleHeaderCircleClick}
+                onClick={isOwnProfile ? handleHeaderCircleClick : () => navigate(`/profile/${userId}`)}
                 title={
-                  user?.role === "jobseeker"
-                    ? "Click to upload profile picture"
-                    : "Click to upload company logo"
+                  isOwnProfile
+                    ? (user?.role === "jobseeker"
+                      ? "Click to upload profile picture"
+                      : "Click to upload company logo")
+                    : "Click to view profile"
                 }
               >
                 <div style={{
@@ -726,10 +821,14 @@ export default function Profile() {
             </div>
 
             <div style={styles.profileInfo}>
-              <h1 style={{
-                ...styles.profileName,
-                color: "#ffffff",
-              }}>
+              <h1 
+                style={{
+                  ...styles.profileName,
+                  color: "#ffffff",
+                  cursor: isOwnProfile ? "default" : "pointer",
+                }}
+                onClick={() => !isOwnProfile && navigate(`/profile/${userId}`)}
+              >
                 {user ? (user?.role === "employer" ? user.companyName : `${user.firstName} ${user.lastName}`) : "User Profile"}
               </h1>
               <p style={{
@@ -746,7 +845,28 @@ export default function Profile() {
               </p>
             </div>
 
-            {isOwnProfile && (
+            {!isOwnProfile ? (
+              <>
+                <div style={styles.profileActionRow}>
+                  <button
+                    style={isFollowingProfile ? styles.followingButton : styles.followButton}
+                    onClick={handleToggleFollow}
+                    aria-label={isFollowingProfile ? "Unfollow user" : "Follow user"}
+                    title={isFollowingProfile ? "Following" : "Follow"}
+                  >
+                    <FollowIcon followed={isFollowingProfile} size={18} />
+                  </button>
+                  <button
+                    style={styles.reportButton}
+                    onClick={handleReportUser}
+                    aria-label={hasReportedProfile ? "Reported user" : "Report user"}
+                    title={hasReportedProfile ? "Reported" : "Report"}
+                  >
+                    <ReportIcon size={18} filled={hasReportedProfile} />
+                  </button>
+                </div>
+              </>
+            ) : (
               <button
                 style={styles.editButton}
                 onClick={() => {
@@ -877,11 +997,26 @@ export default function Profile() {
                 </div>
                 <div style={styles.detailItem}>
                   <label style={styles.detailLabel}>Resume</label>
-                  <p style={styles.detailValue}>{user?.resume || "Not provided"}</p>
-                </div>
-                <div style={styles.detailItem}>
-                  <label style={styles.detailLabel}>Profile Picture</label>
-                  <p style={styles.detailValue}>{user?.profilePicture || "Not provided"}</p>
+                  {user?.resume ? (
+                    <a 
+                      href={user.resume} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        fontSize: 14
+                      }}
+                      onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                      onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                    >
+                      View Resume
+                    </a>
+                  ) : (
+                    <p style={styles.detailValue}>Not provided</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -966,149 +1101,240 @@ export default function Profile() {
               ) : employerJobs.length ? (
                 <div style={styles.jobList}>
                   {employerJobs.map((job) => (
-                    <div key={job._id} style={styles.jobCard}>
+                    <div
+                      key={job._id}
+                      style={{
+                        ...styles.jobCard,
+                        backgroundColor: isDarkMode ? "#111827" : "#ffffff",
+                        border: isDarkMode ? "1px solid #1f2937" : "1px solid #e5e7eb",
+                        color: isDarkMode ? "#f8fafc" : "#111827",
+                      }}
+                    >
                       <div style={styles.jobHeader}>
                         <div>
-                          <p style={styles.jobTitle}>{job.title}</p>
-                          <p style={styles.jobMeta}>{job.companyName}</p>
+                          <p
+                            style={{
+                              ...styles.jobTitle,
+                              color: isDarkMode ? "#f8fafc" : "#111827",
+                            }}
+                          >
+                            {job.title}
+                          </p>
+                          <p
+                            style={{
+                              ...styles.jobMeta,
+                              color: isDarkMode ? "#cbd5e1" : "#64748b",
+                            }}
+                          >
+                            {job.companyName}
+                          </p>
                         </div>
                         <div style={styles.jobActionsRow}>
                           <button
                             style={styles.interactionButton}
                             onClick={() =>
-                              setSelectedJobId(
-                                selectedJobId === job._id ? null : job._id
-                              )
+                              isOwnProfile
+                                ? setSelectedJobId(
+                                    selectedJobId === job._id ? null : job._id
+                                  )
+                                : openJobModal(job)
                             }
                           >
                             {selectedJobId === job._id
                               ? "Hide details"
-                              : "Manage applicants"}
+                              : isOwnProfile
+                              ? "Manage applicants"
+                              : "View details"}
                           </button>
-                          <button
-                            style={styles.deleteJobButton}
-                            onClick={() => handleJobDelete(job._id)}
-                          >
-                            Delete job
-                          </button>
+                          {isOwnProfile && (
+                            <button
+                              style={styles.deleteJobButton}
+                              onClick={() => handleJobDelete(job._id)}
+                            >
+                              Delete job
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      <div style={styles.jobStatsRow}>
-                        <span style={styles.jobStatItem}>
+                      <div
+                        style={{
+                          ...styles.jobStatsRow,
+                          color: isDarkMode ? "#cbd5e1" : "#334155",
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...styles.jobStatItem,
+                            backgroundColor: isDarkMode ? "#1f2937" : "#f8fafc",
+                            color: isDarkMode ? "#e2e8f0" : "#334155",
+                          }}
+                        >
                           <EyeIcon size={16} />
                           <span>{job.views?.length || 0} views</span>
                         </span>
-                        <span style={styles.jobStatItem}>
+                        <span
+                          style={{
+                            ...styles.jobStatItem,
+                            backgroundColor: isDarkMode ? "#1f2937" : "#f8fafc",
+                            color: isDarkMode ? "#e2e8f0" : "#334155",
+                          }}
+                        >
                           <HeartIcon size={16} />
                           <span>{job.likes?.length || 0} likes</span>
                         </span>
-                        <span style={styles.jobStatItem}>
-                          <BriefcaseIcon size={16} />
-                          <span>{job.applicants?.length || 0} applicants</span>
-                        </span>
-                        <span style={styles.jobStatItem}>
-                          <ClockIcon size={16} />
-                          <span>{job.applicants?.filter((application) => (application.status || 'pending') === 'pending').length || 0} pending</span>
-                        </span>
+                        {isOwnProfile && (
+                          <>
+                            <span
+                              style={{
+                                ...styles.jobStatItem,
+                                backgroundColor: isDarkMode ? "#1f2937" : "#f8fafc",
+                                color: isDarkMode ? "#e2e8f0" : "#334155",
+                              }}
+                            >
+                              <BriefcaseIcon size={16} />
+                              <span>{job.applicants?.length || 0} applicants</span>
+                            </span>
+                            <span
+                              style={{
+                                ...styles.jobStatItem,
+                                backgroundColor: isDarkMode ? "#1f2937" : "#f8fafc",
+                                color: isDarkMode ? "#e2e8f0" : "#334155",
+                              }}
+                            >
+                              <ClockIcon size={16} />
+                              <span>{job.applicants?.filter((application) => (application.status || 'pending') === 'pending').length || 0} pending</span>
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       {selectedJobId === job._id && (
                         <div style={styles.interactionPanel}>
                           <div style={styles.interactionGroup}>
-                            <p style={styles.interactionLabel}>Viewed by</p>
-                            {job.views?.length ? (
-                              job.views.map((viewer) => (
-                                <p key={viewer._id} style={styles.interactionText}>
-                                  {viewer.firstName} {viewer.lastName} • {viewer.email}
-                                </p>
-                              ))
-                            ) : (
-                              <p style={styles.interactionText}>No jobseeker views yet.</p>
-                            )}
+                            <p style={styles.interactionLabel}>Viewed</p>
+                            <p style={styles.interactionText}>{job.views?.length || 0} views</p>
                           </div>
 
                           <div style={styles.interactionGroup}>
-                            <p style={styles.interactionLabel}>Liked by</p>
-                            {job.likes?.length ? (
-                              job.likes.map((liker) => (
-                                <p key={liker._id} style={styles.interactionText}>
-                                  {liker.firstName} {liker.lastName} • {liker.email}
-                                </p>
-                              ))
-                            ) : (
-                              <p style={styles.interactionText}>No likes yet.</p>
-                            )}
+                            <p style={styles.interactionLabel}>Liked</p>
+                            <p style={styles.interactionText}>{job.likes?.length || 0} likes</p>
                           </div>
 
-                          <div style={styles.interactionGroup}>
-                            <p style={styles.interactionLabel}>Applicants</p>
-                            {job.applicants?.length ? (
-                              job.applicants.map((applicant) => {
-                                const user = applicant.user || applicant;
-                                const status = applicant.status || "pending";
-                                return (
-                                  <div key={user._id} style={styles.applicantRow}>
-                                    <div style={styles.applicantDetails}>
-                                      {user.profilePicture && (
-                                        <img
-                                          src={user.profilePicture}
-                                          alt={`${user.firstName} avatar`}
-                                          style={styles.applicantAvatar}
-                                        />
-                                      )}
-                                      <div>
-                                        <p style={styles.interactionText}>
-                                          {user.firstName} {user.lastName} • {user.email}
-                                        </p>
-                                        <p style={styles.applicantStatus}>{status}</p>
+                          {!isOwnProfile ? (
+                            <>
+                              {job.description && (
+                                <div style={styles.interactionGroup}>
+                                  <p style={styles.interactionLabel}>Job description</p>
+                                  <p style={styles.interactionText}>{job.description}</p>
+                                </div>
+                              )}
+                              {job.requirements && (
+                                <div style={styles.interactionGroup}>
+                                  <p style={styles.interactionLabel}>Requirements</p>
+                                  <p style={styles.interactionText}>{job.requirements}</p>
+                                </div>
+                              )}
+                              <p style={styles.noteText}>Only the job owner can manage applicants. You can view job info and likes here.</p>
+                            </>
+                          ) : (
+                            <>
+                              <div style={styles.interactionGroup}>
+                                <p style={styles.interactionLabel}>Viewed by</p>
+                                {job.views?.length ? (
+                                  job.views.map((viewer) => (
+                                    <p key={viewer._id} style={styles.interactionText}>
+                                      {viewer.firstName} {viewer.lastName} • {viewer.email}
+                                    </p>
+                                  ))
+                                ) : (
+                                  <p style={styles.interactionText}>No jobseeker views yet.</p>
+                                )}
+                              </div>
+
+                              <div style={styles.interactionGroup}>
+                                <p style={styles.interactionLabel}>Liked by</p>
+                                {job.likes?.length ? (
+                                  job.likes.map((liker) => (
+                                    <p key={liker._id} style={styles.interactionText}>
+                                      {liker.firstName} {liker.lastName} • {liker.email}
+                                    </p>
+                                  ))
+                                ) : (
+                                  <p style={styles.interactionText}>No likes yet.</p>
+                                )}
+                              </div>
+
+                              <div style={styles.interactionGroup}>
+                                <p style={styles.interactionLabel}>Applicants</p>
+                                {job.applicants?.length ? (
+                                  job.applicants.map((applicant) => {
+                                    const user = applicant.user || applicant;
+                                    const status = applicant.status || "pending";
+                                    return (
+                                      <div key={user._id} style={styles.applicantRow}>
+                                        <div style={styles.applicantDetails}>
+                                          {user.profilePicture && (
+                                            <img
+                                              src={user.profilePicture}
+                                              alt={`${user.firstName} avatar`}
+                                              style={styles.applicantAvatar}
+                                            />
+                                          )}
+                                          <div>
+                                            <p style={styles.interactionText}>
+                                              {user.firstName} {user.lastName} • {user.email}
+                                            </p>
+                                            <p style={styles.applicantStatus}>{status}</p>
+                                          </div>
+                                        </div>
+                                        <div style={styles.applicantActions}>
+                                          <button
+                                            style={styles.viewProfileButton}
+                                            onClick={() => openApplicantModal(applicant, job._id)}
+                                          >
+                                            View profile
+                                          </button>
+                                          {status !== "accepted" && (
+                                            <button
+                                              style={styles.statusButton}
+                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
+                                            >
+                                              Accept
+                                            </button>
+                                          )}
+                                          {status !== "rejected" && (
+                                            <button
+                                              style={styles.statusButtonSecondary}
+                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "rejected")}
+                                            >
+                                              Reject
+                                            </button>
+                                          )}
+                                          {status !== "reviewing" && (
+                                            <button
+                                              style={styles.statusButtonSecondary}
+                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
+                                            >
+                                              Reviewing
+                                            </button>
+                                          )}
+                                          <button
+                                            style={styles.statusButtonSecondary}
+                                            onClick={() => handleApplicantRemove(job._id, user._id)}
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <div style={styles.applicantActions}>
-                                      <button
-                                        style={styles.viewProfileButton}
-                                        onClick={() => openApplicantModal(applicant, job._id)}
-                                      >
-                                        View profile
-                                      </button>
-                                      {status !== "accepted" && (
-                                        <button
-                                          style={styles.statusButton}
-                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
-                                        >
-                                          Accept
-                                        </button>
-                                      )}
-                                      {status !== "rejected" && (
-                                        <button
-                                          style={styles.statusButtonSecondary}
-                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "rejected")}
-                                        >
-                                          Reject
-                                        </button>
-                                      )}
-                                      {status !== "reviewing" && (
-                                        <button
-                                          style={styles.statusButtonSecondary}
-                                          onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
-                                        >
-                                          Reviewing
-                                        </button>
-                                      )}
-                                      <button
-                                        style={styles.statusButtonSecondary}
-                                        onClick={() => handleApplicantRemove(job._id, user._id)}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <p style={styles.interactionText}>No applicants yet.</p>
-                            )}
-                          </div>
+                                    );
+                                  })
+                                ) : (
+                                  <p style={styles.interactionText}>No applicants yet.</p>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1137,7 +1363,6 @@ export default function Profile() {
                   <button style={styles.modalClose} onClick={closeApplicantModal}>✕</button>
                 </div>
                 <div style={styles.modalBody}>
-                  <p style={styles.modalLabel}>Email</p>
                   <p style={styles.modalValue}>{selectedApplicantInfo?.email}</p>
                   <p style={styles.modalLabel}>Status</p>
                   <p style={styles.modalValue}>{selectedApplicant.status || "pending"}</p>
@@ -1220,6 +1445,68 @@ export default function Profile() {
                       <p style={styles.modalValue}>{selectedApplicantInfo.resume}</p>
                     </>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showJobModal && modalJob && (
+            <div style={styles.modalOverlay} onClick={closeJobModal}>
+              <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.modalHeader}>
+                  <h2 style={{ margin: 0 }}>{modalJob.title}</h2>
+                  <button style={styles.modalClose} onClick={closeJobModal}>✕</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                  <div
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      background: '#2563eb',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#fff',
+                      fontWeight: '800',
+                      fontSize: '18px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? (
+                      <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    ) : modalJob.createdBy?.profilePicture ? (
+                      <img src={modalJob.createdBy.profilePicture} alt="author" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    ) : (
+                      (modalJob.createdBy?.firstName?.charAt(0) || modalJob.companyName?.charAt(0) || 'E')
+                    )}
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>{modalJob.companyName} · {modalJob.location || 'Remote'}</p>
+                    {modalJob.createdBy?.email && (
+                      <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#94a3b8' }}>{modalJob.createdBy.email}</p>
+                    )}
+                  </div>
+                </div>
+                <div style={styles.modalBody}>
+                  {modalJob.description && (
+                    <>
+                      <p style={styles.modalLabel}>Job description</p>
+                      <p style={styles.modalValue}>{modalJob.description}</p>
+                    </>
+                  )}
+                  {modalJob.requirements && (
+                    <>
+                      <p style={styles.modalLabel}>Requirements</p>
+                      <p style={styles.modalValue}>{modalJob.requirements}</p>
+                    </>
+                  )}
+                  <div>
+                    <p style={styles.modalLabel}>Metrics</p>
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', color: '#475569' }}>
+                      <span>{modalJob.views?.length || 0} views</span>
+                      <span>{modalJob.likes?.length || 0} likes</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1392,46 +1679,89 @@ export default function Profile() {
 
               <div style={{ display: 'grid', gap: 16 }}>
                 {myPosts.map((post) => (
-                  <div 
-                    key={post._id} 
+                  <div
+                    key={post._id}
                     onClick={() => openPostModal(post)}
-                    style={{ padding: 16, borderRadius: 18, border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', background: isDarkMode ? '#071022' : '#fff', cursor: 'pointer', transition: 'all 0.3s ease', }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#3f3f46' : '#d1d5db'}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = isDarkMode ? '#1f2937' : '#e6eef9'}
+                    style={{
+                      ...styles.profilePostCard,
+                      background: isDarkMode ? '#071022' : '#ffffff',
+                      borderColor: isDarkMode ? '#1f2937' : '#e6eef9',
+                    }}
                   >
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                    <div style={styles.profilePostHeader}>
+                      <div style={styles.profilePostAvatar}>
                         {post.authorAvatar ? (
-                          <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                         ) : (
                           user?.firstName?.charAt(0) || 'U'
                         )}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-                          <strong style={{ color: isDarkMode ? '#fff' : '#0f172a' }}>{post.authorName}</strong>
-                          <span style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>{new Date(post.createdAt).toLocaleString()}</span>
+                      <div style={styles.profilePostHeading}>
+                        <div style={styles.profilePostCompanyRow}>
+                          <strong style={{
+                            ...styles.profilePostCompany,
+                            color: isDarkMode ? '#ffffff' : '#0f172a',
+                          }}>
+                            {post.authorName || user?.firstName || 'You'}
+                          </strong>
+                          <span style={styles.profilePostDot}>·</span>
+                          <span style={styles.profilePostMeta}>{user?.role || 'member'}</span>
                         </div>
-                        {post.tags?.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                            {post.tags.map((tag, index) => (
-                              <span key={`${post._id}-tag-${index}`} style={{ fontSize: 12, color: '#2563eb', background: isDarkMode ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: 999 }}>{`#${tag}`}</span>
-                            ))}
-                          </div>
-                        )}
-                        <p style={{ margin: '12px 0 0 0', color: isDarkMode ? '#cbd5e1' : '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{post.content}</p>
-                        {post.media?.data && (
-                          <div style={{ marginTop: 14, borderRadius: 16, overflow: 'hidden', background: '#000' }}>
-                            <img src={post.media.data} alt="Post media" style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: 320 }} />
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 14, color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 12, alignItems: 'center' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><HeartIcon size={16} filled={post.likes?.length > 0} />{post.likes?.length || 0}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CommentIcon size={16} />{post.comments?.length || 0}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><RepostIcon size={16} />{post.reposts?.length || 0}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ShareIcon size={16} />{post.shares?.length || 0}</span>
-                        </div>
+                        <span style={styles.profilePostMeta}>{new Date(post.createdAt).toLocaleString()}</span>
                       </div>
+                    </div>
+                    <div style={styles.profilePostBody}>
+                      <p style={{
+                        ...styles.profilePostText,
+                        color: isDarkMode ? '#cbd5e1' : '#334155',
+                      }}>
+                        {post.content}
+                      </p>
+                      {post.location && (
+                        <p style={{
+                          ...styles.profilePostMeta,
+                          marginTop: 8,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}>
+                          {post.location.city || post.location || ''}{post.location?.city && post.location?.region ? ', ' : ''}{post.location?.region || ''}
+                        </p>
+                      )}
+                    </div>
+
+                    {post.media?.data && (
+                      <div style={{ marginTop: 12, borderRadius: 12, overflow: 'hidden' }}>
+                        <img src={post.media.data} alt="Post media" style={{ width: '100%', maxHeight: 300, objectFit: 'cover' }} />
+                      </div>
+                    )}
+
+                    {post.tags?.length > 0 && (
+                      <div style={styles.profilePostTags}>
+                        {post.tags.map((tag, index) => (
+                          <span key={`${post._id}-tag-${index}`} style={styles.profileTag}>#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={styles.profilePostEngagementDivider} />
+                    <div style={styles.profilePostEngagementBar}>
+                      <button style={{ ...styles.profileEngagementButton, color: post.likes?.length ? 'var(--primary)' : 'var(--text-muted)' }}>
+                        <HeartIcon size={16} filled={post.likes?.length > 0} />
+                        <span>{post.likes?.length || 0}</span>
+                      </button>
+                      <button style={styles.profileEngagementButton}>
+                        <CommentIcon size={16} />
+                        <span>{post.comments?.length || 0}</span>
+                      </button>
+                      <button style={styles.profileEngagementButton}>
+                        <RepostIcon size={16} />
+                        <span>{post.reposts?.length || 0}</span>
+                      </button>
+                      <button style={styles.profileEngagementButton}>
+                        <ShareIcon size={16} />
+                        <span>{post.shares?.length || 0}</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1440,236 +1770,15 @@ export default function Profile() {
           )}
 
           {showPostModal && selectedPost && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={closePostModal}>
-              <div 
-                style={{ 
-                  background: isDarkMode ? '#0f172a' : '#fff', 
-                  borderRadius: 18, 
-                  maxWidth: 600, 
-                  width: '90%', 
-                  maxHeight: '85vh', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
-                }} 
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, borderBottom: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', gap: 16 }}>
-                  <div style={{ flex: 1 }}>
-                    <h2 style={{ margin: 0, color: isDarkMode ? '#fff' : '#000', fontSize: 18 }}>Post details</h2>
-                    <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: 13 }}>
-                      {selectedPost.authorName || 'Unknown author'} · {selectedPost.authorRole || 'User'}
-                    </p>
-                  </div>
-                  <button style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: isDarkMode ? '#cbd5e1' : '#334155' }} onClick={closePostModal}>✕</button>
-                </div>
-
-                {/* Modal Action Buttons (Edit, Archive, Delete) - only show for post owner */}
-                {isOwnProfile && (
-                  <div style={{ display: 'flex', gap: 8, padding: '0 20px', paddingTop: 8, borderBottom: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9' }}>
-                    <button style={{ padding: '8px 12px', fontSize: 13, background: isDarkMode ? '#1f2937' : '#f1f5f9', border: 'none', borderRadius: 8, color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer' }}>Edit</button>
-                    <button style={{ padding: '8px 12px', fontSize: 13, background: isDarkMode ? '#1f2937' : '#f1f5f9', border: 'none', borderRadius: 8, color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer' }}>Archive</button>
-                    <button style={{ padding: '8px 12px', fontSize: 13, background: '#fee2e2', border: 'none', borderRadius: 8, color: '#991b1b', cursor: 'pointer' }}>Delete</button>
-                  </div>
-                )}
-
-                {/* Modal Body - Scrollable */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 20, color: isDarkMode ? '#e2e8f0' : '#334155' }}>
-                  {/* Post Header with Avatar and Time */}
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-                    <div 
-                      style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, cursor: 'pointer' }}
-                      onClick={() => { closePostModal(); navigate(`/profile/${selectedPost.author}`); }}
-                    >
-                      {selectedPost.authorAvatar ? (
-                        <img src={selectedPost.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        selectedPost.authorName?.charAt(0) || 'U'
-                      )}
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, color: isDarkMode ? '#cbd5e1' : '#64748b', fontSize: 13 }}>
-                        {new Date(selectedPost.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Post Content */}
-                  <p style={{ margin: '0 0 16px 0', color: isDarkMode ? '#e2e8f0' : '#334155', lineHeight: 1.7 }}>{selectedPost.content}</p>
-
-                  {/* Post Media */}
-                  {selectedPost.media?.data && (
-                    <div style={{ marginBottom: 16, borderRadius: 14, overflow: 'hidden' }}>
-                      <img src={selectedPost.media.data} alt="post media" style={{ width: '100%', maxHeight: 320, objectFit: 'cover' }} />
-                    </div>
-                  )}
-
-                  {/* Post Tags */}
-                  {selectedPost.tags?.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                      {selectedPost.tags.map((tag, index) => (
-                        <span key={`${selectedPost._id}-modal-tag-${index}`} style={{ fontSize: 12, color: '#2563eb', background: isDarkMode ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: 999 }}>#{tag}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Comments Section */}
-                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9' }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: 16, color: isDarkMode ? '#e2e8f0' : '#334155' }}>Comments</h3>
-                    {selectedPost.comments?.length > 0 ? (
-                      <div style={{ display: 'grid', gap: 14, maxHeight: 360, overflowY: 'auto', paddingRight: 6, marginBottom: 16 }}>
-                        {selectedPost.comments.map((comment) => (
-                          <div key={comment._id}>
-                            {/* Comment */}
-                            <div style={{ display: 'flex', gap: 10 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#2563eb', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12 }}>
-                                {comment.authorAvatar ? (
-                                  <img src={comment.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                  comment.authorName?.charAt(0) || 'U'
-                                )}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <p style={{ margin: 0, fontWeight: 600, color: isDarkMode ? '#e2e8f0' : '#334155' }}>{comment.authorName || 'Commenter'}</p>
-                                <p style={{ margin: '4px 0 0', fontSize: 12, color: isDarkMode ? '#94a3b8' : '#64748b' }}>{new Date(comment.createdAt).toLocaleString()}</p>
-                                <p style={{ margin: '6px 0 8px', color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1.6 }}>{comment.content}</p>
-                                <button 
-                                  onClick={() => setReplyingToCommentId(replyingToCommentId === comment._id ? null : comment._id)}
-                                  style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 0 }}
-                                >
-                                  {replyingToCommentId === comment._id ? 'Cancel' : 'Reply'}
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Reply Input for this Comment */}
-                            {replyingToCommentId === comment._id && (
-                              <div style={{ marginLeft: 46, marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <textarea
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  placeholder="Write a reply..."
-                                  style={{
-                                    width: '100%',
-                                    minHeight: 60,
-                                    padding: 10,
-                                    borderRadius: 8,
-                                    border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9',
-                                    background: isDarkMode ? '#1a202c' : '#f8fafc',
-                                    color: isDarkMode ? '#e2e8f0' : '#334155',
-                                    fontSize: 12,
-                                    resize: 'vertical',
-                                    fontFamily: 'inherit'
-                                  }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                  <button
-                                    onClick={() => { setReplyText(''); setReplyingToCommentId(null); }}
-                                    style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 12 }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => submitReply(comment._id)}
-                                    style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontSize: 12, opacity: replyLoading || !replyText.trim() ? 0.6 : 1 }}
-                                    disabled={replyLoading || !replyText.trim()}
-                                  >
-                                    {replyLoading ? 'Replying...' : 'Reply'}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Replies */}
-                            {comment.replies?.length > 0 && (
-                              <div style={{ marginLeft: 46, marginTop: 12, display: 'grid', gap: 10, borderLeft: isDarkMode ? '2px solid #1f2937' : '2px solid #e6eef9', paddingLeft: 12 }}>
-                                {comment.replies.map((reply) => (
-                                  <div key={reply._id} style={{ display: 'flex', gap: 8 }}>
-                                    <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', background: '#10b981', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 11 }}>
-                                      {reply.authorAvatar ? (
-                                        <img src={reply.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                      ) : (
-                                        reply.authorName?.charAt(0) || 'U'
-                                      )}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: isDarkMode ? '#e2e8f0' : '#334155' }}>{reply.authorName || 'Replier'}</p>
-                                      <p style={{ margin: '2px 0 0', fontSize: 11, color: isDarkMode ? '#94a3b8' : '#64748b' }}>{new Date(reply.createdAt).toLocaleString()}</p>
-                                      <p style={{ margin: '4px 0 0', fontSize: 13, color: isDarkMode ? '#cbd5e1' : '#475569', lineHeight: 1.5 }}>{reply.content}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ color: '#64748b', margin: '0 0 16px 0', fontSize: 13 }}>No comments yet. Be the first to add one.</p>
-                    )}
-
-                    {/* Comment Input */}
-                    <textarea
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Write a comment..."
-                      style={{ 
-                        width: '100%', 
-                        minHeight: 80, 
-                        padding: 12, 
-                        borderRadius: 12, 
-                        border: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', 
-                        background: isDarkMode ? '#1a202c' : '#f8fafc',
-                        color: isDarkMode ? '#e2e8f0' : '#334155',
-                        fontSize: 13,
-                        resize: 'vertical',
-                        fontFamily: 'inherit'
-                      }}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                      <button
-                        style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 13 }}
-                        onClick={() => setCommentText('')}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontSize: 13, opacity: commentLoading || !commentText.trim() ? 0.6 : 1 }}
-                        onClick={submitComment}
-                        disabled={commentLoading || !commentText.trim()}
-                      >
-                        {commentLoading ? 'Posting...' : 'Post comment'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer - Stats and Actions */}
-                <div style={{ display: 'flex', gap: 16, padding: 16, borderTop: isDarkMode ? '1px solid #1f2937' : '1px solid #e6eef9', background: isDarkMode ? '#0a0f1a' : '#f8fafc', flexWrap: 'wrap' }}>
-                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
-                    <HeartIcon size={16} filled={selectedPost.likes?.length > 0} />
-                    <span>{selectedPost.likes?.length || 0}</span>
-                  </button>
-                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
-                    <CommentIcon size={16} />
-                    <span>{selectedPost.comments?.length || 0}</span>
-                  </button>
-                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
-                    <RepostIcon size={16} />
-                    <span>{selectedPost.reposts?.length || 0}</span>
-                  </button>
-                  <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isDarkMode ? '#cbd5e1' : '#64748b', cursor: 'pointer', fontSize: 13 }}>
-                    <ShareIcon size={16} />
-                    <span>{selectedPost.shares?.length || 0}</span>
-                  </button>
-                  <button style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: isDarkMode ? '#1f2937' : '#f1f5f9', color: isDarkMode ? '#e2e8f0' : '#334155', cursor: 'pointer', fontSize: 13 }} onClick={closePostModal}>
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
+            <PostDetailsModal
+              post={selectedPost}
+              isOpen={showPostModal}
+              onClose={closePostModal}
+              onUpdate={handleUpdatedPost}
+              currentUserId={currentUserId}
+              userName={authUser?.firstName || 'You'}
+              userAvatar={authUser?.profilePicture || authUser?.companyLogo}
+            />
           )}
 
           <div style={styles.actionsContainer}>
@@ -1882,6 +1991,58 @@ const styles = {
     fontWeight: "700",
     cursor: "pointer",
     fontSize: "14px",
+  },
+
+  profileActionRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    marginTop: "16px",
+  },
+
+  followButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+    minWidth: "44px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(148,163,184,0.18)",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  followingButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+    minWidth: "44px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(96,165,250,0.35)",
+    background: "rgba(96,165,250,0.18)",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  reportButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+    minWidth: "44px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(148,163,184,0.18)",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: "700",
   },
 
   profileSection: {
@@ -2134,6 +2295,110 @@ const styles = {
     color: "#e2e8f0",
   },
 
+  profilePostCard: {
+    borderRadius: "18px",
+    padding: "20px",
+    border: "1px solid",
+    transition: "all 0.2s ease",
+    cursor: "pointer",
+  },
+  profilePostHeader: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "14px",
+    alignItems: "center",
+  },
+  profilePostAvatar: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    background: "#2563eb",
+    color: "#ffffff",
+    display: "grid",
+    placeItems: "center",
+    fontWeight: "800",
+    fontSize: "18px",
+    flexShrink: 0,
+  },
+  profilePostHeading: {
+    minWidth: 0,
+    flex: 1,
+  },
+  profilePostCompanyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flexWrap: "wrap",
+  },
+  profilePostCompany: {
+    fontSize: "14px",
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  profilePostDot: {
+    color: "#64748b",
+    fontSize: "12px",
+  },
+  profilePostMeta: {
+    color: "#64748b",
+    fontSize: "12px",
+  },
+  profilePostBody: {
+    marginBottom: "12px",
+  },
+  profilePostText: {
+    fontSize: "14px",
+    lineHeight: "1.6",
+    margin: 0,
+    whiteSpace: "pre-wrap",
+    wordWrap: "break-word",
+  },
+  profilePostTags: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    marginTop: "12px",
+    marginBottom: "12px",
+  },
+  profileTag: {
+    color: "#2563eb",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+  profilePostEngagementDivider: {
+    height: "1px",
+    background: "#e6eef9",
+    margin: "12px -20px 0",
+    marginRight: "-20px",
+  },
+  profilePostEngagementBar: {
+    display: "flex",
+    justifyContent: "space-around",
+    gap: "0",
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    color: "#64748b",
+    fontSize: "13px",
+    marginLeft: "-20px",
+    marginRight: "-20px",
+    paddingLeft: "20px",
+    paddingRight: "20px",
+  },
+  profileEngagementButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "none",
+    border: "none",
+    color: "#64748b",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "500",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    transition: "color 0.2s, background 0.2s",
+  },
+
   interactionPanel: {
     display: "grid",
     gap: "16px",
@@ -2157,6 +2422,12 @@ const styles = {
   interactionText: {
     margin: 0,
     color: "#e2e8f0",
+    fontSize: "14px",
+  },
+
+  noteText: {
+    margin: 0,
+    color: "#94a3b8",
     fontSize: "14px",
   },
 

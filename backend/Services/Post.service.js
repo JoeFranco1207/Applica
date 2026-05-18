@@ -268,6 +268,36 @@ export const addCommentService = async (userId, postId, commentContent) => {
   return await getPostByIdService(post._id);
 };
 
+export const toggleCommentLikeService = async (userId, postId, commentId) => {
+  const post = await Post.findById(postId);
+  if (!post) throw new AppError('Post not found', 404);
+
+  const comment = post.comments.find((c) => c._id.toString() === commentId);
+  if (!comment) throw new AppError('Comment not found', 404);
+
+  const likeIndex = comment.likes?.findIndex((id) => id.toString() === userId.toString());
+  if (likeIndex >= 0) {
+    comment.likes.splice(likeIndex, 1);
+  } else {
+    if (!comment.likes) comment.likes = [];
+    comment.likes.push(userId);
+
+    if (comment.author.toString() !== userId.toString()) {
+      await createNotificationService({
+        type: 'like',
+        recipient: comment.author,
+        actor: userId,
+        message: `liked your comment`,
+        postId: post._id,
+        commentId: comment._id,
+      });
+    }
+  }
+
+  await post.save();
+  return await getPostByIdService(post._id);
+};
+
 export const deleteCommentService = async (userId, postId, commentId) => {
   const post = await Post.findById(postId);
   if (!post) throw new AppError('Post not found', 404);

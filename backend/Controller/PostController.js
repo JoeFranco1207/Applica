@@ -9,6 +9,7 @@ import {
   togglePostLikeService,
   addCommentService,
   deleteCommentService,
+  toggleCommentLikeService,
   addReplyService,
   recordViewService,
   sharePostService,
@@ -118,6 +119,18 @@ export const addCommentController = async (req, res, next) => {
     });
     
     return res.status(201).json(new AppSuccessful('Comment added', 201, post));
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
+export const toggleCommentLikeController = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const post = await toggleCommentLikeService(userId, req.params.id, req.params.commentId);
+
+    return res.status(200).json(new AppSuccessful('Comment like toggled', 200, post));
   } catch (err) {
     console.log(err);
     next(err);

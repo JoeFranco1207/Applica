@@ -113,9 +113,14 @@ export default function ResumeDesigns() {
   const [likedDesigns, setLikedDesigns] = useState(new Set());
   const [selectedDesign, setSelectedDesign] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [step, setStep] = useState('confirm'); // 'confirm' or 'info'
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resumeUrl, setResumeUrl] = useState(null);
+  
+  // Additional info state
+  const [references, setReferences] = useState([{ name: '', contact: '' }]);
+  const [extracurricular, setExtracurricular] = useState(['']);
 
   const token = localStorage.getItem('token');
   const user = token ? JSON.parse(localStorage.getItem('user') || '{}') : null;
@@ -148,11 +153,51 @@ export default function ResumeDesigns() {
 
   const handleGenerateResume = (design) => {
     setSelectedDesign(design);
+    setStep('info'); // Start with info form
     setShowPreview(true);
     setGenerating(false);
     setProgress(0);
     setResumeUrl(null);
+    // Reset form
+    setReferences([{ name: '', contact: '' }]);
+    setExtracurricular(['']);
   };
+
+  const handleAddReference = () => {
+    setReferences([...references, { name: '', contact: '' }]);
+  };
+
+  const handleRemoveReference = (idx) => {
+    setReferences(references.filter((_, i) => i !== idx));
+  };
+
+  const handleReferenceChange = (idx, field, value) => {
+    const updated = [...references];
+    updated[idx][field] = value;
+    setReferences(updated);
+  };
+
+  const handleAddExtracurricular = () => {
+    setExtracurricular([...extracurricular, '']);
+  };
+
+  const handleRemoveExtracurricular = (idx) => {
+    setExtracurricular(extracurricular.filter((_, i) => i !== idx));
+  };
+
+  const handleExtracurricularChange = (idx, value) => {
+    const updated = [...extracurricular];
+    updated[idx] = value;
+    setExtracurricular(updated);
+  };
+
+  const handleNextStep = () => {
+    setStep('confirm');
+  };
+
+  const handleBackStep = () => {
+    setStep('info');
+  }
 
   const confirmGenerateResume = async () => {
     if (!selectedDesign) return;
@@ -170,6 +215,10 @@ export default function ResumeDesigns() {
     }, 700);
 
     try {
+      // Filter out empty references and extracurricular
+      const cleanReferences = references.filter(ref => ref.name.trim() || ref.contact.trim());
+      const cleanExtracurricular = extracurricular.filter(e => e.trim());
+
       const response = await axios.post(
         'http://localhost:8000/api/jobseeker/resume',
         {
@@ -177,6 +226,8 @@ export default function ResumeDesigns() {
           designName: selectedDesign.name,
           template: selectedDesign.preview,
           color: selectedDesign.color,
+          references: cleanReferences,
+          extracurricular: cleanExtracurricular,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -323,50 +374,233 @@ export default function ResumeDesigns() {
         <div
           style={styles.modalOverlay}
           onClick={() => {
-            if (generating) return; // prevent closing while generating
+            if (generating) return;
             setShowPreview(false);
             setSelectedDesign(null);
             setProgress(0);
+            setStep('confirm');
           }}
         >
           <div
             style={{
               ...styles.modalCard,
               backgroundColor: isDarkMode ? '#0f0f0f' : '#ffffff',
+              maxWidth: step === 'info' ? '800px' : '500px',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={styles.modalTitle}>Generate Resume</h2>
-            <p style={{
-              ...styles.modalText,
-              color: isDarkMode ? '#cbd5e1' : '#64748b',
-            }}>
-              You're about to create a new resume using the <strong>{selectedDesign.name}</strong> template.
-            </p>
+            {/* Info Form Step */}
+            {step === 'info' && !generating && !resumeUrl && (
+              <>
+                <h2 style={styles.modalTitle}>Add Additional Information</h2>
+                <p style={{ ...styles.modalText, color: isDarkMode ? '#cbd5e1' : '#64748b', marginBottom: '24px' }}>
+                  Add your references and extracurricular activities to enhance your resume.
+                </p>
 
-            <div style={{
-              ...styles.previewBox,
-              backgroundColor: selectedDesign.color,
-            }}>
-              <div style={styles.previewBoxContent}>
-                <div style={styles.previewBoxName}>{selectedDesign.name}</div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 220, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: '#fff' }}>
-                    <div style={{ height: 12, width: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 6, marginBottom: 8 }} />
-                    <div style={{ height: 8, width: '50%', background: 'rgba(255,255,255,0.12)', borderRadius: 6, marginBottom: 10 }} />
-                    <div style={{ height: 8, width: '90%', background: 'rgba(255,255,255,0.08)', borderRadius: 6, marginBottom: 6 }} />
-                    <div style={{ height: 8, width: '90%', background: 'rgba(255,255,255,0.08)', borderRadius: 6 }} />
-                  </div>
-                  <div style={styles.previewBoxIcon}><DocumentIcon size={32} /></div>
+                {/* References Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    References
+                  </h3>
+                  {references.map((ref, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Reference Name"
+                        value={ref.name}
+                        onChange={(e) => handleReferenceChange(idx, 'name', e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Contact Number"
+                        value={ref.contact}
+                        onChange={(e) => handleReferenceChange(idx, 'contact', e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {references.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveReference(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddReference}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#10b981',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Reference
+                  </button>
                 </div>
-              </div>
-            </div>
-            <p style={{
-              ...styles.modalDescription,
-              color: isDarkMode ? '#9ca3af' : '#6b7280',
-            }}>
-              {selectedDesign.description}
-            </p>
+
+                {/* Extracurricular Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Extracurricular Activities
+                  </h3>
+                  {extracurricular.map((activity, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Activity Name"
+                        value={activity}
+                        onChange={(e) => handleExtracurricularChange(idx, e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {extracurricular.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveExtracurricular(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddExtracurricular}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#3b82f6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Activity
+                  </button>
+                </div>
+
+                {/* Buttons */}
+                <div style={{ ...styles.modalActions, justifyContent: 'flex-end', gap: '12px' }}>
+                  <button
+                    style={{
+                      ...styles.cancelButton,
+                      backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb',
+                      color: isDarkMode ? '#e5e7eb' : '#374151',
+                    }}
+                    onClick={() => {
+                      setShowPreview(false);
+                      setSelectedDesign(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={styles.confirmButton}
+                    onClick={handleNextStep}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Confirm Step */}
+            {step === 'confirm' && !generating && !resumeUrl && (
+              <>
+                <h2 style={styles.modalTitle}>Generate Resume</h2>
+                <p style={{
+                  ...styles.modalText,
+                  color: isDarkMode ? '#cbd5e1' : '#64748b',
+                }}>
+                  You're about to create a new resume using the <strong>{selectedDesign.name}</strong> template.
+                </p>
+
+                <div style={{
+                  ...styles.previewBox,
+                  backgroundColor: selectedDesign.color,
+                }}>
+                  <div style={styles.previewBoxContent}>
+                    <div style={styles.previewBoxName}>{selectedDesign.name}</div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 220, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: '#fff' }}>
+                        <div style={{ height: 12, width: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 6, marginBottom: 8 }} />
+                        <div style={{ height: 8, width: '50%', background: 'rgba(255,255,255,0.12)', borderRadius: 6, marginBottom: 10 }} />
+                        <div style={{ height: 8, width: '90%', background: 'rgba(255,255,255,0.08)', borderRadius: 6, marginBottom: 6 }} />
+                        <div style={{ height: 8, width: '90%', background: 'rgba(255,255,255,0.08)', borderRadius: 6 }} />
+                      </div>
+                      <div style={styles.previewBoxIcon}><DocumentIcon size={32} /></div>
+                    </div>
+                  </div>
+                </div>
+                <p style={{
+                  ...styles.modalDescription,
+                  color: isDarkMode ? '#9ca3af' : '#6b7280',
+                }}>
+                  {selectedDesign.description}
+                </p>
+
+                <div style={styles.modalActions}>
+                  <button
+                    style={{
+                      ...styles.cancelButton,
+                      backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb',
+                      color: isDarkMode ? '#e5e7eb' : '#374151',
+                    }}
+                    onClick={handleBackStep}
+                  >
+                    Back
+                  </button>
+                  <button
+                    style={styles.confirmButton}
+                    onClick={confirmGenerateResume}
+                  >
+                    Generate Resume
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Progress area */}
             {generating && (
@@ -389,35 +623,12 @@ export default function ResumeDesigns() {
                       setShowPreview(false);
                       setSelectedDesign(null);
                       setProgress(0);
+                      setStep('confirm');
                     }}
                   >
                     Close
                   </button>
                 </div>
-              </div>
-            )}
-
-            {!generating && !resumeUrl && (
-              <div style={styles.modalActions}>
-                <button
-                  style={{
-                    ...styles.cancelButton,
-                    backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb',
-                    color: isDarkMode ? '#e5e7eb' : '#374151',
-                  }}
-                  onClick={() => {
-                    setShowPreview(false);
-                    setSelectedDesign(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  style={styles.confirmButton}
-                  onClick={confirmGenerateResume}
-                >
-                  Generate Resume
-                </button>
               </div>
             )}
           </div>
@@ -585,6 +796,8 @@ const styles = {
     padding: '32px',
     maxWidth: '500px',
     width: '90vw',
+    maxHeight: '85vh',
+    overflowY: 'auto',
     boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
   },
   modalTitle: {
@@ -661,5 +874,14 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
     fontSize: '14px',
+  },
+  input: {
+    padding: '10px 12px',
+    border: '1px solid',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    outline: 'none',
+    transition: 'all 0.2s',
   },
 };

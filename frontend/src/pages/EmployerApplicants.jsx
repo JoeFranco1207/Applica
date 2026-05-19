@@ -352,9 +352,18 @@ export default function EmployerApplicants() {
                     style={styles.modalAvatar}
                   />
                 )}
-                <h2 style={styles.modalTitle}>
-                  {selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}
-                </h2>
+                <div>
+                  <h2 style={styles.modalTitle}>
+                    {selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}
+                  </h2>
+                  {(selectedApplicant.jobTitle || selectedApplicant.companyName) && (
+                    <div style={styles.modalSubtitle}>
+                      {selectedApplicant.jobTitle || ""}
+                      {selectedApplicant.jobTitle && selectedApplicant.companyName ? " · " : ""}
+                      {selectedApplicant.companyName || ""}
+                    </div>
+                  )}
+                </div>
               </div>
               <button style={styles.modalClose} onClick={closeApplicantModal}>✕</button>
             </div>
@@ -702,13 +711,15 @@ const styles = {
   },
   actionStack: {
     display: "flex",
-    flexDirection: "column",
+    flexDirection: "row",
     gap: 8,
-    alignItems: "flex-end",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
   },
   actionPrimary: {
     padding: "8px 12px",
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: "#0b69ff",
     color: "#fff",
     border: "none",
@@ -933,7 +944,7 @@ const styles = {
   },
   modalGrid: {
     display: "grid",
-    gridTemplateColumns: "240px 1fr",
+    gridTemplateColumns: "280px minmax(0, 1fr)",
     gap: 24,
     alignItems: "start",
   },
@@ -949,7 +960,7 @@ const styles = {
   },
   infoRow: {
     display: "flex",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
     gap: 12,
     alignItems: "flex-start",
     padding: "6px 0",
@@ -958,7 +969,8 @@ const styles = {
   infoLabel: {
     fontWeight: 800,
     color: "#0f172a",
-    minWidth: 90,
+    minWidth: 100,
+    flexShrink: 0,
   },
   infoValue: {
     color: "#475569",
@@ -977,6 +989,12 @@ const styles = {
     fontSize: "1.6rem",
     fontWeight: 700,
     color: "#0f172a",
+  },
+  modalSubtitle: {
+    margin: "6px 0 0",
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 1.4,
   },
   modalClose: {
     border: "none",

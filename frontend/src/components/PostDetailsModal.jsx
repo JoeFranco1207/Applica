@@ -8,6 +8,77 @@ const getUserId = (user) => {
   return typeof user === 'object' ? user._id || user.id || null : user;
 };
 
+// Merge updated fields from API into the existing post while preserving
+// important author/profile fields when the API response omits them.
+const mergePostData = (existing = {}, updated = {}) => {
+  const result = { ...existing, ...updated };
+
+  const authorFields = ['author', 'authorName', 'authorAvatar', 'authorRole', 'authorEmail', 'authorCompanyName'];
+  authorFields.forEach((f) => {
+    if (updated[f] === undefined || updated[f] === null) {
+      result[f] = existing[f];
+    }
+  });
+
+  if ((updated.media === undefined || updated.media === null) && existing.media) {
+    result.media = existing.media;
+  }
+
+  return result;
+};
+
+const CloseIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const HeartIcon = ({ filled = false, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
+const ChatBubbleIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const ShareIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
+const RepostIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="17 2 21 6 17 10" />
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+    <polyline points="7 22 3 18 7 14" />
+    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+
+const SendIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
+
+const MailIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 4h16v16H4z" />
+    <polyline points="22,6 12,13 2,6" />
+  </svg>
+);
+
 const PostDetailsModal = ({ 
   post, 
   isOpen, 
@@ -80,9 +151,10 @@ const PostDetailsModal = ({
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        const updatedPost = response.data.data || currentPost;
-        setCurrentPost(updatedPost);
-        if (onUpdate) onUpdate(updatedPost);
+        const updatedData = response.data.data || {};
+        const merged = mergePostData(currentPost, updatedData);
+        setCurrentPost(merged);
+        if (onUpdate) onUpdate(merged);
       } catch (error) {
         console.error('Error recording post view:', error.response?.data || error.message);
       } finally {
@@ -96,6 +168,28 @@ const PostDetailsModal = ({
   if (!isOpen || !currentPost) return null;
 
   const handleLike = async () => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    if (!currentPost) return;
+    const previousPost = currentPost;
+    const previousIsLiked = isLiked;
+    const userIdString = currentUserId?.toString();
+
+    const normalizedLikes = (currentPost.likes || []).filter((id) => {
+      const likeId = typeof id === 'object' ? id._id || id : id;
+      return likeId.toString() !== userIdString;
+    });
+
+    const optimisticLikes = previousIsLiked
+      ? normalizedLikes
+      : [...normalizedLikes, userIdString];
+
+    setIsLiked(!previousIsLiked);
+    setCurrentPost((prev) => ({ ...prev, likes: optimisticLikes }));
+
     try {
       const response = await axios.post(
         `http://localhost:8000/api/posts/${currentPost._id}/like`,
@@ -104,12 +198,24 @@ const PostDetailsModal = ({
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setCurrentPost(response.data.data);
-      setIsLiked(!isLiked);
-      if (onUpdate) onUpdate(response.data.data);
+      const updatedData = response.data.data || {};
+      const merged = mergePostData(currentPost, updatedData);
+      setCurrentPost(merged);
+      const hasLiked = updatedData.likes?.some((id) => {
+        const likeId = typeof id === 'object' ? id._id || id : id;
+        return likeId.toString() === userIdString;
+      });
+      setIsLiked(hasLiked);
+      if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error liking post:', error);
+      setIsLiked(previousIsLiked);
+      setCurrentPost(previousPost);
     }
+  };
+
+  const handleCommentButton = () => {
+    expandComments();
   };
 
   const handleDeleteComment = async (commentId) => {
@@ -120,8 +226,10 @@ const PostDetailsModal = ({
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setCurrentPost(response.data.data);
-      if (onUpdate) onUpdate(response.data.data);
+      const updatedData = response.data.data || {};
+      const merged = mergePostData(currentPost, updatedData);
+      setCurrentPost(merged);
+      if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error deleting comment:', error);
       alert('Failed to delete comment');
@@ -145,27 +253,31 @@ const PostDetailsModal = ({
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setCurrentPost(response.data.data);
-      if (onUpdate) onUpdate(response.data.data);
+      const updatedData = response.data.data || {};
+      const merged = mergePostData(currentPost, updatedData);
+      setCurrentPost(merged);
+      if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error toggling comment like:', error);
     }
   };
 
   const formatRelativeTime = (dateValue) => {
+    if (!dateValue) return '';
     const date = new Date(dateValue);
     const diff = Date.now() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
-    const months = Math.floor(days / 30);
-    if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
-    const years = Math.floor(months / 12);
-    return `${years} year${years === 1 ? '' : 's'} ago`;
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return `${sec}sec`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}min`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}hr`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day}day`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month}month`;
+    const year = Math.floor(month / 12);
+    return `${year}yr`;
   };
 
   const submitComment = async () => {
@@ -189,9 +301,11 @@ const PostDetailsModal = ({
         }
       );
       
-      setCurrentPost(response.data.data);
+      const updatedData = response.data.data || {};
+      const merged = mergePostData(currentPost, updatedData);
+      setCurrentPost(merged);
       setCommentText('');
-      if (onUpdate) onUpdate(response.data.data);
+      if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error posting comment:', error);
       setError(error.response?.data?.message || 'Failed to post comment');
@@ -220,10 +334,12 @@ const PostDetailsModal = ({
         }
       );
       
-      setCurrentPost(response.data.data);
+      const updatedData = response.data.data || {};
+      const merged = mergePostData(currentPost, updatedData);
+      setCurrentPost(merged);
       setReplyText('');
       setReplyingToCommentId(null);
-      if (onUpdate) onUpdate(response.data.data);
+      if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error posting reply:', error);
       alert(error.response?.data?.message || 'Failed to post reply');
@@ -263,20 +379,18 @@ const PostDetailsModal = ({
   return (
     <div className="post-details-backdrop" onClick={handleBackdropClick} onKeyDown={handleKeyDown}>
       <div className="post-details-modal">
-        {/* Close Button */}
         <button 
           className="modal-close-btn" 
           onClick={onClose}
           type="button"
           aria-label="Close"
         >
-          ✕
+          <CloseIcon />
         </button>
 
-        {/* Post Header Section */}
-        <div className="post-details-header">
+        <div className="post-author-bar">
           <div className="post-author-section">
-            {currentPost.authorAvatar && (
+            {currentPost.authorAvatar ? (
               <img 
                 src={currentPost.authorAvatar} 
                 alt={currentPost.authorName} 
@@ -287,37 +401,42 @@ const PostDetailsModal = ({
                   if (authorId) navigate(`/profile/${authorId}`);
                 }}
               />
+            ) : (
+              <div className="post-author-avatar placeholder-avatar">
+                {currentPost.authorName?.charAt(0) || 'U'}
+              </div>
             )}
+
             <div className="post-author-info">
-              <h3
-                className="post-author-name"
-                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
-                onClick={() => {
-                  const authorId = getUserId(currentPost.author);
-                  if (authorId) navigate(`/profile/${authorId}`);
-                }}
-              >
-                {currentPost.authorName}
-              </h3>
-              <p className="post-author-role">{currentPost.authorRole}</p>
-              <span className="post-timestamp">
-                {new Date(currentPost.createdAt).toLocaleDateString()} at {new Date(currentPost.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <div className="post-author-name-row">
+                <h2
+                  className="post-details-title"
+                  style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    const authorId = getUserId(currentPost.author);
+                    if (authorId) navigate(`/profile/${authorId}`);
+                  }}
+                >
+                  {currentPost.authorName}
+                </h2>
+                {currentPost.authorRole && (
+                  <span className="post-role-badge">{currentPost.authorRole}</span>
+                )}
+              </div>
+
+              <div className="post-author-meta">
+                {currentPost.authorEmail && (
+                  <a href={`mailto:${currentPost.authorEmail}`} className="post-author-email-link">
+                    <MailIcon />
+                    <span>{currentPost.authorEmail}</span>
+                  </a>
+                )}
+                <span className="post-author-timestamp">{formatRelativeTime(currentPost.createdAt)}</span>
+              </div>
             </div>
-          </div>
-          
-          <div className="post-actions-menu">
-            <button 
-              className={`action-icon-btn ${isLiked ? 'liked' : ''}`}
-              onClick={handleLike}
-              title="Like"
-            >
-              ❤️
-            </button>
           </div>
         </div>
 
-        {/* Post Content */}
         <div className="post-details-content">
           <p className="post-text">{currentPost.content}</p>
           
@@ -329,18 +448,18 @@ const PostDetailsModal = ({
             </div>
           )}
 
-          {currentPost.media && (
+          {currentPost.media && (currentPost.media.url || currentPost.media.data) && (
             <div className="post-media-section">
               {currentPost.media.type === 'image' && (
                 <img 
-                  src={currentPost.media.data} 
+                  src={currentPost.media.url || currentPost.media.data} 
                   alt="Post media" 
                   className="post-media-image" 
                 />
               )}
               {currentPost.media.type === 'video' && (
                 <video controls className="post-media-video">
-                  <source src={currentPost.media.data} type={currentPost.media.contentType} />
+                  <source src={currentPost.media.url || currentPost.media.data} type={currentPost.media.contentType} />
                   Your browser does not support the video tag.
                 </video>
               )}
@@ -348,60 +467,85 @@ const PostDetailsModal = ({
           )}
         </div>
 
-        <div className="post-stats-section-bottom">
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.likes?.length || 0}</span>
-            <span className="stat-label">Likes</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.comments?.length || 0}</span>
-            <span className="stat-label">Comments</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.views?.length || 0}</span>
-            <span className="stat-label">Views</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{currentPost.shares?.length || 0}</span>
-            <span className="stat-label">Shares</span>
-          </div>
-        </div>
+        <div className="post-actions-row">
+          <button
+            type="button"
+            className={`action-icon-btn ${isLiked ? 'liked' : ''}`}
+            onClick={handleLike}
+            title="Like"
+          >
+            <HeartIcon filled={isLiked} />
+            <span>{currentPost.likes?.length || 0}</span>
+          </button>
 
-        <div className="modal-divider"></div>
+          <button
+            type="button"
+            className="action-icon-btn"
+            onClick={handleCommentButton}
+            title="Comment"
+          >
+            <ChatBubbleIcon />
+            <span>{currentPost.comments?.length || 0}</span>
+          </button>
+
+          <button
+            type="button"
+            className="action-icon-btn"
+            onClick={async () => {
+              try {
+                const response = await axios.post(
+                  `http://localhost:8000/api/posts/${currentPost._id}/repost`,
+                  {},
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                  }
+                );
+                const updatedData = response.data.data || {};
+                const merged = mergePostData(currentPost, updatedData);
+                setCurrentPost(merged);
+                if (onUpdate) onUpdate(merged);
+              } catch (err) {
+                console.error('Repost error', err);
+              }
+            }}
+            title="Repost"
+          >
+            <RepostIcon />
+            <span>{currentPost.reposts?.length || 0}</span>
+          </button>
+
+          <button
+            type="button"
+            className="action-icon-btn"
+            onClick={async () => {
+              try {
+                const response = await axios.post(
+                  `http://localhost:8000/api/posts/${currentPost._id}/share`,
+                  {},
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                  }
+                );
+                const updatedData = response.data.data || {};
+                const merged = mergePostData(currentPost, updatedData);
+                setCurrentPost(merged);
+                if (onUpdate) onUpdate(merged);
+              } catch (err) {
+                console.error('Share error', err);
+              }
+            }}
+            title="Share"
+          >
+            <ShareIcon />
+            <span>{currentPost.shares?.length || 0}</span>
+          </button>
+        </div>
 
         <div className={`comments-container ${commentsExpanded ? 'expanded' : ''}`}>
           <div className="comments-top-bar">
             <span className="comments-sort-label">Most relevant</span>
             <span className="comments-sort-icon">▾</span>
           </div>
-
-          <div className="comment-input-wrapper">
-            {userAvatar && (
-              <img src={userAvatar} alt={userName || 'You'} className="comment-input-avatar" />
-            )}
-            <textarea
-              value={commentText}
-              onFocus={expandComments}
-              onChange={(e) => {
-                setCommentText(e.target.value);
-                if (error) setError('');
-              }}
-              placeholder="Write a comment..."
-              className="comment-textarea"
-              rows="2"
-              disabled={isSubmittingComment}
-            />
-            <button
-              onClick={submitComment}
-              disabled={!commentText.trim() || isSubmittingComment}
-              className="submit-comment-btn"
-              type="button"
-            >
-              {isSubmittingComment ? 'Posting...' : 'Post'}
-            </button>
-          </div>
-
-          {error && <div className="error-message">{error}</div>}
 
           <div className="comments-list">
             {currentPost.comments && currentPost.comments.length > 0 ? (
@@ -585,6 +729,34 @@ const PostDetailsModal = ({
               </div>
             )}
           </div>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <div className="comment-entry-row">
+          {userAvatar && (
+            <img src={userAvatar} alt={userName || 'You'} className="comment-input-avatar" />
+          )}
+          <input
+            type="text"
+            value={commentText}
+            onFocus={expandComments}
+            onChange={(e) => {
+              setCommentText(e.target.value);
+              if (error) setError('');
+            }}
+            placeholder="Write an answer..."
+            className="comment-input-bar"
+            disabled={isSubmittingComment}
+          />
+          <button
+            type="button"
+            className="send-comment-btn"
+            onClick={submitComment}
+            disabled={!commentText.trim() || isSubmittingComment}
+          >
+            <SendIcon />
+          </button>
         </div>
       </div>
     </div>

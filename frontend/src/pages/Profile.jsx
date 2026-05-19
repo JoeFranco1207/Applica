@@ -46,6 +46,13 @@ const FollowIcon = ({ followed = false, size = 16 }) => (
   </svg>
 );
 
+const BlockIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="8" />
+    <line x1="7" y1="7" x2="17" y2="17" />
+  </svg>
+);
+
 const ReportIcon = ({ filled = false, size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 3h14a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1z" />
@@ -163,10 +170,12 @@ export default function Profile() {
   const currentUserId = authUser?.id || authUser?._id || null;
   const isOwnProfile = !profileId || profileId === currentUserId;
   const [followingIds, setFollowingIds] = useState(() => authUser?.following || []);
+  const [blockedIds, setBlockedIds] = useState(() => authUser?.blockedUsers || []);
   const [reportedIds, setReportedIds] = useState(() => authUser?.reportedUsers || []);
 
   useEffect(() => {
     setFollowingIds(authUser?.following || []);
+    setBlockedIds(authUser?.blockedUsers || []);
     setReportedIds(authUser?.reportedUsers || []);
   }, [authUser]);
 
@@ -296,10 +305,15 @@ export default function Profile() {
 
   const profileUserId = user?._id || user?.id || profileId;
   const isFollowingProfile = profileUserId ? followingIds.includes(profileUserId) : false;
+  const isBlockedProfile = profileUserId ? blockedIds.includes(profileUserId) : false;
   const hasReportedProfile = profileUserId ? reportedIds.includes(profileUserId) : false;
 
   const handleToggleFollow = () => {
     if (!authUser || !profileUserId || isOwnProfile) return;
+    if (isBlockedProfile) {
+      alert("Unblock this user before following.");
+      return;
+    }
 
     const nextFollowing = isFollowingProfile
       ? followingIds.filter((id) => id !== profileUserId)
@@ -326,6 +340,28 @@ export default function Profile() {
       reportedUsers: nextReported,
     });
     alert("User reported. Our team will review this account.");
+  };
+
+  const handleToggleBlock = () => {
+    if (!authUser || !profileUserId || isOwnProfile) return;
+
+    let nextBlocked = [...blockedIds];
+    let nextFollowing = [...followingIds];
+
+    if (isBlockedProfile) {
+      nextBlocked = nextBlocked.filter((id) => id !== profileUserId);
+    } else {
+      nextBlocked.push(profileUserId);
+      nextFollowing = nextFollowing.filter((id) => id !== profileUserId);
+    }
+
+    setBlockedIds(nextBlocked);
+    setFollowingIds(nextFollowing);
+    saveAuthUser({
+      ...authUser,
+      blockedUsers: nextBlocked,
+      following: nextFollowing,
+    });
   };
 
   const openApplicantModal = (applicant, jobId) => {
@@ -443,10 +479,24 @@ export default function Profile() {
     setCommentText("");
   };
 
+  const mergePostData = (existing = {}, updated = {}) => {
+    const result = { ...existing, ...updated };
+    const authorFields = ['author', 'authorName', 'authorAvatar', 'authorRole'];
+    authorFields.forEach((f) => {
+      if (updated[f] === undefined || updated[f] === null) {
+        result[f] = existing[f];
+      }
+    });
+    if ((updated.media === undefined || updated.media === null) && existing.media) {
+      result.media = existing.media;
+    }
+    return result;
+  };
+
   const handleUpdatedPost = (updatedPost) => {
-    setSelectedPost(updatedPost);
+    setSelectedPost((prev) => mergePostData(prev || {}, updatedPost || {}));
     setMyPosts((prev) =>
-      prev.map((post) => (post._id === updatedPost._id ? updatedPost : post))
+      prev.map((post) => (post._id === updatedPost._id ? mergePostData(post, updatedPost) : post))
     );
   };
 
@@ -467,8 +517,11 @@ export default function Profile() {
       if (response.data && response.data.data) {
         setSelectedPost(response.data.data);
         setCommentText("");
+        const updatedData = response.data.data || {};
+        const merged = mergePostData(selectedPost, updatedData);
+        setSelectedPost(merged);
         const updatedPosts = myPosts.map((p) =>
-          p._id === selectedPost._id ? response.data.data : p
+          p._id === selectedPost._id ? mergePostData(p, updatedData) : p
         );
         setMyPosts(updatedPosts);
       }
@@ -494,11 +547,13 @@ export default function Profile() {
       );
 
       if (response.data && response.data.data) {
-        setSelectedPost(response.data.data);
+        const updatedData = response.data.data || {};
+        const merged = mergePostData(selectedPost, updatedData);
+        setSelectedPost(merged);
         setReplyText("");
         setReplyingToCommentId(null);
         const updatedPosts = myPosts.map((p) =>
-          p._id === selectedPost._id ? response.data.data : p
+          p._id === selectedPost._id ? mergePostData(p, updatedData) : p
         );
         setMyPosts(updatedPosts);
       }
@@ -864,7 +919,20 @@ export default function Profile() {
                   >
                     <ReportIcon size={18} filled={hasReportedProfile} />
                   </button>
+                  <button
+                    style={isBlockedProfile ? styles.unblockButton : styles.blockButton}
+                    onClick={handleToggleBlock}
+                    aria-label={isBlockedProfile ? "Unblock user" : "Block user"}
+                    title={isBlockedProfile ? "Unblock" : "Block"}
+                  >
+                    <BlockIcon size={18} />
+                  </button>
                 </div>
+                {isBlockedProfile && (
+                  <p style={styles.blockedNotice}>
+                    You have blocked this user. Unblock to restore follow and interaction.
+                  </p>
+                )}
               </>
             ) : (
               <button
@@ -2043,6 +2111,46 @@ const styles = {
     color: "#ffffff",
     cursor: "pointer",
     fontWeight: "700",
+  },
+
+  blockButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+    minWidth: "44px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(148,163,184,0.18)",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  unblockButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+    minWidth: "44px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(148,163,184,0.18)",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  blockedNotice: {
+    marginTop: "12px",
+    padding: "12px 16px",
+    background: "rgba(255,255,255,0.1)",
+    borderRadius: "14px",
+    color: "#f8fafc",
+    border: "1px solid rgba(255,255,255,0.18)",
+    maxWidth: "500px",
   },
 
   profileSection: {

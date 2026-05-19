@@ -4,11 +4,25 @@ import User from './UserSchema.js';
 export const employerSchema = new mongoose.Schema({
     companyName: { type: String, required: true },
     companyDescription: String,
+    
     companyLocation: {
-        region: String,
-        city: String,
-        barangay: String,
-        otherDetails: String
+        region: {
+            type: String,
+            required: function() { return !this.coords; }
+        },
+        city: {
+            type: String,
+            required: function() { return !this.coords; }
+        },
+        barangay: {
+            type: String,
+            required: function() { return !this.coords; }
+        },
+        otherDetails: String,
+        coords: {
+            lat: Number,
+            lng: Number
+        }
     },
     companySize: {
         type: String,

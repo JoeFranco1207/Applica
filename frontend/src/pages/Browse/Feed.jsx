@@ -13,10 +13,12 @@ const Feed = () => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await axios.get('http://localhost:8000/api/posts', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
-      setPosts(response.data.data || []);
+      const payload = response.data?.data;
+      setPosts(Array.isArray(payload) ? payload : payload?.posts || []);
       setError(null);
     } catch (err) {
       console.error('Error fetching posts:', err);
@@ -34,10 +36,25 @@ const Feed = () => {
     setPosts((prevPosts) => [newPost, ...prevPosts]);
   };
 
+  // Merge helper to preserve author/avatar when API returns partial objects
+  const mergePostData = (existing = {}, updated = {}) => {
+    const result = { ...existing, ...updated };
+    const authorFields = ['author', 'authorName', 'authorAvatar', 'authorRole'];
+    authorFields.forEach((f) => {
+      if (updated[f] === undefined || updated[f] === null) {
+        result[f] = existing[f];
+      }
+    });
+    if ((updated.media === undefined || updated.media === null) && existing.media) {
+      result.media = existing.media;
+    }
+    return result;
+  };
+
   const handlePostUpdate = (updatedPost) => {
     setPosts((prevPosts) =>
       prevPosts.map((post) =>
-        post._id === updatedPost._id ? updatedPost : post
+        post._id === updatedPost._id ? mergePostData(post, updatedPost) : post
       )
     );
   };

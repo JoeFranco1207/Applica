@@ -4,7 +4,7 @@ import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "./ThemeSwitch";
 
-const BellIcon = ({ size = 20, hasNotification = false }) => (
+const BellIcon = ({ size = 20, count = 0 }) => (
   <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
     <svg
       width={size}
@@ -20,18 +20,29 @@ const BellIcon = ({ size = 20, hasNotification = false }) => (
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
-    {hasNotification && (
+    {count > 0 && (
       <span
         style={{
           position: 'absolute',
-          top: '-4px',
-          right: '-4px',
-          width: '10px',
-          height: '10px',
+          top: '-6px',
+          right: '-6px',
+          minWidth: '18px',
+          height: '18px',
+          padding: '0 5px',
           backgroundColor: '#ef4444',
-          borderRadius: '50%',
+          borderRadius: '999px',
+          color: '#fff',
+          fontSize: '11px',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 1,
+          boxShadow: '0 0 0 2px rgba(255,255,255,0.2)',
         }}
-      />
+      >
+        {count > 9 ? '9+' : count}
+      </span>
     )}
   </div>
 );
@@ -53,6 +64,22 @@ const JobIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const HeartIcon = ({ size = 16 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
+  </svg>
+);
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -60,7 +87,7 @@ export default function Navbar() {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { unreadCount } = useNotification();
+  const { unreadCount, markAsRead } = useNotification();
   const token = localStorage.getItem("token");
   const user = token ? JSON.parse(localStorage.getItem("user") || "{}") : null;
 
@@ -131,6 +158,16 @@ export default function Navbar() {
           </button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Companies</button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>Resources</button>
+          {user?.role === "jobseeker" && (
+            <button
+              style={styles.linkButton}
+              onClick={() => navigate("/resume-designs")}
+              title="Create resume from designs"
+            >
+              <HeartIcon size={16} />
+              <span style={styles.navIconText}>Resume</span>
+            </button>
+          )}
           {user?.role === "employer" && (
             <button
               style={styles.linkButton}
@@ -150,10 +187,16 @@ export default function Navbar() {
               <div style={styles.notificationMenu}>
                 <button
                   style={{...styles.notificationButton, cursor: 'pointer'}}
-                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  onClick={() => {
+                    const isOpening = !notificationOpen;
+                    setNotificationOpen(isOpening);
+                    if (!isOpening) {
+                      markAsRead();
+                    }
+                  }}
                   title="Notifications"
                 >
-                  <BellIcon size={20} hasNotification={unreadCount > 0} />
+                  <BellIcon size={20} count={unreadCount} />
                 </button>
                 {notificationOpen && (
                   <div style={{

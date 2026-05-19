@@ -27,9 +27,11 @@ const CreateJobseekerProfile = () => {
       city: "",
       barangay: "",
       otherDetails: "",
+      coords: null,
     },
     experience: "",
     education: "",
+    resume: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editable, setEditable] = useState(true);
@@ -46,12 +48,12 @@ const CreateJobseekerProfile = () => {
   const [messageType, setMessageType] =
     useState("");
 
-  const [progress, setProgress] = useState(0);
   const [existingResumeName, setExistingResumeName] = useState("");
   const [existingProfilePicture, setExistingProfilePicture] = useState("");
 
   const [loading, setLoading] = useState(false);
-
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
   const [mapUrl, setMapUrl] = useState("");
 
   // Check authorization on mount
@@ -62,21 +64,6 @@ const CreateJobseekerProfile = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    const location = `
-      ${formData.location.otherDetails}
-      ${formData.location.barangay}
-      ${formData.location.city}
-      ${formData.location.region}
-    `;
-
-    const encodedLocation =
-      encodeURIComponent(location);
-
-    setMapUrl(
-      `https://maps.google.com/maps?q=${encodedLocation}&t=&z=15&ie=UTF8&iwloc=&output=embed`
-    );
-  }, [formData.location]);
 
   // preload profile when logged in
   useEffect(() => {
@@ -91,30 +78,44 @@ const CreateJobseekerProfile = () => {
 
         const user = response.data?.data;
         if (user && user.role === "jobseeker") {
-          setFormData((prev) => ({
-            ...prev,
+          const hasData = Boolean(
+            user.bio ||
+            user.citizenShip ||
+            user.experience ||
+            user.education ||
+            user.resume ||
+            user.profilePicture ||
+            user.location?.region ||
+            user.location?.city ||
+            user.location?.barangay ||
+            user.location?.otherDetails
+          );
+
+          setFormData({
             bio: user.bio || "",
-            citizenShip: user.citizenShip || prev.citizenShip,
+            citizenShip: user.citizenShip || "Filipino",
             location: {
-              region: user.location?.region || prev.location.region,
-              city: user.location?.city || prev.location.city,
-              barangay: user.location?.barangay || prev.location.barangay,
-              otherDetails: user.location?.otherDetails || prev.location.otherDetails,
+              region: user.location?.region || "",
+              city: user.location?.city || "",
+              barangay: user.location?.barangay || "",
+              otherDetails: user.location?.otherDetails || "",
+              coords: user.location?.coords || null,
             },
             experience: user.experience || "",
             education: user.education || "",
-          }));
+            resume: user.resume || "",
+          });
 
-            if (user.resume) setExistingResumeName(user.resume);
-            if (user.profilePicture) {
-              setExistingProfilePicture(user.profilePicture);
-              setProfilePicturePreview(user.profilePicture);
-            }
-            // mark as existing profile
-            setIsEditing(true);
-            setEditable(false);
+          if (user.resume) setExistingResumeName(user.resume);
+          if (user.profilePicture) {
+            setExistingProfilePicture(user.profilePicture);
+            setProfilePicturePreview(user.profilePicture);
+          }
+
+          setIsEditing(hasData);
+          setEditable(!hasData);
         }
-      } catch (err) {
+      } catch {
         // ignore
       }
     };
@@ -122,24 +123,17 @@ const CreateJobseekerProfile = () => {
     fetchProfile();
   }, []);
 
-  // compute progress
   useEffect(() => {
-    const fields = [
-      formData.bio,
-      formData.citizenShip,
-      formData.location.region,
-      formData.location.city,
-      formData.location.barangay,
-      formData.experience,
-      formData.education,
-      existingResumeName || resumeFile,
-      profilePicture || existingProfilePicture,
-    ];
+    const location = `
+      ${formData.location.otherDetails}
+      ${formData.location.barangay}
+      ${formData.location.city}
+      ${formData.location.region}
+    `;
 
-    const filled = fields.reduce((acc, v) => (v ? acc + 1 : acc), 0);
-    const pct = Math.round((filled / fields.length) * 100);
-    setProgress(pct);
-  }, [formData, resumeFile, existingResumeName, profilePicture, existingProfilePicture]);
+    const encodedLocation = encodeURIComponent(location.trim());
+    setMapUrl(`https://maps.google.com/maps?q=${encodedLocation}&t=&z=15&ie=UTF8&iwloc=&output=embed`);
+  }, [formData.location]);
 
   const showMessage = (text, type) => {
     setMessage(text);
@@ -149,27 +143,6 @@ const CreateJobseekerProfile = () => {
       setMessage("");
       setMessageType("");
     }, 3000);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-
-    if (name.startsWith("location.")) {
-      const locationField = name.split(".")[1];
-
-      setFormData((prev) => ({
-        ...prev,
-        location: {
-          ...prev.location,
-          [locationField]: value,
-        },
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
   };
 
   const handleImageChange = (e) => {
@@ -195,7 +168,136 @@ const CreateJobseekerProfile = () => {
 
     if (file) {
       setResumeFile(file);
+      setFormData((prev) => ({
+        ...prev,
+        resume: file.name,
+      }));
     }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name.startsWith("location.")) {
+      const field = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          [field]: value,
+        },
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/reverse`,
+        {
+          params: {
+            format: 'jsonv2',
+            lat,
+            lon: lng,
+            addressdetails: 1,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (err) {
+      console.error('Reverse geocode failed', err);
+      return null;
+    }
+  };
+
+  const fillLocationFromCoords = async () => {
+    if (!navigator.geolocation) {
+      showMessage('Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationMessage('Getting your location...');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const data = await reverseGeocode(latitude, longitude);
+        if (!data || !data.address) {
+          showMessage('Unable to determine your address from location.', 'error');
+          setLocationLoading(false);
+          setLocationMessage('Unable to fill location automatically. Please enter it manually.');
+          return;
+        }
+
+        const address = data.address;
+        const region = address.state || address.region || address.county || '';
+        const city = address.city || address.town || address.village || address.suburb || address.county || '';
+        const barangay = address.hamlet || address.neighbourhood || address.suburb || '';
+        const country = address.country || '';
+        const otherDetails = [address.road, address.house_number, address.building, address.neighbourhood].filter(Boolean).join(', ');
+
+        setFormData((prev) => ({
+          ...prev,
+          citizenShip: country.toLowerCase().includes('philippine') ? 'Filipino' : 'Foreign',
+          location: {
+            region: region || prev.location.region,
+            city: city || prev.location.city,
+            barangay: barangay || prev.location.barangay,
+            otherDetails: otherDetails || prev.location.otherDetails,
+            coords: {
+              lat: latitude,
+              lng: longitude,
+            },
+          },
+        }));
+
+        setLocationMessage('Location filled from your current GPS position.');
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        setLocationLoading(false);
+        showMessage('Please allow location access to fill address automatically.', 'error');
+        setLocationMessage('Location access denied or unavailable. Enter location manually below.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    );
+  };
+
+  const hasLocationData = (location) => {
+    if (!location) return false;
+    const hasCoords = location.coords?.lat != null && location.coords?.lng != null;
+    const hasManualFields = location.region && location.city && location.barangay;
+    return hasCoords || hasManualFields;
+  };
+
+  const computeCompletion = (data) => {
+    const fields = [
+      data?.bio,
+      data?.citizenShip,
+      data?.experience,
+      data?.education,
+      data?.location?.region,
+      data?.location?.city,
+      data?.location?.barangay,
+      data?.location?.otherDetails,
+      data?.profilePicture || existingProfilePicture,
+      data?.resume || existingResumeName,
+    ];
+
+    const filled = fields.reduce((count, value) => count + (value ? 1 : 0), 0);
+    return Math.round((filled / fields.length) * 100);
   };
 
   const handleSubmit = async (e) => {
@@ -217,13 +319,9 @@ const CreateJobseekerProfile = () => {
         return;
       }
 
-      if (
-        !formData.location.region ||
-        !formData.location.city ||
-        !formData.location.barangay
-      ) {
+      if (!hasLocationData(formData.location)) {
         showMessage(
-          "Please complete your location",
+          "Please complete your location either by using location permission or entering it manually.",
           "error"
         );
 
@@ -251,7 +349,7 @@ const CreateJobseekerProfile = () => {
         profilePicture: profilePicture || existingProfilePicture || "",
       };
 
-      await axios.put(
+      const response = await axios.put(
         "http://localhost:8000/api/jobseeker/profile",
         body,
         {
@@ -261,8 +359,39 @@ const CreateJobseekerProfile = () => {
         }
       );
 
+      const updatedProfile = response.data?.data || body;
+
+      const storedUser = JSON.parse(
+        localStorage.getItem("user") || "{}"
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...storedUser,
+          ...updatedProfile,
+          profilePicture: updatedProfile.profilePicture,
+          location: updatedProfile.location,
+          resume: updatedProfile.resume,
+        })
+      );
+
+      if (updatedProfile.profilePicture) {
+        setExistingProfilePicture(updatedProfile.profilePicture);
+        setProfilePicturePreview(updatedProfile.profilePicture);
+      }
+
+      if (updatedProfile.resume) {
+        setExistingResumeName(updatedProfile.resume);
+      }
+
+      setIsEditing(true);
+      setEditable(false);
+
       showMessage(
-        "Profile created successfully!",
+        isEditing
+          ? "Profile updated successfully!"
+          : "Profile created successfully!",
         "success"
       );
 
@@ -285,65 +414,75 @@ const CreateJobseekerProfile = () => {
       <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16 }}>
         <button style={styles.backBtn} onClick={() => navigate("/profile")}>← Back</button>
       </div>
-      {/* MAIN */}
+
       <div style={styles.main}>
         <div style={styles.card}>
-          <h1 style={styles.title}>
-            {isEditing ? "Edit Jobseeker Profile" : "Create Jobseeker Profile"}
-          </h1>
-
-          <p style={styles.subtitle}>
-            Complete your profile to apply for
-            jobs
-          </p>
-
-          <div style={styles.progressContainer}>
-            <div style={styles.progressLabel}>Profile completion</div>
-            <div style={styles.progressBar}>
-              <div style={{ ...styles.progressFill, width: `${progress}%` }}></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h1 style={styles.title}>{isEditing ? "Edit Jobseeker Profile" : "Create Jobseeker Profile"}</h1>
+              <p style={styles.subtitle}>Complete your profile and update your current information.</p>
             </div>
-            <div style={styles.progressPercent}>{progress}%</div>
+            {isEditing && (
+              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                {!editable && (
+                  <button
+                    onClick={() => setEditable(true)}
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: "#3b82f6",
+                      color: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+                {editable && (
+                  <button
+                    onClick={() => setEditable(false)}
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "transparent",
+                      color: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {isEditing && !editable && (
-            <div style={{ marginBottom: 12 }}>
-              <button
-                onClick={() => setEditable(true)}
-                style={{ padding: '8px 12px', borderRadius: 8, background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer' }}
-              >
-                Edit
-              </button>
+          <div style={{ marginTop: 24, marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 13, color: "#cbd5e1" }}>Profile Completion</span>
+              <span style={{ fontSize: 13, color: "#cbd5e1" }}>{computeCompletion(formData)}%</span>
             </div>
-          )}
+            <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", marginTop: 10 }}>
+              <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#3b82f6" }} />
+            </div>
+          </div>
 
           {message && (
             <div
               style={{
                 ...styles.message,
-                backgroundColor:
-                  messageType === "error"
-                    ? "#ffe5e5"
-                    : "#e5ffe8",
-                color:
-                  messageType === "error"
-                    ? "#c0392b"
-                    : "#27ae60",
+                backgroundColor: messageType === "error" ? "#ffe5e5" : "#e5ffe8",
+                color: messageType === "error" ? "#c0392b" : "#27ae60",
               }}
             >
               {message}
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            style={styles.form}
-          >
-            {/* PROFILE PICTURE */}
+          <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Profile Picture
-              </label>
-
+              <label style={styles.label}>Profile Picture</label>
               <input
                 id="jobseekerProfilePictureInput"
                 type="file"
@@ -352,11 +491,7 @@ const CreateJobseekerProfile = () => {
                 style={styles.hiddenInput}
                 disabled={!editable}
               />
-
-              <label
-                htmlFor="jobseekerProfilePictureInput"
-                style={styles.imageUploadCircle}
-              >
+              <label htmlFor="jobseekerProfilePictureInput" style={styles.imageUploadCircle}>
                 {(profilePicturePreview || existingProfilePicture) ? (
                   <img
                     src={profilePicturePreview || existingProfilePicture}
@@ -366,88 +501,52 @@ const CreateJobseekerProfile = () => {
                 ) : (
                   <div style={styles.uploadPlaceholder}>
                     <span style={styles.uploadIcon}>📷</span>
-                    <span style={styles.uploadText}>
-                      Click to upload
-                    </span>
+                    <span style={styles.uploadText}>Choose image</span>
                   </div>
                 )}
               </label>
             </div>
 
-            {/* BIO */}
             <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Bio
-              </label>
-
+              <label style={styles.label}>Bio</label>
               <textarea
                 name="bio"
                 value={formData.bio}
                 onChange={handleInputChange}
-                placeholder="Tell employers about yourself..."
+                placeholder="Write a short bio"
                 style={styles.textarea}
                 disabled={!editable}
               />
             </div>
 
-            {/* EXPERIENCE */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Experience
-              </label>
-
-              <textarea
-                name="experience"
-                value={formData.experience}
-                onChange={handleInputChange}
-                placeholder="Describe your experience..."
-                style={styles.textarea}
-                disabled={!editable}
-              />
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Experience</label>
+                <textarea
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                  placeholder="Your experience"
+                  style={styles.textarea}
+                  disabled={!editable}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Education</label>
+                <input
+                  type="text"
+                  name="education"
+                  value={formData.education}
+                  onChange={handleInputChange}
+                  placeholder="Your education"
+                  style={styles.input}
+                  disabled={!editable}
+                />
+              </div>
             </div>
 
-            {/* EDUCATION */}
             <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Education
-              </label>
-
-              <textarea
-                name="education"
-                value={formData.education}
-                onChange={handleInputChange}
-                placeholder="Educational background..."
-                style={styles.textarea}
-                disabled={!editable}
-              />
-            </div>
-
-            {/* RESUME */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Resume / CV
-              </label>
-
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={handleResumeChange}
-                style={styles.input}
-                disabled={!editable}
-              />
-              {existingResumeName && !resumeFile && (
-                <p style={styles.hintText}>
-                  Current resume: {existingResumeName}
-                </p>
-              )}
-            </div>
-
-            {/* CITIZENSHIP */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Citizenship
-              </label>
-
+              <label style={styles.label}>Citizenship</label>
               <select
                 name="citizenShip"
                 value={formData.citizenShip}
@@ -455,62 +554,74 @@ const CreateJobseekerProfile = () => {
                 style={styles.input}
                 disabled={!editable}
               >
-                <option value="Filipino">
-                  Filipino
-                </option>
-
-                <option value="Foreign">
-                  Foreign
-                </option>
+                <option value="Filipino">Filipino</option>
+                <option value="Foreign">Foreign</option>
               </select>
             </div>
 
-            {/* LOCATION */}
-            <h2 style={styles.locationTitle}>
-              Location Information
-            </h2>
+            <h2 style={styles.locationTitle}>Location</h2>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={fillLocationFromCoords}
+                disabled={!editable || locationLoading}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#fff",
+                  cursor: editable ? "pointer" : "not-allowed",
+                }}
+              >
+                {locationLoading ? "Locating…" : "Use my current location"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editable) return;
+                }}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 12,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#111",
+                  cursor: editable ? "pointer" : "not-allowed",
+                }}
+              >
+                Enter location manually
+              </button>
+            </div>
+
+            {locationMessage && <div style={{ color: "#facc15", fontSize: 13, marginTop: 8 }}>{locationMessage}</div>}
 
             <div style={styles.grid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Region
-                </label>
-
+                <label style={styles.label}>Region</label>
                 <select
                   name="location.region"
-                  value={
-                    formData.location.region
-                  }
+                  value={formData.location.region}
                   onChange={handleInputChange}
                   style={styles.input}
                   disabled={!editable}
                 >
-                  <option value="">
-                    Select Region
-                  </option>
-
+                  <option value="">Select Region</option>
                   {regions.map((region) => (
-                    <option
-                      key={region}
-                      value={region}
-                    >
-                      {region}
-                    </option>
+                    <option key={region} value={region}>{region}</option>
                   ))}
                 </select>
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  City
-                </label>
-
+                <label style={styles.label}>City</label>
                 <input
                   type="text"
                   name="location.city"
-                  value={
-                    formData.location.city
-                  }
+                  value={formData.location.city}
                   onChange={handleInputChange}
                   placeholder="City"
                   style={styles.input}
@@ -521,16 +632,11 @@ const CreateJobseekerProfile = () => {
 
             <div style={styles.grid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Barangay
-                </label>
-
+                <label style={styles.label}>Barangay</label>
                 <input
                   type="text"
                   name="location.barangay"
-                  value={
-                    formData.location.barangay
-                  }
+                  value={formData.location.barangay}
                   onChange={handleInputChange}
                   placeholder="Barangay"
                   style={styles.input}
@@ -539,17 +645,11 @@ const CreateJobseekerProfile = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Other Details
-                </label>
-
+                <label style={styles.label}>Other Details</label>
                 <input
                   type="text"
                   name="location.otherDetails"
-                  value={
-                    formData.location
-                      .otherDetails
-                  }
+                  value={formData.location.otherDetails}
                   onChange={handleInputChange}
                   placeholder="Street / Landmark"
                   style={styles.input}
@@ -558,7 +658,6 @@ const CreateJobseekerProfile = () => {
               </div>
             </div>
 
-            {/* GOOGLE MAP */}
             <div style={styles.mapContainer}>
               <iframe
                 title="Google Map"
@@ -568,31 +667,48 @@ const CreateJobseekerProfile = () => {
                 loading="lazy"
                 allowFullScreen
                 src={mapUrl}
-              ></iframe>
+              />
             </div>
 
-            {/* BUTTONS */}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Resume / CV</label>
+              <input
+                id="jobseekerResumeInput"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={handleResumeChange}
+                style={styles.hiddenInput}
+                disabled={!editable}
+              />
+              <label
+                htmlFor="jobseekerResumeInput"
+                style={{
+                  ...styles.input,
+                  cursor: editable ? "pointer" : "not-allowed",
+                  display: "inline-block",
+                }}
+              >
+                {formData.resume ? `Selected: ${formData.resume}` : "Choose resume (.pdf, .doc, .docx)"}
+              </label>
+              {existingResumeName && !resumeFile && (
+                <div style={styles.hintText}>Current resume: {existingResumeName}</div>
+              )}
+            </div>
+
             <div style={styles.buttonContainer}>
               <button
                 type="button"
                 style={styles.cancelBtn}
-                onClick={() => navigate("/create")}
+                onClick={() => navigate("/profile")}
               >
                 Cancel
               </button>
-
               <button
                 type="submit"
                 style={styles.submitBtn}
                 disabled={loading || !editable}
               >
-                {loading
-                  ? isEditing
-                    ? "Saving..."
-                    : "Creating..."
-                  : isEditing
-                  ? "Save Changes"
-                  : "Create Profile"}
+                {loading ? (isEditing ? "Saving..." : "Creating...") : (isEditing ? "Save Changes" : "Create Profile")}
               </button>
             </div>
           </form>

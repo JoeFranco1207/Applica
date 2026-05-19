@@ -203,6 +203,7 @@ export const getProfileService = async (userId) => {
     throw new AppError("User not found", 404);
   }
 
+
   return user;
 };
 

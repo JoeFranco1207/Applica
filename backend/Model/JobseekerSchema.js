@@ -8,32 +8,32 @@ export const  jobseekerSchema = new mongoose.Schema({
       
     citizenShip:{
       type: String,
-      required: true,
-      enum: ["Filipino", "Foreign"]
+      enum: ["Filipino", "Foreign"],
+      default: "Filipino"
     },
          
     location:{ 
 
       region:{
         type: String,
-        required: true
       },
       city:{
         type: String,
-        required: true
       },
       barangay:{
         type: String,
-        required: true
       },
-      otherDetails: String
+      otherDetails: String,
+      coords: {
+        lat: Number,
+        lng: Number
+      }
     },
 
     experience: String,
     education: String,
     resume: {
-      type :String,
-      required: true
+      type: String,
     }
 },
  {

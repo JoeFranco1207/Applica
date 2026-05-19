@@ -7,6 +7,12 @@ import { signupValidation, phoneNumberValidation } from '../validator/Validator.
 import {sendVerificationEmail, sendForgotPasswordEmail} from '../Services/NodeMailer.js';
 import Jobseeker from '../Model/JobseekerSchema.js';
 
+const hasLocationData = (location) => {
+  if (!location) return false;
+  const hasCoords = location.coords?.lat != null && location.coords?.lng != null;
+  const hasManualFields = location.region && location.city && location.barangay;
+  return hasCoords || hasManualFields;
+};
 
 export const jobseekerProfileService = async (userId, profileData = {}) => {
     const {
@@ -33,8 +39,8 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
       throw new AppError("citizenShip is required", 400);
     }
 
-    if (!location || !location.region || !location.city || !location.barangay) {
-      throw new AppError("Incomplete location data", 400);
+    if (!hasLocationData(location)) {
+      throw new AppError("Incomplete location data. Provide either current location coordinates or region/city/barangay.", 400);
     }
 
     if (!experience) {
@@ -68,42 +74,51 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
 
 
 export const updateJobseekerProfileService = async (userId, profileData = {}) => {
+  const user = await User.findById(userId);
 
-     const user = await User.findById(userId);
-  
-     if (!user) {
-       throw new AppError("User doesn't exists", 400);
-     }
-     if (user.role !== "jobseeker") {
-       throw new AppError("Not authorized", 403);
-     }
-  
-     const allowedFields = [
-        "citizenShip",
-        "location",
-        "experience",
-        "education",
-        "resume",
-        "profilePicture",
-        "bio",
-      ];
-  
-    for (const field of Object.keys(profileData)) {
-      if (allowedFields.includes(field)) {
-        user[field] = profileData[field];
-      }
-    }
-
-    if (profileData.location) {
-      const location = profileData.location;
-      if (!location.region || !location.city || !location.barangay) {
-        throw new AppError("Incomplete location data", 400);
-      }
-    }
-
-     await user.save();
-     return user;
+  if (!user) {
+    throw new AppError("User doesn't exists", 400);
   }
+  if (user.role !== "jobseeker") {
+    throw new AppError("Not authorized", 403);
+  }
+
+  const allowedFields = [
+    "citizenShip",
+    "location",
+    "experience",
+    "education",
+    "resume",
+    "profilePicture",
+    "bio",
+  ];
+
+  const updateData = {};
+  for (const field of Object.keys(profileData)) {
+    if (allowedFields.includes(field)) {
+      updateData[field] = profileData[field];
+    }
+  }
+
+  if (profileData.location) {
+    const location = profileData.location;
+    if (!hasLocationData(location)) {
+      throw new AppError("Incomplete location data. Provide either current location coordinates or region/city/barangay.", 400);
+    }
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+    new: true,
+    runValidators: true,
+    context: "query",
+  });
+
+  if (!updatedUser) {
+    throw new AppError("User doesn't exists", 400);
+  }
+
+  return updatedUser;
+}
 
 
    

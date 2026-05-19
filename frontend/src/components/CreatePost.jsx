@@ -6,6 +6,7 @@ const CreatePost = ({ onPostCreated }) => {
   const [postContent, setPostContent] = useState('');
   const [tags, setTags] = useState('');
   const [mediaFile, setMediaFile] = useState(null);
+  const [mediaFileType, setMediaFileType] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem('token');
@@ -14,23 +15,22 @@ const CreatePost = ({ onPostCreated }) => {
   const handleMediaChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const mediaType = file.type.startsWith('image') ? 'image' : 'video';
-        setMediaFile({
-          data: reader.result,
-          type: mediaType,
-          contentType: file.type,
-          fileName: file.name,
-        });
-        setMediaPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      if (mediaPreview) {
+        URL.revokeObjectURL(mediaPreview);
+      }
+      const mediaType = file.type.startsWith('image') ? 'image' : 'video';
+      setMediaFile(file);
+      setMediaPreview(URL.createObjectURL(file));
+      setMediaFileType(mediaType);
     }
   };
 
   const handleRemoveMedia = () => {
+    if (mediaPreview) {
+      URL.revokeObjectURL(mediaPreview);
+    }
     setMediaFile(null);
+    setMediaFileType(null);
     setMediaPreview(null);
   };
 
@@ -44,16 +44,18 @@ const CreatePost = ({ onPostCreated }) => {
 
     try {
       setLoading(true);
-      const postData = {
-        content: postContent,
-        tags: tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        media: mediaFile || undefined,
-      };
+      const formData = new FormData();
+      formData.append('content', postContent);
+      tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .forEach((tag) => formData.append('tags[]', tag));
+      if (mediaFile instanceof File) {
+        formData.append('media', mediaFile);
+      }
 
-      const response = await axios.post('http://localhost:8000/api/posts', postData, {
+      const response = await axios.post('http://localhost:8000/api/posts', formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -61,6 +63,7 @@ const CreatePost = ({ onPostCreated }) => {
       setTags('');
       setMediaFile(null);
       setMediaPreview(null);
+      setMediaFileType(null);
 
       if (onPostCreated) {
         onPostCreated(response.data.data);
@@ -118,11 +121,11 @@ const CreatePost = ({ onPostCreated }) => {
 
         {mediaPreview && (
           <div className="media-preview">
-            {mediaFile.type === 'image' ? (
+            {mediaFileType === 'image' ? (
               <img src={mediaPreview} alt="Preview" className="preview-image" />
             ) : (
               <video controls className="preview-video">
-                <source src={mediaPreview} type={mediaFile.contentType} />
+                <source src={mediaPreview} type={mediaFile?.type} />
               </video>
             )}
             <button

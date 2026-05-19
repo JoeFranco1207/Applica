@@ -230,7 +230,13 @@ export default function Signup() {
         );
 
         setTimeout(() => {
-          navigate("/");
+          const user = res.data.data.user;
+          // If user hasn't chosen a role (defaults to 'user'), send them to profile selection
+          if (!user || user.role === "user") {
+            navigate("/create");
+          } else {
+            navigate("/");
+          }
         }, 1500);
       } else {
         setVerificationEmail(
@@ -332,7 +338,17 @@ export default function Signup() {
       setVerificationEmail("");
 
       setTimeout(() => {
-        navigate("/");
+        // After verification, backend may return a token + user
+        const returned = res.data.data || {};
+        if (returned.user) {
+          localStorage.setItem("user", JSON.stringify(returned.user));
+        }
+
+        if (!returned.user || returned.user.role === "user") {
+          navigate("/create");
+        } else {
+          navigate("/");
+        }
       }, 1500);
     } catch (err) {
       showMessage(

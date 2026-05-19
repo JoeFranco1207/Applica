@@ -2,13 +2,24 @@ import Job from "../Model/JobSchema.js";
 import AppError from "../Middleware/AppError.js";
 import { createNotificationService } from "./Notification.service.js";
 
-export const getAllJobs = async () => {
-  return Job.find()
+export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => {
+  const query = Job.find()
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
       select: "firstName lastName email companyName role profilePicture companyLogo",
     });
+
+  if (typeof skip === 'number') query.skip(skip);
+  if (typeof limit === 'number') query.limit(limit);
+
+  const jobs = await query;
+  if (includeTotal) {
+    const total = await Job.countDocuments();
+    return { jobs, total };
+  }
+
+  return { jobs };
 };
 
 export const addJobView = async (jobId, userId) => {
@@ -22,6 +33,12 @@ export const addJobView = async (jobId, userId) => {
     await job.save();
   }
 
+  // Populate createdBy to return full employer info
+  await job.populate({
+    path: "createdBy",
+    select: "firstName lastName email companyName role profilePicture companyLogo",
+  });
+
   return job;
 };
 
@@ -32,13 +49,37 @@ export const toggleJobLike = async (jobId, userId) => {
   }
 
   const likeIndex = job.likes.findIndex((id) => id.toString() === userId.toString());
-  if (likeIndex === -1) {
+  const isLiking = likeIndex === -1;
+  if (isLiking) {
     job.likes.push(userId);
   } else {
     job.likes.splice(likeIndex, 1);
   }
 
   await job.save();
+
+  // Send notification to job creator when someone likes their job post
+  const creatorId = job.createdBy?._id?.toString?.() || job.createdBy?.toString?.();
+  if (isLiking && creatorId && creatorId !== userId.toString()) {
+    try {
+      await createNotificationService({
+        type: 'like',
+        recipient: creatorId,
+        actor: userId,
+        message: `liked your ${job.title || 'job posting'}`,
+        jobId: job._id,
+      });
+    } catch (notificationError) {
+      console.error('Failed to create job like notification:', notificationError);
+    }
+  }
+
+  // Populate createdBy to return full employer info including email and profile picture
+  await job.populate({
+    path: "createdBy",
+    select: "firstName lastName email companyName role profilePicture companyLogo",
+  });
+
   return job;
 };
 

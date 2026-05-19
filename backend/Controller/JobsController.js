@@ -13,8 +13,32 @@ import {
 
 export const getJobsController = async (req, res, next) => {
   try {
-    const jobs = await getAllJobs();
-    return res.success(new AppSuccessful("Jobs retrieved successfully", 200, jobs));
+    const page = req.query.page ? Math.max(1, parseInt(req.query.page, 10) || 1) : null;
+    const limit = req.query.limit
+      ? Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 10))
+      : null;
+    const skip = page ? (page - 1) * limit : undefined;
+    const includeTotal = page === 1;
+
+    if (page) {
+      const data = await getAllJobs({ limit, skip, includeTotal });
+      const hasMore = data.jobs.length === limit;
+      const totalPages = includeTotal && data.total > 0 ? Math.ceil(data.total / limit) : 0;
+
+      return res.success(
+        new AppSuccessful("Jobs retrieved successfully", 200, {
+          jobs: data.jobs,
+          total: includeTotal ? data.total : undefined,
+          page,
+          limit,
+          totalPages: includeTotal ? totalPages : undefined,
+          hasMore,
+        })
+      );
+    }
+
+    const data = await getAllJobs();
+    return res.success(new AppSuccessful("Jobs retrieved successfully", 200, data.jobs));
   } catch (err) {
     next(err);
   }
@@ -43,6 +67,7 @@ export const toggleJobLikeController = async (req, res, next) => {
   try {
     const jobId = req.params.jobId;
     const updatedJob = await toggleJobLike(jobId, req.user.id);
+    // The toggleJobLike function already populates createdBy, but ensure it's returned
     return res.success(new AppSuccessful("Job like updated", 200, updatedJob));
   } catch (err) {
     next(err);

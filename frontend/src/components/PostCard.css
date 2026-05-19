@@ -36,6 +36,19 @@
   background: #f0f0f0;
 }
 
+.author-avatar.placeholder {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+}
+
 .author-details {
   display: flex;
   flex-direction: column;

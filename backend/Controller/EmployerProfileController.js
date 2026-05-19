@@ -8,12 +8,8 @@ export const employerProfileController = async (req, res, next) => {
     const userId = req.user.id;
     const profile = await employerProfileService(userId, req.body);
 
-    return res.json(
-      new AppSuccessful(
-        "Employer profile created successfully",
-        201,
-        profile
-      )
+    return res.success(
+      new AppSuccessful("Employer profile created successfully", 201, profile)
     );
 
   } catch (err) {

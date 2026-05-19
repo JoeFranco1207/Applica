@@ -81,22 +81,45 @@
 /* Post Header */
 .post-details-header {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 24px 24px 18px;
   background: var(--surface-strong);
   color: var(--text);
   border-bottom: 1px solid var(--border);
   text-align: left;
   position: relative;
+  gap: 8px;
+}
+
+.post-details-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.08;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.post-details-subtitle {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.post-author-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   gap: 16px;
+  padding: 16px 24px 0;
 }
 
 .post-author-section {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 14px;
   flex: 1;
   min-width: 0;
@@ -136,41 +159,145 @@
   color: var(--muted);
 }
 
+.post-author-company {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.post-author-email {
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
 .post-timestamp {
   margin-top: 2px;
 }
 
-.post-actions-menu {
+.post-actions-row {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  flex-wrap: wrap;
   align-items: center;
-  margin-left: auto;
+  gap: 12px;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-strong);
 }
 
 .action-icon-btn {
-  background: transparent;
   border: none;
-  font-size: 16px;
+  background: rgba(102, 126, 234, 0.08);
+  color: var(--text);
   cursor: pointer;
-  padding: 6px;
-  width: 34px;
-  height: 34px;
+  padding: 10px 14px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+  gap: 8px;
+  border-radius: 999px;
   transition: all 0.2s ease;
-  transform: scale(1);
+  font-weight: 700;
+  min-height: 42px;
 }
 
 .action-icon-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  transform: scale(1.15);
+  background: rgba(102, 126, 234, 0.14);
+  transform: translateY(-1px);
 }
 
 .action-icon-btn.liked {
-  color: #e74c3c;
+  color: #3b82f6;
+}
+
+.post-author-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.post-author-email-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.post-author-email-link:hover {
+  text-decoration: underline;
+}
+
+.post-author-timestamp {
+  opacity: 0.8;
+}
+
+.post-role-badge {
+  font-size: 11px;
+  color: var(--primary);
+  background: rgba(96, 165, 250, 0.1);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+}
+
+.post-author-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.comment-entry-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 18px 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-strong);
+}
+
+.comment-input-bar {
+  width: 100%;
+  min-height: 48px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.comment-input-bar:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.08);
+}
+
+.send-comment-btn {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.send-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Post Content */

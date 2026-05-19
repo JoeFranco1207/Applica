@@ -1,6 +1,5 @@
 import AppError from "../Middleware/AppError.js";
 import User from "../Model/UserSchema.js";
-import Employer from "../Model/EmployerSchema.js";
 
 export const employerProfileService = async (userId, profileData) => {
   const {
@@ -15,38 +14,47 @@ export const employerProfileService = async (userId, profileData) => {
     dateEstablished,
   } = profileData;
 
-  const employer = await Employer.findById(userId);
+  const user = await User.findById(userId);
 
-  if (!employer) {
-    throw new AppError("Employer not found", 404);
+  if (!user) {
+    throw new AppError("User not found", 404);
   }
 
-  // Only update fields that are provided in the request
-  if (companyName !== undefined) employer.companyName = companyName;
-  if (companyDescription !== undefined) employer.companyDescription = companyDescription;
-  if (companySize !== undefined) employer.companySize = companySize;
-  if (industry !== undefined) employer.industry = industry;
-  if (website !== undefined) employer.website = website;
-  if (contactNumber !== undefined) employer.contactNumber = contactNumber;
-  if (companyLogo !== undefined) employer.companyLogo = companyLogo;
-  if (dateEstablished !== undefined) employer.dateEstablished = dateEstablished;
+  if (user.role !== "employer") {
+    throw new AppError("User is not an employer", 403);
+  }
 
-  // Handle companyLocation specially
+  // build update object only with allowed fields
+  const updateData = {};
+  if (companyName !== undefined) updateData.companyName = companyName;
+  if (companyDescription !== undefined) updateData.companyDescription = companyDescription;
+  if (companySize !== undefined) updateData.companySize = companySize;
+  if (industry !== undefined) updateData.industry = industry;
+  if (website !== undefined) updateData.website = website;
+  if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
+  if (companyLogo !== undefined) updateData.companyLogo = companyLogo;
+  if (dateEstablished !== undefined) updateData.dateEstablished = dateEstablished;
+
   if (companyLocation !== undefined) {
     if (typeof companyLocation === "string") {
       try {
-        employer.companyLocation = JSON.parse(companyLocation);
+        updateData.companyLocation = JSON.parse(companyLocation);
       } catch (err) {
-        employer.companyLocation = employer.companyLocation || {};
+        updateData.companyLocation = user.companyLocation || {};
       }
     } else {
-      employer.companyLocation = companyLocation;
+      updateData.companyLocation = companyLocation;
     }
   }
 
-  await employer.save();
+  // apply updates directly to the user document so discriminators (if not created) are handled
+  for (const key of Object.keys(updateData)) {
+    user[key] = updateData[key];
+  }
 
-  return employer;
+  await user.save();
+
+  return user;
 };
 
 

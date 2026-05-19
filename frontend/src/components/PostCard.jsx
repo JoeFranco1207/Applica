@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
-import CommentModal from './CommentModal';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -17,9 +16,28 @@ const PostCard = ({ post, onUpdate }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
   const [currentPost, setCurrentPost] = useState(post);
+  const [authorAvatarError, setAuthorAvatarError] = useState(false);
 
   const userId = localStorage.getItem('userId');
   const token = localStorage.getItem('token');
+
+  const formatRelativeTime = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    const diff = Date.now() - d.getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return `${sec}sec`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}min`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}hr`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day}day`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month}month`;
+    const year = Math.floor(month / 12);
+    return `${year}yr`;
+  };
 
   // Update state when post changes
   useEffect(() => {
@@ -39,9 +57,33 @@ const PostCard = ({ post, onUpdate }) => {
     setIsReposted(!!hasReposted);
   }, [post, userId]);
 
+  if (!post || !post._id) return null;
+
   const handleLike = async () => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    const userIdString = userId?.toString();
+    if (!currentPost) return;
+
+    const previousPost = currentPost;
+    const previousIsLiked = isLiked;
+
+    const normalizedLikes = (currentPost.likes || []).filter((id) => {
+      const likeId = typeof id === 'object' ? id._id || id : id;
+      return likeId.toString() !== userIdString;
+    });
+
+    const optimisticLikes = previousIsLiked
+      ? normalizedLikes
+      : [...normalizedLikes, userIdString];
+
+    setIsLiked(!previousIsLiked);
+    setCurrentPost((prev) => ({ ...prev, likes: optimisticLikes }));
+
     try {
-      console.log('Liking post:', currentPost._id);
       const response = await axios.post(
         `http://localhost:8000/api/posts/${currentPost._id}/like`,
         {},
@@ -49,19 +91,41 @@ const PostCard = ({ post, onUpdate }) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      console.log('Like response:', response.data);
-      setIsLiked(!isLiked);
-      setCurrentPost(response.data.data);
-      onUpdate(response.data.data);
+      const updatedData = response.data.data;
+      const updatedPost = mergePostData(previousPost, updatedData);
+      setCurrentPost(updatedPost);
+      const hasLiked = updatedPost.likes?.some((id) => {
+        const likeId = typeof id === 'object' ? id._id || id : id;
+        return likeId.toString() === userIdString;
+      });
+      setIsLiked(hasLiked);
+      onUpdate(updatedPost);
     } catch (error) {
       console.error('Error liking post:', error.response?.data || error.message);
+      setIsLiked(previousIsLiked);
+      setCurrentPost(previousPost);
     }
   };
 
-  const handleCommentAdded = (updatedPost) => {
-    console.log('Comment added! Updated post:', updatedPost);
-    setCurrentPost(updatedPost);
-    onUpdate(updatedPost);
+  // Merge updated fields from API into the existing post while preserving
+  // important author/profile fields when the API response omits them.
+  const mergePostData = (existing = {}, updated = {}) => {
+    const result = { ...existing, ...updated };
+
+    // Preserve author-related display fields if API didn't provide them
+    const authorFields = ['author', 'authorName', 'authorAvatar', 'authorRole', 'authorEmail', 'authorCompanyName'];
+    authorFields.forEach((f) => {
+      if (updated[f] === undefined || updated[f] === null) {
+        result[f] = existing[f];
+      }
+    });
+
+    // Preserve nested media or other complex objects if omitted
+    if ((updated.media === undefined || updated.media === null) && existing.media) {
+      result.media = existing.media;
+    }
+
+    return result;
   };
 
   const submitComment = async () => {
@@ -82,8 +146,10 @@ const PostCard = ({ post, onUpdate }) => {
       console.log('Comment submitted:', response.data);
       setCommentText('');
       setShowCommentModal(false);
-      setCurrentPost(response.data.data);
-      onUpdate(response.data.data);
+      const updatedData = response.data.data;
+      const updatedPost = mergePostData(currentPost, updatedData);
+      setCurrentPost(updatedPost);
+      onUpdate(updatedPost);
       alert('Comment posted!');
     } catch (error) {
       console.error('Error submitting comment:', error);
@@ -118,8 +184,10 @@ const PostCard = ({ post, onUpdate }) => {
         }
       );
       console.log('Share response:', response.data);
-      setCurrentPost(response.data.data);
-      onUpdate(response.data.data);
+      const updatedData = response.data.data;
+      const updatedPost = mergePostData(currentPost, updatedData);
+      setCurrentPost(updatedPost);
+      onUpdate(updatedPost);
       alert('Post shared successfully!');
     } catch (error) {
       console.error('Error sharing post:', error.response?.data || error.message);
@@ -139,9 +207,11 @@ const PostCard = ({ post, onUpdate }) => {
           }
         );
         console.log('Remove repost response:', response.data);
+        const updatedData = response.data.data;
+        const updatedPost = mergePostData(currentPost, updatedData);
         setIsReposted(false);
-        setCurrentPost(response.data.data);
-        onUpdate(response.data.data);
+        setCurrentPost(updatedPost);
+        onUpdate(updatedPost);
         console.log('Repost removed successfully!');
       } catch (error) {
         console.error('Error removing repost:', error.response?.data || error.message);
@@ -159,9 +229,11 @@ const PostCard = ({ post, onUpdate }) => {
           }
         );
         console.log('Add repost response:', response.data);
+        const updatedData = response.data.data;
+        const updatedPost = mergePostData(currentPost, updatedData);
         setIsReposted(true);
-        setCurrentPost(response.data.data);
-        onUpdate(response.data.data);
+        setCurrentPost(updatedPost);
+        onUpdate(updatedPost);
         console.log('Post reposted successfully!');
       } catch (error) {
         console.error('Error reposting post:', error.response?.data || error.message);
@@ -180,8 +252,10 @@ const PostCard = ({ post, onUpdate }) => {
         }
       );
       console.log('Delete comment response:', response.data);
-      setCurrentPost(response.data.data);
-      onUpdate(response.data.data);
+      const updatedData = response.data.data;
+      const updatedPost = mergePostData(currentPost, updatedData);
+      setCurrentPost(updatedPost);
+      onUpdate(updatedPost);
     } catch (error) {
       console.error('Error deleting comment:', error.response?.data || error.message);
     }
@@ -193,7 +267,7 @@ const PostCard = ({ post, onUpdate }) => {
       {/* Post Header */}
       <div className="post-header">
         <div className="author-info">
-          {currentPost.authorAvatar && (
+          {(currentPost.authorAvatar && !authorAvatarError) ? (
             <img
               src={currentPost.authorAvatar}
               alt={currentPost.authorName}
@@ -203,7 +277,19 @@ const PostCard = ({ post, onUpdate }) => {
                 const authorId = getUserId(currentPost.author);
                 if (authorId) navigate(`/profile/${authorId}`);
               }}
+              onError={() => setAuthorAvatarError(true)}
             />
+          ) : (
+            <div
+              className="author-avatar placeholder"
+              style={{ cursor: currentPost.author ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => {
+                const authorId = getUserId(currentPost.author);
+                if (authorId) navigate(`/profile/${authorId}`);
+              }}
+            >
+              {(currentPost.authorName && currentPost.authorName.charAt(0)) || 'U'}
+            </div>
           )}
           <div className="author-details">
             <h3
@@ -217,7 +303,13 @@ const PostCard = ({ post, onUpdate }) => {
               {currentPost.authorName}
             </h3>
             <span className="author-role">{currentPost.authorRole}</span>
-            <span className="post-time">{new Date(currentPost.createdAt).toLocaleDateString()}</span>
+            {currentPost.authorCompanyName && (
+              <span className="author-company">{currentPost.authorCompanyName}</span>
+            )}
+            {currentPost.authorEmail && (
+              <span className="author-email">{currentPost.authorEmail}</span>
+            )}
+            <span className="post-time">{formatRelativeTime(currentPost.createdAt)}</span>
           </div>
         </div>
       </div>
@@ -234,14 +326,14 @@ const PostCard = ({ post, onUpdate }) => {
             ))}
           </div>
         )}
-        {currentPost.media && (
+        {currentPost.media && (currentPost.media.url || currentPost.media.data) && (
           <div className="post-media">
             {currentPost.media.type === 'image' && (
-              <img src={currentPost.media.data} alt="Post media" className="post-image" />
+              <img src={currentPost.media.url || currentPost.media.data} alt="Post media" className="post-image" />
             )}
             {currentPost.media.type === 'video' && (
               <video controls className="post-video">
-                <source src={currentPost.media.data} type={currentPost.media.contentType} />
+                <source src={currentPost.media.url || currentPost.media.data} type={currentPost.media.contentType} />
               </video>
             )}
           </div>
@@ -330,7 +422,7 @@ const PostCard = ({ post, onUpdate }) => {
                       >
                         {comment.authorName}
                       </h4>
-                      <span className="comment-time">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                      <span className="comment-time">{formatRelativeTime(comment.createdAt)}</span>
                     </div>
                   </div>
                   <p className="comment-text">{comment.content}</p>
@@ -414,14 +506,13 @@ const PostCard = ({ post, onUpdate }) => {
                 borderRadius: '8px',
                 border: '1px solid #ddd',
                 minHeight: '100px',
-                fontFamily: 'Arial, sans-serif',
+                fontFamily: 'inherit',
                 fontSize: '14px',
                 marginBottom: '15px',
-                boxSizing: 'border-box',
-                fontFamily: 'inherit'
+                boxSizing: 'border-box'
               }}
             />
-            
+
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowCommentModal(false)}

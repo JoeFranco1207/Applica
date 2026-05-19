@@ -78,4 +78,6 @@ const postSchema = new mongoose.Schema(
   }
 );
 
+postSchema.index({ author: 1, createdAt: -1 });
+
 export default mongoose.model('Post', postSchema);

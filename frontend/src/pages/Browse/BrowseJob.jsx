@@ -9,6 +9,41 @@ const getUserId = (user) => {
   return typeof user === 'object' ? user._id || user.id || null : user;
 };
 
+const formatRelativeTimeShort = (dateValue) => {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  const diff = Date.now() - date.getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}sec`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}hr`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}day`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}month`;
+  const year = Math.floor(month / 12);
+  return `${year}yr`;
+};
+
+const mergePostData = (existing = {}, updated = {}) => {
+  const result = { ...existing, ...updated };
+
+  const authorFields = ['author', 'authorName', 'authorAvatar', 'authorRole', 'authorEmail', 'authorCompanyName'];
+  authorFields.forEach((field) => {
+    if (updated[field] === undefined || updated[field] === null) {
+      result[field] = existing[field];
+    }
+  });
+
+  if ((updated.media === undefined || updated.media === null) && existing.media) {
+    result.media = existing.media;
+  }
+
+  return result;
+};
+
 const HeartIcon = ({ filled = false, size = 18 }) => (
   <svg
     width={size}
@@ -644,9 +679,11 @@ export default function BrowseJob() {
       );
 
       const updatedPost = response.data.data;
-      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      setSocialPosts((prev) => prev.map((p) =>
+        p._id === updatedPost._id ? mergePostData(p, updatedPost) : p
+      ));
       if (selectedPost?._id === updatedPost._id) {
-        setSelectedPost(updatedPost);
+        setSelectedPost((prev) => mergePostData(prev || selectedPost, updatedPost));
       }
       setCommentText('');
     } catch (error) {
@@ -655,6 +692,17 @@ export default function BrowseJob() {
     } finally {
       setCommentLoading(false);
     }
+  };
+
+  const handleJobComment = async () => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+    if (!commentText.trim()) return;
+    // Job comments not supported yet — placeholder behavior
+    alert('Posting answers to job posts is not implemented yet.');
+    setCommentText('');
   };
 
   const submitReply = async (commentId) => {
@@ -676,9 +724,11 @@ export default function BrowseJob() {
       );
 
       const updatedPost = response.data.data;
-      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      setSocialPosts((prev) => prev.map((p) =>
+        p._id === updatedPost._id ? mergePostData(p, updatedPost) : p
+      ));
       if (selectedPost?._id === updatedPost._id) {
-        setSelectedPost(updatedPost);
+        setSelectedPost((prev) => mergePostData(prev || selectedPost, updatedPost));
       }
       setReplyText('');
       setReplyingToCommentId(null);
@@ -704,9 +754,11 @@ export default function BrowseJob() {
       );
 
       const updatedPost = response.data.data;
-      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      setSocialPosts((prev) => prev.map((p) =>
+        p._id === updatedPost._id ? mergePostData(p, updatedPost) : p
+      ));
       if (selectedPost?._id === updatedPost._id) {
-        setSelectedPost(updatedPost);
+        setSelectedPost((prev) => mergePostData(prev || selectedPost, updatedPost));
       }
 
       const isLiked = updatedPost.likes?.some((id) => id.toString() === currentUserId?.toString());
@@ -765,9 +817,11 @@ export default function BrowseJob() {
       );
 
       const updatedPost = response.data.data;
-      setSocialPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+      setSocialPosts((prev) => prev.map((p) =>
+        p._id === updatedPost._id ? mergePostData(p, updatedPost) : p
+      ));
       if (selectedPost?._id === updatedPost._id) {
-        setSelectedPost(updatedPost);
+        setSelectedPost((prev) => mergePostData(prev || selectedPost, updatedPost));
       }
       alert('Post reposted successfully!');
     } catch (error) {
@@ -867,21 +921,12 @@ export default function BrowseJob() {
   const showJobSection = ["For you", "Job", "Saved"].includes(activeTab);
   const showPostSection = ["For you", "Following", "Post"].includes(activeTab);
 
-  const followingSocialPosts = currentUser?.following?.length
+  const followingPostItems = currentUser?.following?.length
     ? socialPosts.filter((post) => {
         const authorId = getUserId(post.author);
         return authorId && currentUser.following.includes(authorId);
       })
-    : [];
-
-  const followingEmployerJobs = currentUser?.following?.length
-    ? jobs
-        .map((job) => ({
-          ...job,
-          createdById: job.createdBy?._id || job.createdBy,
-        }))
-        .filter((job) => currentUser.following.includes(job.createdById))
-    : [];
+    : socialPosts;
 
   const jobPosts = jobs.map((job) => {
     const viewsCount = Array.isArray(job.views) ? job.views.length : 0;
@@ -1142,98 +1187,20 @@ export default function BrowseJob() {
 
           {showPostSection && (
             <>
-              {((activeTab === "Following" && (followingSocialPosts.length || followingEmployerJobs.length)) || (activeTab !== "Following" && socialPosts.length)) && (
+              {socialPosts.length > 0 && (
                 <div style={styles.socialFeedHeading}>
                   <h3 style={styles.sidebarTitle}>
                     {activeTab === "Following" ? "Following updates" : "Jobseeker updates"}
                   </h3>
                   {activeTab === "Following" && !currentUser?.following?.length && (
                     <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
-                      Follow users to see their posts here.
-                    </p>
-                  )}
-                  {activeTab === "Following" && currentUser?.following?.length && !followingSocialPosts.length && !followingEmployerJobs.length && (
-                    <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
-                      Followed users haven’t posted yet.
+                      Follow users to see their posts here. Showing all recent jobseeker posts for now.
                     </p>
                   )}
                 </div>
               )}
 
-              {activeTab === "Following" && followingEmployerJobs.length > 0 && (
-                <>
-                  {followingEmployerJobs.map((job) => (
-                    <div key={job._id} style={styles.xPostCard}>
-                      <div style={styles.postHeaderRow}>
-                        <div
-                          style={{
-                            ...styles.postAvatar,
-                            cursor: job.createdById ? 'pointer' : 'default',
-                          }}
-                          onClick={() => {
-                            if (job.createdById) navigate(`/profile/${job.createdById}`);
-                          }}
-                        >
-                          {job.createdBy?.companyLogo ? (
-                            <img src={job.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                          ) : (
-                            job.companyName?.charAt(0) || job.company?.charAt(0)
-                          )}
-                        </div>
-                        <div style={styles.postHeading}>
-                          <div style={styles.postCompanyRow}>
-                            <span style={styles.postCompany}>{job.companyName || job.company}</span>
-                            <span style={styles.postDot}>·</span>
-                            <span style={styles.postMeta}>{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recently'}</span>
-                          </div>
-                          {job.createdBy?.email && (
-                            <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#0f766e', fontSize: '12px', fontWeight: '500', textAlign: 'left' }}>
-                              {job.createdBy.email}
-                            </p>
-                          )}
-                          <p style={{ ...styles.postTagline, textAlign: 'left' }}>{job.location || 'Remote'}</p>
-                        </div>
-                      </div>
-
-                      <div style={styles.postBody}>
-                        <h2 style={styles.postRole}>{job.title || job.role}</h2>
-                        <p style={styles.postText}>{job.description}</p>
-                      </div>
-
-                      <div style={styles.postTags}>
-                        {(job.tags || []).map((tag, index) => (
-                          <span key={`${job._id}-follow-tag-${index}`} style={styles.postTag}>{tag}</span>
-                        ))}
-                      </div>
-
-                      <div style={styles.postStatsRow}>
-                        <span style={styles.postStatItem}>{Array.isArray(job.applicants) ? job.applicants.length : job.applicants || 0} applicants</span>
-                        <span style={styles.postStatItem}>{Array.isArray(job.views) ? job.views.length : job.views || 0} views</span>
-                        <span style={styles.postStatItem}>{Array.isArray(job.likes) ? job.likes.length : job.likes || 0} likes</span>
-                      </div>
-
-                      <div style={styles.postActionRow}>
-                        <button
-                          style={savedJobIds.includes(job._id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
-                          onClick={() => handleSave(job._id)}
-                          title={savedJobIds.includes(job._id) ? 'Remove from saved' : 'Save job'}
-                        >
-                          <BookmarkIcon filled={savedJobIds.includes(job._id)} size={18} />
-                        </button>
-                        <button
-                          style={styles.actionButton}
-                          onClick={() => openJobModal(job._id)}
-                          title="View job"
-                        >
-                          <ChevronRightIcon size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {(activeTab === "Following" ? followingSocialPosts : socialPosts).map((post) => (
+              {(activeTab === "Following" ? followingPostItems : socialPosts).map((post) => (
                 <div key={post._id} style={styles.socialPostCard}>
                   <div style={styles.socialPostHeader}>
                     <div
@@ -1506,93 +1473,70 @@ export default function BrowseJob() {
 
       {showPostModal && selectedPost && (
           <PostDetailsModal
-          post={selectedPost}
-          isOpen={showPostModal}
-          onClose={closePostModal}
-          onUpdate={(updatedPost) => {
-            setSocialPosts((prev) =>
-              prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
-            );
-            setSelectedPost(updatedPost);
-          }}
-          currentUserId={currentUserId}
-          userName={currentUser?.firstName || 'You'}
-          userAvatar={currentUser?.profilePicture || currentUser?.companyLogo}
-        />
+            post={selectedPost}
+            isOpen={showPostModal}
+            onClose={closePostModal}
+            onUpdate={(updatedPost) => {
+              setSocialPosts((prev) =>
+                prev.map((p) =>
+                  p._id === updatedPost._id ? mergePostData(p, updatedPost) : p
+                )
+              );
+              setSelectedPost((prev) => mergePostData(prev || {}, updatedPost));
+            }}
+            currentUserId={currentUserId}
+            userName={currentUser?.firstName || 'You'}
+            userAvatar={currentUser?.profilePicture || currentUser?.companyLogo}
+          />
       )}
-
       {/* Job Modal */}
       {showJobModal && modalJob && (
         <div style={styles.modalOverlay} onClick={closeJobModal}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={{ margin: 0 }}>{modalJob.title}</h2>
-              <button style={styles.modalClose} onClick={closeJobModal}>✕</button>
+          <div style={{ ...styles.modalCard, background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ ...styles.modalHeader, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 800, textAlign: 'center' }}>{modalJob.title}</h2>
+              <button style={{ ...styles.modalClose, position: 'absolute', right: 12, top: 8 }} onClick={closeJobModal}>✕</button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+            {/* Author row like social post modal */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
               <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: 'var(--primary)',
-                display: 'grid',
-                placeItems: 'center',
-                color: '#fff',
-                fontWeight: '800',
-                fontSize: '18px',
-                flexShrink: 0,
-                cursor: modalJob.createdBy?._id ? 'pointer' : 'default',
-              }}
-              onClick={() => {
-                const authorId = getUserId(modalJob.createdBy);
-                if (authorId) navigate(`/profile/${authorId}`);
-              }}
-            >
+                style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: modalJob.createdBy?._id ? 'pointer' : 'default' }}
+                onClick={() => { const authorId = getUserId(modalJob.createdBy); if (authorId) navigate(`/profile/${authorId}`); }}
+              >
                 {modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? (
-                  <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : modalJob.createdBy?.profilePicture ? (
-                  <img src={modalJob.createdBy.profilePicture} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  <img src={modalJob.createdBy.profilePicture} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  (modalJob.createdBy?.firstName?.charAt(0) || modalJob.companyName?.charAt(0) || 'E')
+                  <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', background: 'var(--primary)', color: '#fff', fontWeight: 800 }}>{(modalJob.createdBy?.firstName?.charAt(0) || modalJob.companyName?.charAt(0) || 'E')}</div>
                 )}
               </div>
-              <div>
-                <p
-                  style={{
-                    ...styles.modalCompany,
-                    cursor: modalJob.createdBy?._id ? 'pointer' : 'default',
-                    display: 'inline-flex',
-                    alignItems: 'center'
-                  }}
-                  onClick={() => {
-                    const authorId = getUserId(modalJob.createdBy);
-                    if (authorId) navigate(`/profile/${authorId}`);
-                  }}
-                >
-                  {modalJob.companyName} · {modalJob.location || 'Remote'}
-                </p>
-                {modalJob.createdBy?.email && (
-                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                    {modalJob.createdBy.email}
-                  </p>
-                )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{modalJob.createdBy?.companyName || modalJob.companyName || modalJob.createdBy?.firstName || 'Employer'}</div>
+                  {modalJob.createdBy?.role && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.03)' }}>{modalJob.createdBy.role}</div>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+                  <div>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
+                  <div style={{ opacity: 0.5 }}>·</div>
+                  <div>{formatRelativeTimeShort(modalJob.createdAt)}</div>
+                </div>
               </div>
             </div>
 
-            <div style={styles.modalBody}>
-              <p style={styles.postText}>{modalJob.description}</p>
-              <h4>Requirements</h4>
-              <p style={styles.postText}>{modalJob.requirements}</p>
+            <div style={{ ...styles.modalBody, color: '#fff' }}>
+              <p style={{ ...styles.postText, color: '#fff', marginBottom: '18px' }}>{modalJob.description}</p>
+              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Requirements</h4>
+              <p style={{ ...styles.postText, color: '#e2e8f0', marginBottom: '18px' }}>{modalJob.requirements}</p>
 
-              <h4>Details</h4>
-              <ul>
-                {modalJob.salary !== undefined && <li>Salary: {modalJob.salary ? `₱${modalJob.salary.toLocaleString()}` : 'Negotiable'}</li>}
-                {modalJob.category && <li>Category: {modalJob.category}</li>}
-                {modalJob.jobType && <li>Type: {modalJob.jobType}</li>}
-                {modalJob.experienceLevel && <li>Experience: {modalJob.experienceLevel}</li>}
-                <li>Job ID: {modalJob._id}</li>
+              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Details</h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#e2e8f0' }}>
+                {modalJob.salary !== undefined && <li style={{ marginBottom: '10px' }}>Salary: {modalJob.salary ? `₱${modalJob.salary.toLocaleString()}` : 'Negotiable'}</li>}
+                {modalJob.category && <li style={{ marginBottom: '10px' }}>Category: {modalJob.category}</li>}
+                {modalJob.jobType && <li style={{ marginBottom: '10px' }}>Type: {modalJob.jobType}</li>}
+                {modalJob.experienceLevel && <li style={{ marginBottom: '0' }}>Experience: {modalJob.experienceLevel}</li>}
               </ul>
 
               <div style={{ marginTop: 12 }}>
@@ -1630,6 +1574,31 @@ export default function BrowseJob() {
               </button>
               <button style={styles.actionButton} onClick={() => { navigator.share ? navigator.share({ title: modalJob.title, text: modalJob.description }) : alert(modalJob.title + '\n' + modalJob.description); }}>
                 Share
+              </button>
+            </div>
+            {/* Bottom comment input bar */}
+            <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 12, alignItems: 'center', background: 'transparent' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                {currentUser?.profilePicture || currentUser?.companyLogo ? (
+                  <img src={currentUser.profilePicture || currentUser.companyLogo} alt="you" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', background: 'var(--primary)', color: '#fff', fontWeight: 700 }}>{(currentUser?.firstName?.charAt(0) || 'U')}</div>
+                )}
+              </div>
+              <input
+                type="text"
+                placeholder="Write an answer..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)', color: '#fff' }}
+              />
+              <button
+                onClick={handleJobComment}
+                disabled={!commentText.trim()}
+                style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#60a5fa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
+                title="Post an answer"
+              >
+                ➤
               </button>
             </div>
           </div>
@@ -1693,7 +1662,7 @@ export default function BrowseJob() {
                   {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>Type</span><span>{applyJobInfo.jobType}</span></div>}
                   {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>Experience</span><span>{applyJobInfo.experienceLevel}</span></div>}
                   <div style={styles.applyInfoRow}><span>Applicants</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
-                  <div style={styles.applyInfoRow}><span>Posted</span><span>{applyJobInfo.createdAt ? new Date(applyJobInfo.createdAt).toLocaleDateString() : applyJobInfo.postedAt || 'Unknown'}</span></div>
+                  <div style={styles.applyInfoRow}><span>Posted</span><span>{applyJobInfo.createdAt ? new Date(applyJobInfo.createdAt).toLocaleString() : applyJobInfo.postedAt || 'Unknown'}</span></div>
                 </div>
 
                 <div style={styles.applyInfoSection}>

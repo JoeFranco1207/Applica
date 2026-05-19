@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import path from "path";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
@@ -24,6 +25,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve uploaded files (resumes, images)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use("/api/admin", AdminRouter);
 
@@ -118,6 +122,15 @@ export const sendNotificationToUser = (userId, notification) => {
     console.log(`Notification sent to user ${userId}`);
   }
 };
+
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Stop the existing backend process or set a different PORT value before restarting.`);
+  } else {
+    console.error('Server error:', err);
+  }
+  process.exit(1);
+});
 
 httpServer.listen(PORT, () => {
   connectDB();

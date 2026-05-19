@@ -31,8 +31,36 @@ export const createPostController = async (req, res, next) => {
 
 export const getPostsController = async (req, res, next) => {
   try {
-    const posts = await getAllPostsService();
-    return res.status(200).json(new AppSuccessful('Posts fetched successfully', 200, posts));
+    const page = req.query.page ? Math.max(1, parseInt(req.query.page, 10) || 1) : null;
+    const limit = req.query.limit ? Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 10)) : null;
+    const skip = page ? (page - 1) * limit : undefined;
+    const includeTotal = page === 1;
+
+    if (page) {
+      const data = await getAllPostsService({
+        includeArchived: false,
+        limit,
+        skip,
+        includeTotal,
+      });
+
+      const hasMore = data.posts.length === limit;
+      const totalPages = includeTotal && data.total > 0 ? Math.ceil(data.total / limit) : 0;
+
+      return res.status(200).json(
+        new AppSuccessful('Posts fetched successfully', 200, {
+          posts: data.posts,
+          total: includeTotal ? data.total : undefined,
+          page,
+          limit,
+          totalPages: includeTotal ? totalPages : undefined,
+          hasMore,
+        })
+      );
+    }
+
+    const data = await getAllPostsService({ includeArchived: false });
+    return res.status(200).json(new AppSuccessful('Posts fetched successfully', 200, data.posts));
   } catch (err) {
     console.log(err);
     next(err);
@@ -73,8 +101,31 @@ export const deletePostController = async (req, res, next) => {
 
 export const getPostsByAuthorController = async (req, res, next) => {
   try {
-    const posts = await getPostsByAuthorService(req.params.authorId);
-    return res.status(200).json(new AppSuccessful('Author posts fetched', 200, posts));
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 5));
+    const skip = (page - 1) * limit;
+    const includeTotal = page === 1;
+
+    const data = await getPostsByAuthorService(req.params.authorId, {
+      includeArchived: false,
+      limit,
+      skip,
+      includeTotal,
+    });
+
+    const totalPages = includeTotal && data.total > 0 ? Math.ceil(data.total / limit) : 0;
+    const hasMore = data.posts.length === limit;
+
+    return res.status(200).json(
+      new AppSuccessful('Author posts fetched', 200, {
+        posts: data.posts,
+        total: includeTotal ? data.total : undefined,
+        page,
+        limit,
+        totalPages: includeTotal ? totalPages : undefined,
+        hasMore,
+      })
+    );
   } catch (err) {
     console.log(err);
     next(err);

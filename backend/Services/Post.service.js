@@ -47,6 +47,8 @@ export const createPostService = async (userId, postData = {}) => {
     authorName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
     authorRole: user.role,
     authorAvatar: (user.role === 'employer' ? user.companyLogo : user.profilePicture) || null,
+    authorEmail: user.email,
+    authorCompanyName: user.role === 'employer' ? user.companyName : undefined,
     likes: [],
     jobId,
   });
@@ -55,48 +57,77 @@ export const createPostService = async (userId, postData = {}) => {
 };
 
 export const getAllPostsService = async (options = {}) => {
-  const { author, includeArchived = false } = options;
+  const {
+    author,
+    includeArchived = false,
+    limit,
+    skip,
+    includeTotal = false,
+  } = options;
+
   const filter = {};
   if (author) filter.author = author;
   if (!includeArchived) filter.archived = { $ne: true };
 
-  const posts = await Post.find(filter).sort({ createdAt: -1 });
-  
-  // Populate fresh avatar data from user profiles
-  const enrichedPosts = await Promise.all(
-    posts.map(async (post) => {
-      const postObj = post.toObject();
-      try {
-        const user = await User.findById(post.author);
-        if (user) {
-          postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-          postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-          postObj.authorRole = user.role;
-        }
-      } catch (err) {
-        console.log('Error enriching post with user data:', err);
-      }
-      // Ensure comments have authorName and authorAvatar populated
-      if (Array.isArray(postObj.comments) && postObj.comments.length > 0) {
-        await Promise.all(postObj.comments.map(async (c) => {
-          try {
-            if (!c.authorName || !c.authorAvatar) {
-              const cu = await User.findById(c.author);
-              if (cu) {
-                c.authorName = c.authorName || `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email;
-                c.authorAvatar = c.authorAvatar || (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || null;
-              }
-            }
-          } catch (err) {
-            /* ignore */
-          }
-        }));
+  let query = Post.find(filter).sort({ createdAt: -1 });
+  if (typeof skip === 'number') query = query.skip(skip);
+  if (typeof limit === 'number') query = query.limit(limit);
+
+  const posts = await query.lean();
+
+  if (includeTotal) {
+    const total = await Post.countDocuments(filter);
+    // Enrich posts with author email/company when possible
+    const authorIds = [...new Set(posts.map((p) => p.author).filter(Boolean))];
+    let users = [];
+    try {
+      users = await User.find({ _id: { $in: authorIds } })
+        .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+        .lean();
+    } catch (err) {
+      console.log('Error loading authors for feed:', err);
+    }
+    const userMap = new Map((users || []).map((u) => [u._id.toString(), u]));
+    const enriched = posts.map((p) => {
+      const postObj = { ...p };
+      const u = userMap.get((p.author || '').toString());
+      if (u) {
+        postObj.authorAvatar = postObj.authorAvatar || (u.role === 'employer' ? u.companyLogo : u.profilePicture) || null;
+        postObj.authorName = postObj.authorName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
+        postObj.authorRole = postObj.authorRole || u.role;
+        postObj.authorEmail = u.email;
+        postObj.authorCompanyName = u.role === 'employer' ? u.companyName : undefined;
       }
       return postObj;
-    })
-  );
+    });
+    return { posts: enriched, total };
+  }
 
-  return enrichedPosts;
+  // Enrich posts with author email/company when possible
+  const authorIds = [...new Set(posts.map((p) => p.author).filter(Boolean))];
+  let users = [];
+  try {
+    users = await User.find({ _id: { $in: authorIds } })
+      .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+      .lean();
+  } catch (err) {
+    console.log('Error loading authors for feed:', err);
+  }
+  const userMap = new Map((users || []).map((u) => [u._id.toString(), u]));
+  const enriched = posts.map((p) => {
+    const postObj = { ...p };
+    const u = userMap.get((p.author || '').toString());
+    if (u) {
+      postObj.authorAvatar = postObj.authorAvatar || (u.role === 'employer' ? u.companyLogo : u.profilePicture) || null;
+      postObj.authorName = postObj.authorName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
+      postObj.authorRole = postObj.authorRole || u.role;
+      postObj.authorEmail = u.email;
+      postObj.authorCompanyName = u.role === 'employer' ? u.companyName : undefined;
+    }
+    return postObj;
+  });
+
+  return { posts: enriched };
 };
 
 export const getPostByIdService = async (postId) => {
@@ -111,6 +142,8 @@ export const getPostByIdService = async (postId) => {
       postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
       postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
       postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -168,6 +201,8 @@ export const togglePostLikeService = async (userId, postId) => {
       postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
       postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
       postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -206,6 +241,8 @@ export const updatePostService = async (userId, postId, data = {}) => {
       postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
       postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
       postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -225,7 +262,66 @@ export const deletePostService = async (userId, postId) => {
 };
 
 export const getPostsByAuthorService = async (authorId, options = {}) => {
-  return await getAllPostsService({ author: authorId, includeArchived: !!options.includeArchived });
+  const { includeArchived = false, limit = 10, skip = 0, includeTotal = true } = options;
+  const authorObjectId = mongoose.Types.ObjectId.isValid(authorId)
+    ? new mongoose.Types.ObjectId(authorId)
+    : authorId;
+  const filter = { author: authorObjectId };
+  if (!includeArchived) filter.archived = { $ne: true };
+
+  const [posts, total] = await Promise.all([
+    Post.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          content: 1,
+          tags: 1,
+          media: 1,
+          location: 1,
+          createdAt: 1,
+          author: 1,
+          authorName: 1,
+          authorAvatar: 1,
+          authorRole: 1,
+          commentsCount: { $size: { $ifNull: ['$comments', []] } },
+          likesCount: { $size: { $ifNull: ['$likes', []] } },
+          repostsCount: { $size: { $ifNull: ['$reposts', []] } },
+          sharesCount: { $size: { $ifNull: ['$shares', []] } },
+        },
+      },
+    ]),
+    includeTotal ? Post.countDocuments(filter) : Promise.resolve(null),
+  ]);
+
+  let author = null;
+  if (posts.length > 0 && (!posts[0].authorName || !posts[0].authorAvatar || !posts[0].authorRole)) {
+    try {
+      author = await User.findById(authorId)
+        .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+        .lean();
+    } catch (err) {
+      console.log('Error loading author data for feed:', err);
+    }
+  }
+
+  const enrichedPosts = posts.map((post) => {
+    const postObj = { ...post };
+
+    if (author && (!postObj.authorName || !postObj.authorAvatar || !postObj.authorRole)) {
+      postObj.authorAvatar = author.role === 'employer' ? author.companyLogo : author.profilePicture;
+      postObj.authorName = `${author.firstName || ''} ${author.lastName || ''}`.trim() || author.email;
+      postObj.authorRole = author.role;
+      postObj.authorEmail = author.email;
+      postObj.authorCompanyName = author.role === 'employer' ? author.companyName : undefined;
+    }
+
+    return postObj;
+  });
+
+  return { posts: enrichedPosts, total };
 };
 
 // Comment functionality

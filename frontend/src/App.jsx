@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import PostView from "./pages/PostView";
 import BrowseJob from "./pages/Browse/BrowseJob";
 import EmployerApplicants from "./pages/EmployerApplicants";
+import ResumeDesigns from "./pages/ResumeDesigns";
 
 function Layout() {
   return (
@@ -63,6 +64,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/post/:id" element={<PostView />} />
+          <Route path="/resume-designs" element={<ResumeDesigns />} />
           <Route path="/employer/applicants" element={<EmployerApplicants />} />
         </Route>
       </Routes>

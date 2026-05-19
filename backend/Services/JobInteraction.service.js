@@ -1,5 +1,6 @@
 import Job from "../Model/JobSchema.js";
 import AppError from "../Middleware/AppError.js";
+import User from "../Model/UserSchema.js";
 import { createNotificationService } from "./Notification.service.js";
 
 export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => {
@@ -99,8 +100,14 @@ export const applyToJob = async (jobId, userId) => {
     return job;
   }
 
+  const applicantUser = await User.findById(userId).select('resume');
+  if (!applicantUser || !applicantUser.resume) {
+    throw new AppError("Please create and save your resume before applying", 400);
+  }
+
   job.applicants.push({
     user: userId,
+    resume: applicantUser.resume,
     status: "pending",
     appliedAt: new Date(),
     updatedAt: new Date(),
@@ -129,6 +136,43 @@ export const applyToJob = async (jobId, userId) => {
   });
 
   return job;
+};
+
+export const notifyApplicantResumeViewed = async (jobId, employerId, applicantId) => {
+  const job = await Job.findById(jobId);
+  if (!job) {
+    throw new AppError("Job not found", 404);
+  }
+
+  if (job.createdBy.toString() !== employerId.toString()) {
+    throw new AppError("Not authorized to view this applicant", 403);
+  }
+
+  const applicant = job.applicants.find((entry) => {
+    if (entry.user) {
+      return entry.user.toString() === applicantId.toString();
+    }
+    if (entry._id) {
+      return entry._id.toString() === applicantId.toString();
+    }
+    return entry.toString() === applicantId.toString();
+  });
+
+  if (!applicant) {
+    throw new AppError("Applicant not found", 404);
+  }
+
+  const applicantUserId = applicant.user ? applicant.user : applicant;
+
+  await createNotificationService({
+    type: 'view',
+    recipient: applicantUserId,
+    actor: employerId,
+    message: `viewed your resume for ${job.title || 'your application'}`,
+    jobId: job._id,
+  });
+
+  return applicant;
 };
 
 export const updateApplicantStatus = async (jobId, employerId, applicantId, status) => {

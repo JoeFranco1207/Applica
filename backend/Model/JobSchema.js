@@ -6,6 +6,9 @@ const applicantSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  resume: {
+    type: String,
+  },
   status: {
     type: String,
     enum: ["pending", "reviewing", "accepted", "rejected"],

@@ -151,6 +151,30 @@ export default function EmployerApplicants() {
     }
   };
 
+  const handleResumeView = async (jobId, applicantId, resumeUrl) => {
+    if (resumeUrl) {
+      window.open(resumeUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    if (!token || !jobId || !applicantId) {
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:8000/api/employer/my-jobs/${jobId}/applicants/${applicantId}/view-resume`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Error notifying applicant resume view:', error);
+    }
+  };
+
   const getAllApplicants = () => {
     const applicantsByStatus = {
       pending: [],
@@ -389,11 +413,26 @@ export default function EmployerApplicants() {
                   {selectedApplicantInfo?.experience && <div style={styles.infoBlock}><div style={styles.infoLabel}>Experience</div><div style={styles.infoValue}>{selectedApplicantInfo.experience}</div></div>}
                   {selectedApplicantInfo?.education && <div style={styles.infoBlock}><div style={styles.infoLabel}>Education</div><div style={styles.infoValue}>{selectedApplicantInfo.education}</div></div>}
                   {selectedApplicantInfo?.bio && <div style={styles.infoBlock}><div style={styles.infoLabel}>Bio</div><div style={styles.infoValue}>{selectedApplicantInfo.bio}</div></div>}
-                  {selectedApplicantInfo?.resume && (
+                  {(selectedApplicantInfo?.resume || selectedApplicant?.resume) && (
                     <div style={styles.infoBlock}>
                       <div style={styles.infoLabel}>Resume</div>
                       <div>
-                        <a href={selectedApplicantInfo.resume} target="_blank" rel="noreferrer" style={styles.resumeLink}>Open resume</a>
+                        <a
+                          href={selectedApplicantInfo?.resume || selectedApplicant?.resume}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={styles.resumeLink}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleResumeView(
+                              selectedApplicant.jobId,
+                              selectedApplicantInfo?._id || selectedApplicant?.user?._id || selectedApplicant?._id,
+                              selectedApplicantInfo?.resume || selectedApplicant?.resume
+                            );
+                          }}
+                        >
+                          Open resume
+                        </a>
                       </div>
                     </div>
                   )}
@@ -910,9 +949,9 @@ const styles = {
   },
   infoRow: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     gap: 12,
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: "6px 0",
     borderBottom: "1px dashed rgba(2,6,23,0.04)",
   },
@@ -923,7 +962,7 @@ const styles = {
   },
   infoValue: {
     color: "#475569",
-    textAlign: "right",
+    textAlign: "left",
   },
   infoBlock: {
     padding: "8px 0",

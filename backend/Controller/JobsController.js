@@ -6,6 +6,7 @@ import {
   applyToJob,
   getEmployerJobs,
   getJobById,
+  notifyApplicantResumeViewed,
   updateApplicantStatus,
   removeApplicant,
   deleteEmployerJob,
@@ -102,6 +103,17 @@ export const removeApplicantController = async (req, res, next) => {
     const applicantId = req.params.applicantId;
     const updatedJob = await removeApplicant(jobId, req.user.id, applicantId);
     return res.success(new AppSuccessful("Applicant removed", 200, updatedJob));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const notifyApplicantResumeViewedController = async (req, res, next) => {
+  try {
+    const jobId = req.params.jobId;
+    const applicantId = req.params.applicantId;
+    const result = await notifyApplicantResumeViewed(jobId, req.user.id, applicantId);
+    return res.success(new AppSuccessful("Employer viewed applicant resume", 200, result));
   } catch (err) {
     next(err);
   }

@@ -280,7 +280,10 @@ export default function Profile() {
         const res = await axios.get(`http://localhost:8000/api/posts/author/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setMyPosts(res.data.data || []);
+        const posts = Array.isArray(res.data?.data?.posts)
+          ? res.data.data.posts
+          : res.data?.data || [];
+        setMyPosts(posts);
       } catch (err) {
         console.error('Error fetching my posts', err);
       }
@@ -494,9 +497,15 @@ export default function Profile() {
   };
 
   const handleUpdatedPost = (updatedPost) => {
+    if (!updatedPost) return;
+    const updatedId = updatedPost._id || updatedPost.id;
+
     setSelectedPost((prev) => mergePostData(prev || {}, updatedPost || {}));
     setMyPosts((prev) =>
-      prev.map((post) => (post._id === updatedPost._id ? mergePostData(post, updatedPost) : post))
+      prev.map((post) => {
+        const postId = post._id || post.id;
+        return postId === updatedId ? mergePostData(post, updatedPost) : post;
+      })
     );
   };
 
@@ -520,9 +529,11 @@ export default function Profile() {
         const updatedData = response.data.data || {};
         const merged = mergePostData(selectedPost, updatedData);
         setSelectedPost(merged);
-        const updatedPosts = myPosts.map((p) =>
-          p._id === selectedPost._id ? mergePostData(p, updatedData) : p
-        );
+        const selectedId = selectedPost._id || selectedPost.id;
+        const updatedPosts = myPosts.map((p) => {
+          const postId = p._id || p.id;
+          return postId === selectedId ? mergePostData(p, updatedData) : p;
+        });
         setMyPosts(updatedPosts);
       }
     } catch (error) {
@@ -552,9 +563,11 @@ export default function Profile() {
         setSelectedPost(merged);
         setReplyText("");
         setReplyingToCommentId(null);
-        const updatedPosts = myPosts.map((p) =>
-          p._id === selectedPost._id ? mergePostData(p, updatedData) : p
-        );
+        const selectedId = selectedPost._id || selectedPost.id;
+        const updatedPosts = myPosts.map((p) => {
+          const postId = p._id || p.id;
+          return postId === selectedId ? mergePostData(p, updatedData) : p;
+        });
         setMyPosts(updatedPosts);
       }
     } catch (error) {
@@ -641,12 +654,14 @@ export default function Profile() {
   };
 
   const handleImageUpload = async () => {
-    if (!selectedImagePreview && !user) {
+    if (!user) {
+      alert('Unable to upload image: no user loaded.');
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
+      alert('Your session has expired. Please sign in again.');
       return;
     }
 
@@ -658,77 +673,148 @@ export default function Profile() {
 
       if (user.role === "jobseeker") {
         url = "http://localhost:8000/api/jobseeker/update-profile";
-        payload = { profilePicture: selectedImagePreview };
       } else if (user.role === "employer") {
         url = "http://localhost:8000/api/employer/profile";
-        payload = { companyLogo: selectedImagePreview };
       }
 
-      if (!url || !payload) {
+      if (!url) {
+        alert('Invalid user role for uploading image.');
         return;
       }
 
-      // If a cropper is in use, generate a circular cropped image from current state
       const PREVIEW = 360;
       let finalDataUrl = selectedImagePreview || user?.profilePicture || user?.companyLogo || "";
-
-      // ensure we have an Image object to draw for accurate cropping
       let img = imgRef.current;
+
       if (!img && finalDataUrl) {
         img = new Image();
-        await new Promise((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => res();
+        await new Promise((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
           img.src = finalDataUrl;
         });
         imgRef.current = img;
-        if (!naturalSize.w && img.width) setNaturalSize({ w: img.width, h: img.height });
+        if (!naturalSize.w && img.width) {
+          setNaturalSize({ w: img.width, h: img.height });
+        }
       }
 
-      if (img) {
-        const canvas = document.createElement("canvas");
-        canvas.width = PREVIEW;
-        canvas.height = PREVIEW;
-        const ctx = canvas.getContext("2d");
+      if (img && img.width && img.height) {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = PREVIEW;
+          canvas.height = PREVIEW;
+          const ctx = canvas.getContext("2d");
 
-        // clip to circle
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(PREVIEW / 2, PREVIEW / 2, PREVIEW / 2, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
+          const safeZoom = Number.isFinite(zoom) ? zoom : 1;
+          const safeScale = Number.isFinite(initialScale) ? initialScale : 1;
+          const renderW = img.width * safeScale * safeZoom;
+          const renderH = img.height * safeScale * safeZoom;
+          const safeOffsetX = Number.isFinite(offset.x) ? offset.x : 0;
+          const safeOffsetY = Number.isFinite(offset.y) ? offset.y : 0;
 
-        const renderW = img.width * initialScale * zoom;
-        const renderH = img.height * initialScale * zoom;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(PREVIEW / 2, PREVIEW / 2, PREVIEW / 2, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img, safeOffsetX, safeOffsetY, renderW, renderH);
+          ctx.restore();
 
-        ctx.drawImage(img, offset.x, offset.y, renderW, renderH);
-        ctx.restore();
-
-        finalDataUrl = canvas.toDataURL("image/png");
+          finalDataUrl = canvas.toDataURL("image/png");
+        } catch (cropError) {
+          console.warn('Image crop failed, using original image preview:', cropError);
+        }
       }
 
-      payload = user.role === "jobseeker" ? { profilePicture: finalDataUrl } : { companyLogo: finalDataUrl };
+      payload = user.role === "jobseeker"
+        ? { profilePicture: finalDataUrl }
+        : { companyLogo: finalDataUrl };
 
       const method = user.role === "jobseeker" ? axios.patch : axios.put;
-
-      await method(url, payload, {
+      console.debug('Uploading profile image', { userId: user._id || user.id, url, payloadSummary: { profilePicture: payload.profilePicture?.slice(0, 40), companyLogo: payload.companyLogo?.slice(0, 40) } });
+      const response = await method(url, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const updatedUser = {
+      if (!response?.data) {
+        throw new Error('Unexpected server response: no response.data');
+      }
+
+      const returnedUser = response.data.data;
+      if (returnedUser && typeof returnedUser !== 'object') {
+        console.warn('Unexpected upload response data shape:', returnedUser);
+      }
+
+      const mergedUser = {
         ...user,
+        ...(returnedUser && typeof returnedUser === 'object' ? returnedUser : {}),
         ...payload,
       };
 
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      // reset file input so same file can be reselected
+      const normalizedUser = {
+        ...mergedUser,
+        id: mergedUser._id || mergedUser.id,
+        _id: mergedUser._id || mergedUser.id,
+      };
+
+      setUser(normalizedUser);
+      setAuthUser(normalizedUser);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+
+      try {
+        const dispatched = {
+          ...normalizedUser,
+          id: normalizedUser._id || normalizedUser.id,
+          _id: normalizedUser._id || normalizedUser.id,
+          firstName: normalizedUser.firstName,
+          lastName: normalizedUser.lastName,
+          email: normalizedUser.email,
+          profilePicture: normalizedUser.profilePicture,
+          companyLogo: normalizedUser.companyLogo,
+        };
+        window.dispatchEvent(new CustomEvent('app:profileUpdated', { detail: dispatched }));
+      } catch (e) {
+        console.warn('Profile update event failed:', e);
+      }
+
+      setMyPosts((prev) =>
+        Array.isArray(prev)
+          ? prev.map((p) => {
+              try {
+                const authorId = typeof p.author === 'object' ? (p.author._id || p.author) : p.author;
+                if (authorId && authorId.toString() === normalizedUser._id?.toString()) {
+                  return { ...p, authorAvatar: normalizedUser.profilePicture || normalizedUser.companyLogo };
+                }
+              } catch (e) {
+                // ignore
+              }
+              return p;
+            })
+          : prev
+      );
+
+      setSelectedPost((prev) => {
+        if (!prev) return prev;
+        try {
+          const authorId = typeof prev.author === 'object' ? (prev.author._id || prev.author) : prev.author;
+          if (authorId && authorId.toString() === normalizedUser._id?.toString()) {
+            return { ...prev, authorAvatar: normalizedUser.profilePicture || normalizedUser.companyLogo };
+          }
+        } catch (e) {
+          // ignore
+        }
+        return prev;
+      });
+
       if (fileInputRef.current) fileInputRef.current.value = null;
       closeImageModal();
     } catch (error) {
-      console.error("Image upload failed:", error);
+      const details = error.response?.data || error.message || error;
+      console.error("Image upload failed:", details);
+      alert(`Image update failed. ${typeof details === 'string' ? details : JSON.stringify(details)}`);
     } finally {
       setUploadingAvatar(false);
     }

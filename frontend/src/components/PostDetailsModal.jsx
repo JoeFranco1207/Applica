@@ -142,6 +142,26 @@ const PostDetailsModal = ({
   }, [post?._id]);
 
   useEffect(() => {
+    if (!isOpen || !post?._id) return;
+
+    const fetchFreshPost = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8000/api/posts/${post._id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const updatedData = response.data.data || {};
+        const merged = mergePostData(post, updatedData);
+        setCurrentPost(merged);
+        if (onUpdate) onUpdate(merged);
+      } catch (error) {
+        console.error('Error fetching fresh post data:', error.response?.data || error.message);
+      }
+    };
+
+    fetchFreshPost();
+  }, [isOpen, post?._id, token, onUpdate]);
+
+  useEffect(() => {
     if (!isOpen || !currentPost || viewRecorded) return;
 
     const recordView = async () => {
@@ -166,6 +186,50 @@ const PostDetailsModal = ({
 
     recordView();
   }, [isOpen, currentPost, viewRecorded, onUpdate, token]);
+
+  // Listen for profile updates so we can refresh author/avatar shown in this modal
+  useEffect(() => {
+    const handler = (e) => {
+      const updatedUser = e?.detail;
+      if (!updatedUser || !currentPost) return;
+
+      const updatedUserId = updatedUser._id || updatedUser.id;
+      if (!updatedUserId) return;
+
+      const updateAuthorFields = (item) => {
+        if (!item || !item.author) return item;
+        const itemAuthorId = getUserId(item.author);
+        if (!itemAuthorId || itemAuthorId.toString() !== updatedUserId.toString()) return item;
+
+        return {
+          ...item,
+          authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || item.authorAvatar,
+          authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || item.authorName,
+          authorRole: item.authorRole || updatedUser.role || item.authorRole,
+          authorEmail: item.authorEmail || updatedUser.email,
+          authorCompanyName: item.authorCompanyName || updatedUser.companyName,
+        };
+      };
+
+      try {
+        const authoredPost = updateAuthorFields(currentPost);
+        const comments = (currentPost.comments || []).map((comment) => {
+          const updatedComment = updateAuthorFields(comment);
+          const replies = (comment.replies || []).map((reply) => updateAuthorFields(reply));
+          return { ...updatedComment, replies };
+        });
+
+        const updated = { ...authoredPost, comments };
+        setCurrentPost(updated);
+        if (onUpdate) onUpdate(updated);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('app:profileUpdated', handler);
+    return () => window.removeEventListener('app:profileUpdated', handler);
+  }, [currentPost, onUpdate]);
 
   if (!isOpen || !currentPost) return null;
 

@@ -376,6 +376,78 @@ export default function BrowseJob() {
   const [userLikes, setUserLikes] = useState(new Set());
   const [feedNotifications, setFeedNotifications] = useState([]);
 
+  // Listen for profile updates and update displayed social posts and job employer avatars/names
+  useEffect(() => {
+    const handler = (e) => {
+      const updatedUser = e?.detail;
+      if (!updatedUser) return;
+
+      setSocialPosts((prev) =>
+        prev.map((p) => {
+          try {
+            const authorId = typeof p.author === 'object' ? (p.author._id || p.author) : p.author;
+            const updatedUserId = updatedUser._id || updatedUser.id;
+            if (authorId && updatedUserId && authorId.toString() === updatedUserId.toString()) {
+              return {
+                ...p,
+                authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || p.authorAvatar,
+                authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || p.authorName,
+              };
+            }
+          } catch (err) {
+            // ignore
+          }
+          return p;
+        })
+      );
+
+      setSelectedPost((prev) => {
+        if (!prev) return prev;
+        try {
+          const authorId = typeof prev.author === 'object' ? (prev.author._id || prev.author) : prev.author;
+          const updatedUserId = updatedUser._id || updatedUser.id;
+          if (authorId && updatedUserId && authorId.toString() === updatedUserId.toString()) {
+            return {
+              ...prev,
+              authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || prev.authorAvatar,
+              authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || prev.authorName,
+            };
+          }
+        } catch (err) {
+          // ignore
+        }
+        return prev;
+      });
+
+      setJobs((prev) =>
+        prev.map((job) => {
+          try {
+            const creatorId = job.createdBy?._id || job.createdBy;
+            const updatedUserId = updatedUser._id || updatedUser.id;
+            if (creatorId && updatedUserId && creatorId.toString() === updatedUserId.toString()) {
+              return {
+                ...job,
+                createdBy: {
+                  ...job.createdBy,
+                  profilePicture: updatedUser.profilePicture || job.createdBy?.profilePicture,
+                  companyLogo: updatedUser.companyLogo || job.createdBy?.companyLogo,
+                  firstName: updatedUser.firstName || job.createdBy?.firstName,
+                  lastName: updatedUser.lastName || job.createdBy?.lastName,
+                },
+              };
+            }
+          } catch (err) {
+            // ignore
+          }
+          return job;
+        })
+      );
+    };
+
+    window.addEventListener('app:profileUpdated', handler);
+    return () => window.removeEventListener('app:profileUpdated', handler);
+  }, []);
+
   // Translated modal/apply texts (auto-translate based on LanguageContext)
   const { translated: translatedModalTitle, loading: translatingModalTitle } = useTranslate(modalJob?.title || '');
   const { translated: translatedModalDescription, loading: translatingModalDescription } = useTranslate(modalJob?.description || '');
@@ -1507,6 +1579,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               </div>
             </div>
           ))}
+          {/* Update avatars when profile changes */}
+          
         </div>
 
         <aside style={styles.sidebarColumn}>

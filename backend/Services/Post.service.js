@@ -92,11 +92,12 @@ export const getAllPostsService = async (options = {}) => {
       const postObj = { ...p };
       const u = userMap.get((p.author || '').toString());
       if (u) {
-        postObj.authorAvatar = postObj.authorAvatar || (u.role === 'employer' ? u.companyLogo : u.profilePicture) || null;
-        postObj.authorName = postObj.authorName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
-        postObj.authorRole = postObj.authorRole || u.role;
-        postObj.authorEmail = u.email;
-        postObj.authorCompanyName = u.role === 'employer' ? u.companyName : undefined;
+        // Prefer the live user profile data so posts reflect updates (avatar/name/role)
+        postObj.authorAvatar = (u.role === 'employer' ? u.companyLogo : u.profilePicture) || postObj.authorAvatar || null;
+        postObj.authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || postObj.authorName;
+        postObj.authorRole = u.role || postObj.authorRole;
+        postObj.authorEmail = u.email || postObj.authorEmail;
+        postObj.authorCompanyName = u.role === 'employer' ? u.companyName : postObj.authorCompanyName;
       }
       return postObj;
     });
@@ -118,11 +119,12 @@ export const getAllPostsService = async (options = {}) => {
     const postObj = { ...p };
     const u = userMap.get((p.author || '').toString());
     if (u) {
-      postObj.authorAvatar = postObj.authorAvatar || (u.role === 'employer' ? u.companyLogo : u.profilePicture) || null;
-      postObj.authorName = postObj.authorName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
-      postObj.authorRole = postObj.authorRole || u.role;
-      postObj.authorEmail = u.email;
-      postObj.authorCompanyName = u.role === 'employer' ? u.companyName : undefined;
+      // Prefer the live user profile data so posts reflect updates (avatar/name/role)
+      postObj.authorAvatar = (u.role === 'employer' ? u.companyLogo : u.profilePicture) || postObj.authorAvatar || null;
+      postObj.authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || postObj.authorName;
+      postObj.authorRole = u.role || postObj.authorRole;
+      postObj.authorEmail = u.email || postObj.authorEmail;
+      postObj.authorCompanyName = u.role === 'employer' ? u.companyName : postObj.authorCompanyName;
     }
     return postObj;
   });
@@ -148,19 +150,31 @@ export const getPostByIdService = async (postId) => {
   } catch (err) {
     console.log('Error enriching post with user data:', err);
   }
-  // Ensure comments have authorName and authorAvatar populated
+  // Ensure comments and replies always use the live author profile data
   if (Array.isArray(postObj.comments) && postObj.comments.length > 0) {
     await Promise.all(postObj.comments.map(async (c) => {
       try {
-        if (!c.authorName || !c.authorAvatar) {
-          const cu = await User.findById(c.author);
-          if (cu) {
-            c.authorName = c.authorName || `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email;
-            c.authorAvatar = c.authorAvatar || (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || null;
-          }
+        const cu = await User.findById(c.author);
+        if (cu) {
+          c.authorName = `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email || c.authorName;
+          c.authorAvatar = (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || c.authorAvatar || null;
         }
       } catch (err) {
         /* ignore */
+      }
+
+      if (Array.isArray(c.replies) && c.replies.length > 0) {
+        await Promise.all(c.replies.map(async (r) => {
+          try {
+            const ru = await User.findById(r.author);
+            if (ru) {
+              r.authorName = `${ru.firstName || ''} ${ru.lastName || ''}`.trim() || ru.email || r.authorName;
+              r.authorAvatar = (ru.role === 'employer' ? ru.companyLogo : ru.profilePicture) || r.authorAvatar || null;
+            }
+          } catch (err) {
+            /* ignore */
+          }
+        }));
       }
     }));
   }
@@ -296,8 +310,9 @@ export const getPostsByAuthorService = async (authorId, options = {}) => {
     includeTotal ? Post.countDocuments(filter) : Promise.resolve(null),
   ]);
 
+  // If there are posts, load the author's current profile so we can show updated info
   let author = null;
-  if (posts.length > 0 && (!posts[0].authorName || !posts[0].authorAvatar || !posts[0].authorRole)) {
+  if (posts.length > 0) {
     try {
       author = await User.findById(authorId)
         .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
@@ -309,13 +324,12 @@ export const getPostsByAuthorService = async (authorId, options = {}) => {
 
   const enrichedPosts = posts.map((post) => {
     const postObj = { ...post };
-
-    if (author && (!postObj.authorName || !postObj.authorAvatar || !postObj.authorRole)) {
-      postObj.authorAvatar = author.role === 'employer' ? author.companyLogo : author.profilePicture;
-      postObj.authorName = `${author.firstName || ''} ${author.lastName || ''}`.trim() || author.email;
-      postObj.authorRole = author.role;
-      postObj.authorEmail = author.email;
-      postObj.authorCompanyName = author.role === 'employer' ? author.companyName : undefined;
+    if (author) {
+      postObj.authorAvatar = author.role === 'employer' ? author.companyLogo : author.profilePicture || postObj.authorAvatar || null;
+      postObj.authorName = `${author.firstName || ''} ${author.lastName || ''}`.trim() || author.email || postObj.authorName;
+      postObj.authorRole = author.role || postObj.authorRole;
+      postObj.authorEmail = author.email || postObj.authorEmail;
+      postObj.authorCompanyName = author.role === 'employer' ? author.companyName : postObj.authorCompanyName;
     }
 
     return postObj;

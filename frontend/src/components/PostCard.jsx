@@ -58,6 +58,38 @@ const PostCard = ({ post, onUpdate }) => {
     setIsReposted(!!hasReposted);
   }, [post, userId]);
 
+  // Listen for profile updates and update this card if the author changed their avatar/name
+  useEffect(() => {
+    const handler = (e) => {
+      const updatedUser = e?.detail;
+      if (!updatedUser || !currentPost) return;
+      try {
+        const authorId = typeof currentPost.author === 'object' ? (currentPost.author._id || currentPost.author) : currentPost.author;
+        const updatedUserId = updatedUser._id || updatedUser.id;
+        if (authorId && updatedUserId && authorId.toString() === updatedUserId.toString()) {
+          setCurrentPost((prev) => ({
+            ...prev,
+            authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || prev.authorAvatar,
+            authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || prev.authorName,
+          }));
+          // notify parent
+          if (onUpdate) {
+            onUpdate({
+              ...currentPost,
+              authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo,
+              authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email,
+            });
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('app:profileUpdated', handler);
+    return () => window.removeEventListener('app:profileUpdated', handler);
+  }, [currentPost, onUpdate]);
+
   if (!post || !post._id) return null;
 
   const handleLike = async () => {

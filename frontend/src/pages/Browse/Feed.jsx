@@ -32,6 +32,35 @@ const Feed = () => {
     fetchPosts();
   }, []);
 
+  // Listen for profile updates and update posts list entries when an author updates their avatar/name
+  useEffect(() => {
+    const handler = (e) => {
+      const updatedUser = e?.detail;
+      if (!updatedUser) return;
+      setPosts((prev) =>
+        prev.map((p) => {
+          try {
+            const authorId = typeof p.author === 'object' ? (p.author._id || p.author) : p.author;
+            const updatedUserId = updatedUser._id || updatedUser.id;
+            if (authorId && updatedUserId && authorId.toString() === updatedUserId.toString()) {
+              return {
+                ...p,
+                authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || p.authorAvatar,
+                authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || p.authorName,
+              };
+            }
+          } catch (err) {
+            // ignore
+          }
+          return p;
+        })
+      );
+    };
+
+    window.addEventListener('app:profileUpdated', handler);
+    return () => window.removeEventListener('app:profileUpdated', handler);
+  }, []);
+
   const handlePostCreated = (newPost) => {
     setPosts((prevPosts) => [newPost, ...prevPosts]);
   };

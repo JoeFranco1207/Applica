@@ -49,6 +49,7 @@ app.use("/api/employer", EmployerRouter);
 app.use('/api/posts', PostRouter);
 app.use('/api/notifications', NotificationRouter);
 
+
 // Debug endpoint to verify the server is reachable and receives POSTs
 app.post('/api/debug/post-test', (req, res) => {
   return res.status(200).json({

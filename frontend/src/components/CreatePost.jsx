@@ -38,7 +38,7 @@ const CreatePost = ({ onPostCreated }) => {
     e.preventDefault();
 
     if (!postContent.trim()) {
-      alert('Please write something for your post');
+      alert('Pakiusap magsulat ng bagay para sa iyong post');
       return;
     }
 
@@ -69,10 +69,10 @@ const CreatePost = ({ onPostCreated }) => {
         onPostCreated(response.data.data);
       }
 
-      alert('Post created successfully!');
+      alert('Matagumpay na nalikha ang post!');
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post');
+      alert('Hindi malikha ang post');
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ const CreatePost = ({ onPostCreated }) => {
         <textarea
           value={postContent}
           onChange={(e) => setPostContent(e.target.value)}
-          placeholder="What's on your mind?"
+          placeholder="Anong iniisip mo?"
           rows="4"
           className="post-textarea"
         />
@@ -114,7 +114,7 @@ const CreatePost = ({ onPostCreated }) => {
             type="text"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
-            placeholder="Add tags (comma separated) #React #JavaScript"
+            placeholder="Magdagdag ng mga tag (hiwalayin ng kuwit) #React #JavaScript"
             className="tags-input"
           />
         </div>
@@ -155,7 +155,7 @@ const CreatePost = ({ onPostCreated }) => {
             disabled={loading || !postContent.trim()}
             className="post-submit-btn"
           >
-            {loading ? 'Posting...' : 'Post'}
+            {loading ? 'Nagpo-post...' : 'I-post'}
           </button>
         </div>
       </form>

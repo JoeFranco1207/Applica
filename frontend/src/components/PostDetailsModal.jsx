@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostDetailsModal.css';
+import { useTranslate } from '../hooks/useTranslate';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -103,6 +104,7 @@ const PostDetailsModal = ({
 
   const token = localStorage.getItem('token');
   const navigate = useNavigate();
+  const { translated: translatedContent, loading: translatingContent } = useTranslate(currentPost?.content || '');
 
   useEffect(() => {
     if (post) {
@@ -232,7 +234,7 @@ const PostDetailsModal = ({
       if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert('Failed to delete comment');
+      alert('Nabigong tanggalin ang komento');
     }
   };
 
@@ -282,7 +284,7 @@ const PostDetailsModal = ({
 
   const submitComment = async () => {
     if (!commentText.trim()) {
-      setError('Please write a comment');
+      setError('Pakiusap magsulat ng komento');
       return;
     }
 
@@ -308,7 +310,7 @@ const PostDetailsModal = ({
       if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error posting comment:', error);
-      setError(error.response?.data?.message || 'Failed to post comment');
+      setError(error.response?.data?.message || 'Nabigong mag-post ng komento');
     } finally {
       setIsSubmittingComment(false);
     }
@@ -316,7 +318,7 @@ const PostDetailsModal = ({
 
   const submitReply = async (commentId) => {
     if (!replyText.trim()) {
-      alert('Please write a reply');
+      alert('Pakiusap magsulat ng sagot');
       return;
     }
 
@@ -342,7 +344,7 @@ const PostDetailsModal = ({
       if (onUpdate) onUpdate(merged);
     } catch (error) {
       console.error('Error posting reply:', error);
-      alert(error.response?.data?.message || 'Failed to post reply');
+      alert(error.response?.data?.message || 'Nabigong mag-post ng sagot');
     } finally {
       setIsSubmittingReply(false);
     }
@@ -438,7 +440,7 @@ const PostDetailsModal = ({
         </div>
 
         <div className="post-details-content">
-          <p className="post-text">{currentPost.content}</p>
+              <p className="post-text">{translatingContent ? currentPost.content : (translatedContent || currentPost.content)}</p>
           
           {currentPost.tags && currentPost.tags.length > 0 && (
             <div className="post-tags">
@@ -460,7 +462,7 @@ const PostDetailsModal = ({
               {currentPost.media.type === 'video' && (
                 <video controls className="post-media-video">
                   <source src={currentPost.media.url || currentPost.media.data} type={currentPost.media.contentType} />
-                  Your browser does not support the video tag.
+                  Hindi sinusuportahan ng iyong browser ang video tag.
                 </video>
               )}
             </div>
@@ -472,7 +474,7 @@ const PostDetailsModal = ({
             type="button"
             className={`action-icon-btn ${isLiked ? 'liked' : ''}`}
             onClick={handleLike}
-            title="Like"
+            title="Gusto"
           >
             <HeartIcon filled={isLiked} />
             <span>{currentPost.likes?.length || 0}</span>
@@ -482,7 +484,7 @@ const PostDetailsModal = ({
             type="button"
             className="action-icon-btn"
             onClick={handleCommentButton}
-            title="Comment"
+            title="Magkomento"
           >
             <ChatBubbleIcon />
             <span>{currentPost.comments?.length || 0}</span>
@@ -508,7 +510,7 @@ const PostDetailsModal = ({
                 console.error('Repost error', err);
               }
             }}
-            title="Repost"
+            title="I-repost"
           >
             <RepostIcon />
             <span>{currentPost.reposts?.length || 0}</span>
@@ -534,7 +536,7 @@ const PostDetailsModal = ({
                 console.error('Share error', err);
               }
             }}
-            title="Share"
+            title="Ibahagi"
           >
             <ShareIcon />
             <span>{currentPost.shares?.length || 0}</span>
@@ -543,7 +545,7 @@ const PostDetailsModal = ({
 
         <div className={`comments-container ${commentsExpanded ? 'expanded' : ''}`}>
           <div className="comments-top-bar">
-            <span className="comments-sort-label">Most relevant</span>
+            <span className="comments-sort-label">Pinakamakabuluhan</span>
             <span className="comments-sort-icon">▾</span>
           </div>
 
@@ -597,7 +599,7 @@ const PostDetailsModal = ({
                         <button
                           className="delete-comment-btn"
                           onClick={() => handleDeleteComment(comment._id)}
-                          title="Delete comment"
+                          title="Tanggalin ang komento"
                         >
                           ✕
                         </button>
@@ -609,7 +611,7 @@ const PostDetailsModal = ({
                         className={`comment-like-btn ${isCommentLiked(comment) ? 'liked' : ''}`}
                         onClick={() => toggleCommentLike(comment._id)}
                         type="button"
-                        aria-label={isCommentLiked(comment) ? 'Unlike comment' : 'Like comment'}
+                        aria-label={isCommentLiked(comment) ? 'Hindi gusto ang komento' : 'Gusto ang komento'}
                       >
                         <svg className="comment-like-icon" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -627,7 +629,7 @@ const PostDetailsModal = ({
                           }
                         }}
                       >
-                        Reply
+                        Sagot
                       </button>
                     </div>
 
@@ -635,14 +637,14 @@ const PostDetailsModal = ({
                       <div className="reply-input-section">
                         <div className="reply-user-info">
                           {userAvatar && (
-                            <img src={userAvatar} alt={userName || 'You'} className="reply-avatar" />
+                            <img src={userAvatar} alt={userName || 'Ikaw'} className="reply-avatar" />
                           )}
-                          <span className="reply-username">{userName || 'You'}</span>
+                          <span className="reply-username">{userName || 'Ikaw'}</span>
                         </div>
                         <textarea
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
-                          placeholder="Write your reply..."
+                          placeholder="Isulat ang iyong sagot..."
                           className="reply-input"
                           rows="3"
                           disabled={isSubmittingReply}
@@ -653,14 +655,14 @@ const PostDetailsModal = ({
                             onClick={() => setReplyingToCommentId(null)}
                             disabled={isSubmittingReply}
                           >
-                            Cancel
+                            Kanselahin
                           </button>
                           <button
                             className="submit-reply-btn"
                             onClick={() => submitReply(comment._id)}
                             disabled={!replyText.trim() || isSubmittingReply}
                           >
-                            {isSubmittingReply ? 'Posting...' : 'Reply'}
+                            {isSubmittingReply ? 'Naga-post...' : 'Sagot'}
                           </button>
                         </div>
                       </div>
@@ -672,7 +674,7 @@ const PostDetailsModal = ({
                           className="view-replies-btn"
                           onClick={() => toggleRepliesExpanded(comment._id)}
                         >
-                          {showReplies ? '▼' : '▶'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                          {showReplies ? '▼' : '▶'} {comment.replies.length} {comment.replies.length === 1 ? 'sagot' : 'mga sagot'}
                         </button>
                         
                         {showReplies && (
@@ -725,7 +727,7 @@ const PostDetailsModal = ({
               })
             ) : (
               <div className="no-comments-message">
-                <p>No comments yet. Be the first to comment!</p>
+                <p>Walang komento pa. Maging una sa pagkomento!</p>
               </div>
             )}
           </div>
@@ -735,7 +737,7 @@ const PostDetailsModal = ({
 
         <div className="comment-entry-row">
           {userAvatar && (
-            <img src={userAvatar} alt={userName || 'You'} className="comment-input-avatar" />
+            <img src={userAvatar} alt={userName || 'Ikaw'} className="comment-input-avatar" />
           )}
           <input
             type="text"
@@ -745,7 +747,7 @@ const PostDetailsModal = ({
               setCommentText(e.target.value);
               if (error) setError('');
             }}
-            placeholder="Write an answer..."
+            placeholder="Sumulat ng sagot..."
             className="comment-input-bar"
             disabled={isSubmittingComment}
           />
@@ -754,6 +756,7 @@ const PostDetailsModal = ({
             className="send-comment-btn"
             onClick={submitComment}
             disabled={!commentText.trim() || isSubmittingComment}
+            title="I-post ang sagot"
           >
             <SendIcon />
           </button>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useLanguage } from "../../contexts/LanguageContext";
 import "./BrowseJob.css";
+import { useTranslate } from "../../hooks/useTranslate";
 import PostDetailsModal from "../../components/PostDetailsModal";
 
 const getUserId = (user) => {
@@ -27,6 +29,15 @@ const formatRelativeTimeShort = (dateValue) => {
   return `${year}yr`;
 };
 
+const formatDateMonthDay = (dateValue) => {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
 const mergePostData = (existing = {}, updated = {}) => {
   const result = { ...existing, ...updated };
 
@@ -42,6 +53,42 @@ const mergePostData = (existing = {}, updated = {}) => {
   }
 
   return result;
+};
+
+const splitTextIntoListItems = (text) => {
+  if (!text) return [];
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    return lines.map((line) => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean);
+  }
+
+  if (trimmed.includes(' - ')) {
+    return trimmed.split(/\s*-\s*/).map((part) => part.trim()).filter(Boolean);
+  }
+
+  if (/^[-*]\s*/.test(trimmed)) {
+    return trimmed.split(/[-*]\s*/).map((part) => part.trim()).filter(Boolean);
+  }
+
+  return [trimmed];
+};
+
+const renderBulletList = (text, style = {}) => {
+  const items = splitTextIntoListItems(text);
+  if (!items.length) return null;
+
+  return (
+    <ul style={{ margin: 0, paddingLeft: 20, color: 'inherit', ...style }}>
+      {items.map((item, index) => (
+        <li key={index} style={{ marginBottom: 8, lineHeight: 1.6 }}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
 };
 
 const HeartIcon = ({ filled = false, size = 18 }) => (
@@ -226,7 +273,7 @@ const samplePosts = [
     location: "Manila, NCR",
     postedAt: "2h ago",
     description:
-      "We are looking for a senior React developer to lead our front-end squad, build modern web experiences, and work closely with product and design.",
+      "Hinahanap namin ang isang senior React developer na mamumuno sa aming front-end squad, magtatayo ng modernong web experience, at makikipagtulungan sa produkto at disenyo.",
     details: [
       "Hybrid role",
       "Full-time",
@@ -244,7 +291,7 @@ const samplePosts = [
     location: "Quezon City, NCR",
     postedAt: "5h ago",
     description:
-      "Join our design team to create beautiful product experiences and collaborate with engineers, researchers, and brand teams.",
+      "Sumali sa aming design team para lumikha ng magagandang product experience at makipagtulungan sa mga engineer, researcher, at brand team.",
     details: ["Remote friendly", "Design system", "Team of 8", "Health benefits"],
     tags: ["#UX", "#UI", "#Design"],
     applicants: 38,
@@ -257,7 +304,7 @@ const samplePosts = [
     location: "Makati, NCR",
     postedAt: "1d ago",
     description:
-      "Help our analytics team turn data into action for finance and operations. Strong SQL and storytelling skills preferred.",
+      "Tutulungan mo ang analytics team na gawing aksyon ang data para sa finance at operations. Mas gusto ang malakas na SQL at storytelling skills.",
     details: ["Office first", "Data team", "BI tools", "Career growth"],
     tags: ["#Data", "#Analytics", "#SQL"],
     applicants: 51,
@@ -267,23 +314,24 @@ const samplePosts = [
 
 const feedItems = [
   {
-    title: "Featured Company: Web Solutions Ltd",
-    text: "Explore new openings in full stack development and back-end engineering.",
+    title: "Tampok na Kumpanya: Web Solutions Ltd",
+    text: "Tuklasin ang bagong bukas para sa full stack development at back-end engineering.",
   },
   {
     title: "Career Tip",
-    text: "Update your profile regularly to stay visible to recruiters.",
+    text: "I-update ang iyong profile nang regular para manatiling nakikita ng mga recruiter.",
   },
   {
-    title: "Top Skill",
-    text: "React, UX design, and data storytelling are in demand this season.",
+    title: "Pinakamahusay na Kasanayan",
+    text: "Mataas ang demand sa React, UX design, at data storytelling ngayong season.",
   },
 ];
 
-const categories = ["All", "Engineering", "Design", "Data"];
+const categories = ["Lahat", "Inhenyeriya", "Disenyo", "Data"];
 
 export default function BrowseJob() {
   const navigate = useNavigate();
+  const { translate: t } = useLanguage();
   const token = localStorage.getItem("token");
   const storedUser = localStorage.getItem("user");
   const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -328,13 +376,18 @@ export default function BrowseJob() {
   const [userLikes, setUserLikes] = useState(new Set());
   const [feedNotifications, setFeedNotifications] = useState([]);
 
+  // Translated modal/apply texts (auto-translate based on LanguageContext)
+  const { translated: translatedModalTitle, loading: translatingModalTitle } = useTranslate(modalJob?.title || '');
+  const { translated: translatedModalDescription, loading: translatingModalDescription } = useTranslate(modalJob?.description || '');
+  const { translated: translatedApplyTitle, loading: translatingApplyTitle } = useTranslate(applyJobInfo?.title || '');
+
   const openApplyModal = (job) => {
     if (!token) {
       navigate("/auth");
       return;
     }
     if (isEmployer) {
-      alert('Employers cannot apply for jobs. Switch to a jobseeker account to apply.');
+      alert('Hindi maaaring mag-apply ang employer. Lumipat sa jobseeker account upang mag-apply.');
       return;
     }
     setApplyJobInfo(job);
@@ -353,7 +406,7 @@ export default function BrowseJob() {
 
     const jobId = applyJobInfo._id || applyJobInfo.id;
     if (!jobId) {
-      setApplyError("Unable to identify the job. Please refresh and try again.");
+      setApplyError("Hindi mahanap ang trabaho. I-refresh at subukang muli.");
       return;
     }
 
@@ -379,10 +432,10 @@ export default function BrowseJob() {
 
       setShowApplyModal(false);
       setApplyJobInfo(null);
-      alert(`Your application for ${applyJobInfo.title} has been submitted.`);
+      alert(`Naipadala na ang iyong aplikasyon para sa ${applyJobInfo.title}.`);
     } catch (error) {
       console.error("Apply error", error);
-      setApplyError("Unable to submit application. Please try again.");
+      setApplyError("Hindi maisumite ang aplikasyon. Subukang muli.");
     } finally {
       setJobActionLoading(false);
     }
@@ -428,7 +481,7 @@ export default function BrowseJob() {
         full = response.data.data;
       } catch (error) {
         console.error("Failed to fetch job details", error);
-        alert("Could not load job details right now.");
+alert("Hindi ma-load ang detalye ng trabaho ngayon.");
         return;
       }
     }
@@ -473,7 +526,7 @@ export default function BrowseJob() {
       }
     } catch (error) {
       console.error("Like error", error);
-      alert("Unable to update like right now.");
+      alert("Hindi ma-update ang like ngayon.");
     } finally {
       setJobActionLoading(false);
     }
@@ -505,7 +558,7 @@ export default function BrowseJob() {
     }
 
     if (!newPostContent.trim()) {
-      alert("Please write something before posting.");
+      alert("Pakiusap magsulat ng isang post bago mag-upload.");
       return;
     }
 
@@ -536,7 +589,7 @@ export default function BrowseJob() {
       setMediaPreview(null);
     } catch (error) {
       console.error("Create post error", error);
-      alert("Unable to create post right now. Please try again.");
+      alert("Hindi makalikha ng post ngayon. Subukang muli.");
     }
   };
 
@@ -545,7 +598,7 @@ export default function BrowseJob() {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert("File size must be less than 10MB");
+      alert("Ang laki ng file ay dapat mas mababa sa 10MB");
       return;
     }
 
@@ -567,7 +620,7 @@ export default function BrowseJob() {
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("Media upload error", error);
-      alert("Failed to upload media");
+      alert("Nabigo ang pag-upload ng media");
     } finally {
       setUploadingMedia(false);
     }
@@ -615,7 +668,7 @@ export default function BrowseJob() {
       cancelEdit();
     } catch (err) {
       console.error('Edit post error', err);
-      alert('Unable to save post edits.');
+      alert('Hindi maisave ang pagbabago sa post.');
     }
   };
 
@@ -630,13 +683,13 @@ export default function BrowseJob() {
       setSocialPosts((prev) => prev.filter((p) => p._id !== postId));
     } catch (err) {
       console.error('Archive error', err);
-      alert('Unable to archive post.');
+      alert('Hindi ma-archive ang post.');
     }
   };
 
   const deletePost = async (postId) => {
     const token = localStorage.getItem('token');
-    if (!confirm('Delete this post permanently?')) return;
+    if (!confirm('Tanggalin ba ang post nang permanente?')) return;
     try {
       await axios.delete(`http://localhost:8000/api/posts/${postId}`, { headers: { Authorization: `Bearer ${token}` } });
       setSocialPosts((prev) => prev.filter((p) => p._id !== postId));
@@ -645,7 +698,7 @@ export default function BrowseJob() {
       }
     } catch (err) {
       console.error('Delete post error', err);
-      alert('Unable to delete post.');
+      alert('Hindi matatanggal ang post.');
     }
   };
 
@@ -666,7 +719,7 @@ export default function BrowseJob() {
       return;
     }
     if (!commentText.trim() || !selectedPost) {
-      alert('Please write a comment.');
+      alert('Pakiusap magsulat ng komento.');
       return;
     }
 
@@ -688,7 +741,7 @@ export default function BrowseJob() {
       setCommentText('');
     } catch (error) {
       console.error('Comment post error', error);
-      alert('Failed to post comment. Please try again.');
+      alert('Nabigong mag-post ng komento. Subukan muli.');
     } finally {
       setCommentLoading(false);
     }
@@ -701,7 +754,7 @@ export default function BrowseJob() {
     }
     if (!commentText.trim()) return;
     // Job comments not supported yet — placeholder behavior
-    alert('Posting answers to job posts is not implemented yet.');
+    alert('Hindi pa suportado ang pag-post ng mga sagot sa mga job post.');
     setCommentText('');
   };
 
@@ -711,7 +764,7 @@ export default function BrowseJob() {
       return;
     }
     if (!replyText.trim() || !selectedPost) {
-      alert('Please write a reply.');
+      alert('Pakiusap magsulat ng sagot.');
       return;
     }
 
@@ -734,7 +787,7 @@ export default function BrowseJob() {
       setReplyingToCommentId(null);
     } catch (error) {
       console.error('Reply post error', error);
-      alert('Failed to post reply. Please try again.');
+      alert('Nabigong mag-post ng sagot. Subukan muli.');
     } finally {
       setReplyLoading(false);
     }
@@ -823,10 +876,10 @@ export default function BrowseJob() {
       if (selectedPost?._id === updatedPost._id) {
         setSelectedPost((prev) => mergePostData(prev || selectedPost, updatedPost));
       }
-      alert('Post reposted successfully!');
+      alert('Matagumpay na na-repost ang post!');
     } catch (error) {
       console.error('Repost error', error);
-      alert(error.response?.data?.message || 'Unable to repost this post.');
+      alert(error.response?.data?.message || 'Hindi ma-repost ang post na ito.');
     }
   };
 
@@ -840,7 +893,7 @@ export default function BrowseJob() {
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(message).then(() => {
-        alert('Post link copied to clipboard!');
+        alert('Kopyado na ang link ng post sa clipboard!');
       });
     }
   };
@@ -855,7 +908,7 @@ export default function BrowseJob() {
         setJobs(response.data.data || []);
       } catch (error) {
         console.error("Job fetch error", error);
-        setJobError("Unable to load jobs right now.");
+        setJobError("Hindi mai-load ang mga job ngayon.");
       } finally {
         setJobLoading(false);
       }
@@ -915,18 +968,16 @@ export default function BrowseJob() {
     return () => clearInterval(notificationInterval);
   }, [token]);
 
-  const tabs = ["For you", "Following", "Job", "Post", "Saved"];
-  const [activeTab, setActiveTab] = useState("For you");
+  const tabs = ["forYou", "following", "job", "post", "saved"];
+  const [activeTab, setActiveTab] = useState("forYou");
 
-  const showJobSection = ["For you", "Job", "Saved"].includes(activeTab);
-  const showPostSection = ["For you", "Following", "Post"].includes(activeTab);
+  const showJobSection = ["forYou", "job", "saved"].includes(activeTab);
+  const showPostSection = ["forYou", "following", "post"].includes(activeTab);
 
-  const followingPostItems = currentUser?.following?.length
-    ? socialPosts.filter((post) => {
-        const authorId = getUserId(post.author);
-        return authorId && currentUser.following.includes(authorId);
-      })
-    : socialPosts;
+  const followingPostItems = socialPosts.filter((post) => {
+    const authorId = getUserId(post.author);
+    return authorId && Array.isArray(currentUser?.following) && currentUser.following.includes(authorId);
+  });
 
   const jobPosts = jobs.map((job) => {
     const viewsCount = Array.isArray(job.views) ? job.views.length : 0;
@@ -963,6 +1014,8 @@ export default function BrowseJob() {
       views: viewsCount,
       likes: likesCount,
       userLiked,
+      externalLink: job.externalLink,
+      media: job.media,
       createdBy: job.createdBy,
       createdById: job.createdBy?._id,
       employerEmail: job.createdBy?.email,
@@ -973,7 +1026,7 @@ export default function BrowseJob() {
 
   const feedItemsToShow = jobs.length ? jobPosts : samplePosts;
   const filteredPosts = feedItemsToShow.filter((post) => {
-    if (activeTab === "Saved" && !savedJobIds.includes(post.id)) {
+    if (activeTab === "saved" && !savedJobIds.includes(post.id)) {
       return false;
     }
 
@@ -1010,22 +1063,22 @@ export default function BrowseJob() {
     <div style={styles.container}>
       <div style={styles.pageHeader}>
         <div>
-          <h1 style={styles.title}>Applica Feed</h1>
+          <h1 style={styles.title}>{t("browse.feedTitle")}</h1>
           <p style={styles.subtitle}>
-            A fast, job-centered stream with trending roles, company posts, and quick actions.
+            {t("browse.feedSubtitle")}
           </p>
         </div>
 
         <div style={styles.tabs}> 
-          {tabs.map((tab) => (
+          {tabs.map((tabKey) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tabKey}
+              onClick={() => setActiveTab(tabKey)}
               style={
-                activeTab === tab ? styles.activeTab : styles.tab
+                activeTab === tabKey ? styles.activeTab : styles.tab
               }
             >
-              {tab}
+              {t(`browse.${tabKey}`)}
             </button>
           ))}
         </div>
@@ -1033,7 +1086,7 @@ export default function BrowseJob() {
         <div style={styles.searchBarRow}>
           <input
             type="text"
-            placeholder="Search job titles, companies, or skills"
+            placeholder={t("browse.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={styles.searchInput}
@@ -1046,7 +1099,7 @@ export default function BrowseJob() {
             onChange={(e) => setLocationFilter(e.target.value)}
             style={styles.filterSelect}
           >
-            <option value="All">All locations</option>
+            <option value="All">{t("browse.allLocations")}</option>
             {[...new Set(jobs.map((job) => job.location || "Remote"))]
               .filter(Boolean)
               .map((location) => (
@@ -1061,7 +1114,7 @@ export default function BrowseJob() {
             onChange={(e) => setCompanyFilter(e.target.value)}
             style={styles.filterSelect}
           >
-            <option value="All">All companies</option>
+            <option value="All">{t("browse.allCompanies")}</option>
             {[...new Set(jobs.map((job) => job.companyName || "Unknown"))]
               .filter(Boolean)
               .map((company) => (
@@ -1116,7 +1169,7 @@ export default function BrowseJob() {
                 <textarea
                   value={newPostContent}
                   onChange={(e) => setNewPostContent(e.target.value)}
-                  placeholder="What's on your mind?"
+                  placeholder={t("browse.composerPlaceholder")}
                   style={styles.composerTextarea}
                 />
               </div>
@@ -1143,14 +1196,14 @@ export default function BrowseJob() {
               <input
                 value={newPostTags}
                 onChange={(e) => setNewPostTags(e.target.value)}
-                placeholder="Tags (comma separated)"
+                placeholder="Mga tag (hiwalayin ng kuwit)"
                 style={styles.composerTagsInput}
               />
 
               <div style={styles.composerDivider} />
               <div style={styles.composerBottom}>
                 <div style={styles.composerActionButtons}>
-                  <label style={styles.composerActionIcon} title="Attach media">
+                  <label style={styles.composerActionIcon} title="Mag-attach ng media">
                     <ImageIcon size={18} />
                     <input
                       type="file"
@@ -1163,13 +1216,13 @@ export default function BrowseJob() {
                   <button
                     style={styles.composerActionIcon}
                     onClick={() => setShowLocationModal(true)}
-                    title="Add location"
+                    title="Magdagdag ng lokasyon"
                   >
                     <LocationIcon size={18} />
                   </button>
                   <button
                     style={styles.composerActionIcon}
-                    title="Add emoji"
+                    title="Magdagdag ng emoji"
                   >
                     <SmilieIcon size={18} />
                   </button>
@@ -1179,7 +1232,7 @@ export default function BrowseJob() {
                   onClick={handleCreatePost}
                   disabled={uploadingMedia || !newPostContent.trim()}
                 >
-                  {uploadingMedia ? "Uploading..." : "Post"}
+                  {uploadingMedia ? t("browse.uploading") : t("browse.createPost")}
                 </button>
               </div>
             </div>
@@ -1190,17 +1243,17 @@ export default function BrowseJob() {
               {socialPosts.length > 0 && (
                 <div style={styles.socialFeedHeading}>
                   <h3 style={styles.sidebarTitle}>
-                    {activeTab === "Following" ? "Following updates" : "Jobseeker updates"}
+                    {activeTab === "following" ? t("browse.followingUpdates") : t("browse.jobseekerUpdates")}
                   </h3>
-                  {activeTab === "Following" && !currentUser?.following?.length && (
+                  {activeTab === "following" && !followingPostItems.length && (
                     <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
-                      Follow users to see their posts here. Showing all recent jobseeker posts for now.
+                      {t("browse.followUsersHere")}
                     </p>
                   )}
                 </div>
               )}
 
-              {(activeTab === "Following" ? followingPostItems : socialPosts).map((post) => (
+              {(activeTab === "following" ? followingPostItems : socialPosts).map((post) => (
                 <div key={post._id} style={styles.socialPostCard}>
                   <div style={styles.socialPostHeader}>
                     <div
@@ -1229,15 +1282,21 @@ export default function BrowseJob() {
                         </span>
                         <span style={styles.postDot}>·</span>
                         <span style={styles.postMeta}>{post.authorRole}</span>
+                        <span style={styles.postDot}>·</span>
+                        <span style={styles.postMeta}>{formatDateMonthDay(post.createdAt)}</span>
                       </div>
-                      <span style={styles.postMeta}>{new Date(post.createdAt).toLocaleString()}</span>
+                      {post.authorEmail && (
+                        <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#10766E', fontSize: '12px', textAlign: 'left' }}>
+                          {post.authorEmail}
+                        </p>
+                      )}
                     </div>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       {post.author === currentUserId && (
                         <>
-                          <button style={styles.actionButton} onClick={() => startEditPost(post)}>Edit</button>
-                          <button style={styles.actionButton} onClick={() => archivePost(post._id)}>Archive</button>
-                          <button style={{ ...styles.actionButton, background: '#ffefef', color: '#b91c1c' }} onClick={() => deletePost(post._id)}>Delete</button>
+                          <button style={styles.actionButton} onClick={() => startEditPost(post)}>I-edit</button>
+                          <button style={styles.actionButton} onClick={() => archivePost(post._id)}>I-archive</button>
+                          <button style={{ ...styles.actionButton, background: '#ffefef', color: '#b91c1c' }} onClick={() => deletePost(post._id)}>Tanggalin</button>
                         </>
                       )}
                     </div>
@@ -1279,7 +1338,7 @@ export default function BrowseJob() {
                         color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
                       }}
                       onClick={() => togglePostLike(post._id)}
-                      title="Like this post"
+                      title="Gusto ang post na ito"
                     >
                       <HeartIcon 
                         filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
@@ -1289,7 +1348,7 @@ export default function BrowseJob() {
                     </button>
                     <button
                       style={styles.engagementButton}
-                      title="View post and comment"
+                      title="Tingnan ang post at magkomento"
                       onClick={() => openPostModal(post)}
                     >
                       <CommentIcon size={16} />
@@ -1297,7 +1356,7 @@ export default function BrowseJob() {
                     </button>
                     <button 
                       style={styles.engagementButton} 
-                      title="Repost this"
+                      title="I-repost ang post na ito"
                       onClick={() => handleRepost(post._id)}
                     >
                       <RepostIcon size={16} />
@@ -1305,7 +1364,7 @@ export default function BrowseJob() {
                     </button>
                     <button 
                       style={styles.engagementButton} 
-                      title="Share this post"
+                      title="Ibahagi ang post na ito"
                       onClick={() => handleSharePost(post._id)}
                     >
                       <ShareIcon size={16} />
@@ -1315,10 +1374,10 @@ export default function BrowseJob() {
                   {editingPostId === post._id && (
                     <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                       <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
-                      <input value={editingTags} onChange={(e) => setEditingTags(e.target.value)} placeholder="Tags (comma separated)" />
+                      <input value={editingTags} onChange={(e) => setEditingTags(e.target.value)} placeholder="Mga tag (hiwalayin ng kuwit)" />
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button onClick={cancelEdit} style={styles.actionButton}>Cancel</button>
-                        <button onClick={saveEditPost} style={styles.postComposerButton}>Save</button>
+                        <button onClick={cancelEdit} style={styles.actionButton}>Kanselahin</button>
+                        <button onClick={saveEditPost} style={styles.postComposerButton}>I-save</button>
                       </div>
                     </div>
                   )}
@@ -1365,23 +1424,46 @@ export default function BrowseJob() {
                 <p style={styles.postText}>{post.description}</p>
               </div>
 
+              {post.media?.data && (
+                <div style={styles.jobMediaPreview}>
+                  {post.media.type === "video" ? (
+                    <video src={post.media.data} style={styles.jobMediaItem} controls />
+                  ) : (
+                    <img src={post.media.data} alt="Job media" style={styles.jobMediaItem} />
+                  )}
+                </div>
+              )}
+
               <div style={styles.postTags}>
                 {post.tags.map((tag, index) => (
                   <span key={`${post.id}-tag-${index}`} style={styles.postTag}>{tag}</span>
                 ))}
               </div>
 
+              {post.externalLink && (
+                <div style={styles.jobCardLink}>
+                  <a
+                    href={post.externalLink.startsWith("http") ? post.externalLink : `https://${post.externalLink}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.jobLink}
+                  >
+                    View application link
+                  </a>
+                </div>
+              )}
+
               <div style={styles.postStatsRow}>
-                <span style={styles.postStatItem}> {post.applicants} applicants</span>
-                <span style={styles.postStatItem}> {post.views} views</span>
-                <span style={styles.postStatItem}> {post.likes} likes</span>
+                <span style={styles.postStatItem}> {post.applicants} aplikante</span>
+                <span style={styles.postStatItem}> {post.views} tingin</span>
+                <span style={styles.postStatItem}> {post.likes} gusto</span>
               </div>
 
               <div style={styles.postActionRow}>
                 <button
                   style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
                   onClick={() => handleSave(post.id)}
-                  title={savedJobIds.includes(post.id) ? "Remove from saved" : "Save job"}
+                  title={savedJobIds.includes(post.id) ? "Alisin mula sa nai-save" : "I-save ang trabaho"}
                 >
                   <BookmarkIcon filled={savedJobIds.includes(post.id)} size={18} />
                 </button>
@@ -1394,7 +1476,7 @@ export default function BrowseJob() {
                   }}
                   onClick={() => handleToggleLike(post.id)}
                   disabled={jobActionLoading}
-                  title={post.userLiked ? 'Unlike this post' : 'Like this post'}
+                  title={post.userLiked ? 'Hindi na gusto ang post na ito' : 'Gusto ang post na ito'}
                 >
                   <HeartIcon filled={post.userLiked} size={16} />
                   <span>{post.likes}</span>
@@ -1403,14 +1485,14 @@ export default function BrowseJob() {
                   style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
                   onClick={() => openApplyModal(post)}
                   disabled={jobActionLoading || isEmployer}
-                  title={isEmployer ? "Employers cannot apply" : "Apply for this job"}
+                  title={isEmployer ? "Hindi makaka-apply ang employer" : "Mag-apply sa trabahong ito"}
                 >
                   <BriefcaseIcon size={18} />
                 </button>
                 <button
                   style={styles.actionButton}
                   onClick={() => openJobModal(post.id)}
-                  title="View full job details"
+                  title="Tingnan ang buong detalye ng trabaho"
                 >
                   <ChevronRightIcon size={18} />
                 </button>
@@ -1422,8 +1504,8 @@ export default function BrowseJob() {
         <aside style={styles.sidebarColumn}>
           <div style={styles.sidebarCard}>
             <div style={styles.sidebarHeader}>
-              <h3 style={styles.sidebarTitle}>Trending now</h3>
-              <p style={styles.sidebarSubtitle}>Hot job topics and skills</p>
+              <h3 style={styles.sidebarTitle}>Trending ngayon</h3>
+              <p style={styles.sidebarSubtitle}>Mga mainit na paksa sa trabaho at kasanayan</p>
             </div>
             <div style={styles.trendingList}>
               <button style={styles.trendingItem}>#RemoteWork</button>
@@ -1434,7 +1516,7 @@ export default function BrowseJob() {
           </div>
 
           <div style={styles.sidebarCard}>
-            <h3 style={styles.sidebarTitle}>Trending companies</h3>
+            <h3 style={styles.sidebarTitle}>Mga trending na kumpanya</h3>
             <ul style={styles.companyList}>
               <li style={styles.companyItem}>Tech Innovations Inc.</li>
               <li style={styles.companyItem}>Creative Labs</li>
@@ -1444,18 +1526,18 @@ export default function BrowseJob() {
           </div>
 
           <div style={{ ...styles.sidebarCard, marginTop: "24px" }}>
-            <h3 style={styles.sidebarTitle}>Job shortcuts</h3>
+            <h3 style={styles.sidebarTitle}>Mga shortcut sa trabaho</h3>
             <button
               style={styles.shortcutButton}
               onClick={() => navigate("/profile")}
             >
-              View profile
+              Tingnan ang profile
             </button>
             <button
               style={styles.shortcutButton}
               onClick={() => navigate("/create")}
             >
-              Complete your profile
+              Kumpletuhin ang iyong profile
             </button>
           </div>
         </aside>
@@ -1485,7 +1567,7 @@ export default function BrowseJob() {
               setSelectedPost((prev) => mergePostData(prev || {}, updatedPost));
             }}
             currentUserId={currentUserId}
-            userName={currentUser?.firstName || 'You'}
+            userName={currentUser?.firstName || 'Ikaw'}
             userAvatar={currentUser?.profilePicture || currentUser?.companyLogo}
           />
       )}
@@ -1493,8 +1575,13 @@ export default function BrowseJob() {
       {showJobModal && modalJob && (
         <div style={styles.modalOverlay} onClick={closeJobModal}>
           <div style={{ ...styles.modalCard, background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ ...styles.modalHeader, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <h2 style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 800, textAlign: 'center' }}>{modalJob.title}</h2>
+            <div style={{ ...styles.modalHeader, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
+              <h2 style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 800, textAlign: 'left', flex: 1 }}>{translatingModalTitle ? modalJob.title : (translatedModalTitle || modalJob.title)}</h2>
+              <div style={{ marginLeft: 12 }}>
+                <button onClick={() => window.localStorage && (localStorage.removeItem(`translate::tl::${btoa(unescape(encodeURIComponent(modalJob.title))).slice(0,200)}`), window.location.reload())} style={{ background: 'transparent', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: 12 }}>
+                  I-translate (manual)
+                </button>
+              </div>
               <button style={{ ...styles.modalClose, position: 'absolute', right: 12, top: 8 }} onClick={closeJobModal}>✕</button>
             </div>
 
@@ -1513,38 +1600,83 @@ export default function BrowseJob() {
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{modalJob.createdBy?.companyName || modalJob.companyName || modalJob.createdBy?.firstName || 'Employer'}</div>
                   {modalJob.createdBy?.role && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.03)' }}>{modalJob.createdBy.role}</div>}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
-                  <div>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
-                  <div style={{ opacity: 0.5 }}>·</div>
-                  <div>{formatRelativeTimeShort(modalJob.createdAt)}</div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ color: '#10766E', fontSize: 13 }}>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
+                  <div style={{ color: '#94a3b8', fontSize: 12 }}>{formatDateMonthDay(modalJob.createdAt)}</div>
                 </div>
               </div>
             </div>
 
-            <div style={{ ...styles.modalBody, color: '#fff' }}>
-              <p style={{ ...styles.postText, color: '#fff', marginBottom: '18px' }}>{modalJob.description}</p>
-              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Requirements</h4>
-              <p style={{ ...styles.postText, color: '#e2e8f0', marginBottom: '18px' }}>{modalJob.requirements}</p>
+            <div style={{ ...styles.modalBody, color: '#fff', textAlign: 'left' }}>
+              <p style={{ ...styles.postText, color: '#fff', marginBottom: '18px' }}>{translatingModalDescription ? modalJob.description : (translatedModalDescription || modalJob.description)}</p>
+              {modalJob.media?.data && (
+                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  {modalJob.media.type === 'video' ? (
+                    <video src={modalJob.media.data} style={{ width: '100%', maxHeight: 360, objectFit: 'cover' }} controls />
+                  ) : (
+                    <img src={modalJob.media.data} alt="Job media" style={{ width: '100%', maxHeight: 360, objectFit: 'cover' }} />
+                  )}
+                </div>
+              )}
+              {modalJob.externalLink && (
+                <div style={{ marginBottom: 18 }}>
+                  <a
+                    href={modalJob.externalLink.startsWith("http") ? modalJob.externalLink : `https://${modalJob.externalLink}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 14px',
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.06)',
+                      color: '#93c5fd',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Buksan ang link ng trabaho
+                  </a>
+                </div>
+              )}
+              {modalJob.location && (
+                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <iframe
+                    title="Mapa ng lokasyon"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(modalJob.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                    style={{ width: '100%', height: 260, border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                  />
+                </div>
+              )}
+              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Mga Kailangan</h4>
+              {renderBulletList(modalJob.requirements, { color: '#e2e8f0', marginBottom: '18px' }) || (
+                <p style={{ ...styles.postText, color: '#e2e8f0', marginBottom: '18px' }}>
+                  Walang ibinigay na requirements.
+                </p>
+              )}
 
-              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Details</h4>
+              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Detalye</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#e2e8f0' }}>
-                {modalJob.salary !== undefined && <li style={{ marginBottom: '10px' }}>Salary: {modalJob.salary ? `₱${modalJob.salary.toLocaleString()}` : 'Negotiable'}</li>}
-                {modalJob.category && <li style={{ marginBottom: '10px' }}>Category: {modalJob.category}</li>}
-                {modalJob.jobType && <li style={{ marginBottom: '10px' }}>Type: {modalJob.jobType}</li>}
-                {modalJob.experienceLevel && <li style={{ marginBottom: '0' }}>Experience: {modalJob.experienceLevel}</li>}
+                {modalJob.salary !== undefined && <li style={{ marginBottom: '10px' }}>Sahod: {modalJob.salary ? `₱${modalJob.salary.toLocaleString()}` : 'Negoasyable'}</li>}
+                {modalJob.category && <li style={{ marginBottom: '10px' }}>Kategorya: {modalJob.category}</li>}
+                {modalJob.jobType && <li style={{ marginBottom: '10px' }}>Uri: {modalJob.jobType}</li>}
+                {modalJob.experienceLevel && <li style={{ marginBottom: '0' }}>Karanasan: {modalJob.experienceLevel}</li>}
               </ul>
 
               <div style={{ marginTop: 12 }}>
-                <strong>Metrics:</strong>
+                <strong>Mga Sukatan:</strong>
                 <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                  <span>{modalJob.views?.length || 0} views</span>
-                  <span> {modalJob.likes?.length || 0} likes</span>
-                  <span>{modalJob.applicants?.length || 0} applicants</span>
+                  <span>{modalJob.views?.length || 0} tingin</span>
+                  <span> {modalJob.likes?.length || 0} gusto</span>
+                  <span>{modalJob.applicants?.length || 0} aplikante</span>
                 </div>
               </div>
             </div>
@@ -1559,7 +1691,7 @@ export default function BrowseJob() {
                 }}
                 onClick={() => handleToggleLike(modalJob._id)}
                 disabled={jobActionLoading}
-                title="Like this job"
+                title="Gusto ang trabahong ito"
               >
                 <HeartIcon filled={modalJob.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
                 <span>{modalJob.likes?.length || 0}</span>
@@ -1568,26 +1700,26 @@ export default function BrowseJob() {
                 style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
                 onClick={() => openApplyModal(modalJob)}
                 disabled={jobActionLoading || isEmployer}
-                title={isEmployer ? 'Employers cannot apply' : 'Apply'}
+                title={isEmployer ? 'Hindi makaka-apply ang employer' : 'Mag-apply'}
               >
-                Apply
+                Mag-apply
               </button>
               <button style={styles.actionButton} onClick={() => { navigator.share ? navigator.share({ title: modalJob.title, text: modalJob.description }) : alert(modalJob.title + '\n' + modalJob.description); }}>
-                Share
+                Ibahagi
               </button>
             </div>
             {/* Bottom comment input bar */}
             <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 12, alignItems: 'center', background: 'transparent' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
                 {currentUser?.profilePicture || currentUser?.companyLogo ? (
-                  <img src={currentUser.profilePicture || currentUser.companyLogo} alt="you" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={currentUser.profilePicture || currentUser.companyLogo} alt="ikaw" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', background: 'var(--primary)', color: '#fff', fontWeight: 700 }}>{(currentUser?.firstName?.charAt(0) || 'U')}</div>
                 )}
               </div>
               <input
                 type="text"
-                placeholder="Write an answer..."
+                placeholder="Sumulat ng sagot..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)', color: '#fff' }}
@@ -1596,7 +1728,7 @@ export default function BrowseJob() {
                 onClick={handleJobComment}
                 disabled={!commentText.trim()}
                 style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#60a5fa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
-                title="Post an answer"
+                title="I-post ang sagot"
               >
                 ➤
               </button>
@@ -1610,8 +1742,8 @@ export default function BrowseJob() {
           <div style={{ ...styles.modalCard, ...styles.applyModalCard }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div>
-                <h2 style={{ margin: 0 }}>{applyJobInfo.title || applyJobInfo.role || 'Job application'}</h2>
-                <p style={styles.modalCompany}>{applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Company'} · {applyJobInfo.location || 'Remote'}</p>
+                <h2 style={{ margin: 0 }}>{translatingApplyTitle ? (applyJobInfo.title || applyJobInfo.role || 'Aplikasyon sa Trabaho') : (translatedApplyTitle || applyJobInfo.title || applyJobInfo.role || 'Aplikasyon sa Trabaho')}</h2>
+                <p style={styles.modalCompany}>{applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Kumpanya'} · {applyJobInfo.location || 'Remote'}</p>
               </div>
               <button style={styles.modalClose} onClick={closeApplyModal}>✕</button>
             </div>
@@ -1631,12 +1763,12 @@ export default function BrowseJob() {
                     )}
                   </div>
                   <div style={styles.applyProfileInfo}>
-                    <p style={styles.applyInfoTitle}>Posted by</p>
+                    <p style={styles.applyInfoTitle}>In-post ni</p>
                     <p style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-h)' }}>
                       {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.createdBy?.companyName || applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Employer'}
                     </p>
                     <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'No email available'}
+                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Walang email na ibinigay'}
                     </p>
                     <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
                       {applyJobInfo.createdBy?.role || 'Employer'} · {applyJobInfo.location || 'Remote'}
@@ -1645,32 +1777,36 @@ export default function BrowseJob() {
                 </div>
 
                 <div style={{ marginTop: '16px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Job overview</p>
-                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.description || applyJobInfo.postedAt || 'No description provided.'}</p>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Pangkalahatang paglalarawan ng trabaho</p>
+                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.description || applyJobInfo.postedAt || 'Walang inilagay na paglalarawan.'}</p>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Requirements</p>
-                  <p style={{ margin: 0, lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.requirements || applyJobInfo.details?.join(', ') || 'No requirements provided.'}</p>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Mga Kailangan</p>
+                  {renderBulletList(applyJobInfo.requirements, { color: 'var(--text-muted)' }) || (
+                    <p style={{ margin: 0, lineHeight: 1.7, color: 'var(--text-muted)' }}>
+                      {applyJobInfo.details?.join(', ') || 'Walang inilagay na requirements.'}
+                    </p>
+                  )}
                 </div>
 
                 <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>Job details</p>
-                  <div style={styles.applyInfoRow}><span>Salary</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : 'Negotiable'}</span></div>
-                  <div style={styles.applyInfoRow}><span>Location</span><span>{applyJobInfo.location || 'Remote'}</span></div>
-                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>Category</span><span>{applyJobInfo.category}</span></div>}
-                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>Type</span><span>{applyJobInfo.jobType}</span></div>}
-                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>Experience</span><span>{applyJobInfo.experienceLevel}</span></div>}
-                  <div style={styles.applyInfoRow}><span>Applicants</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
-                  <div style={styles.applyInfoRow}><span>Posted</span><span>{applyJobInfo.createdAt ? new Date(applyJobInfo.createdAt).toLocaleString() : applyJobInfo.postedAt || 'Unknown'}</span></div>
+                  <p style={styles.applyInfoTitle}>Detalye ng trabaho</p>
+                  <div style={styles.applyInfoRow}><span>Sahod</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : 'Negoasyable'}</span></div>
+                  <div style={styles.applyInfoRow}><span>Lokasyon</span><span>{applyJobInfo.location || 'Remote'}</span></div>
+                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>Kategorya</span><span>{applyJobInfo.category}</span></div>}
+                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>Uri</span><span>{applyJobInfo.jobType}</span></div>}
+                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>Karanasan</span><span>{applyJobInfo.experienceLevel}</span></div>}
+                  <div style={styles.applyInfoRow}><span>Aplikante</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
+                  <div style={styles.applyInfoRow}><span>Ipinost</span><span>{applyJobInfo.createdAt ? formatDateMonthDay(applyJobInfo.createdAt) : applyJobInfo.postedAt || 'Hindi kilala'}</span></div>
                 </div>
 
                 <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>Company information</p>
+                  <p style={styles.applyInfoTitle}>Impormasyon ng kumpanya</p>
                   <div style={styles.applyInfoRow}><span>Employer</span><span>{applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || 'Employer'}</span></div>
-                  <div style={styles.applyInfoRow}><span>Email</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Not provided'}</span></div>
-                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>Company</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
-                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>Location</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
+                  <div style={styles.applyInfoRow}><span>Email</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Hindi ibinigay'}</span></div>
+                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>Kumpanya</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
+                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>Lokasyon</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
                 </div>
               </div>
 
@@ -1678,8 +1814,8 @@ export default function BrowseJob() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', margin: '24px 20px 20px' }}>
-              <button style={styles.secondaryButton} onClick={closeApplyModal}>Cancel</button>
-              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>Confirm apply</button>
+              <button style={styles.secondaryButton} onClick={closeApplyModal}>Kanselahin</button>
+              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>Kumpirmahin ang aplikasyon</button>
             </div>
           </div>
         </div>
@@ -1690,13 +1826,13 @@ export default function BrowseJob() {
         <div style={styles.modalOverlay} onClick={() => setShowLocationModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h2 style={{ margin: 0 }}>Select Location</h2>
+              <h2 style={{ margin: 0 }}>Pumili ng Lokasyon</h2>
               <button style={styles.modalClose} onClick={() => setShowLocationModal(false)}>✕</button>
             </div>
 
             <input
               type="text"
-              placeholder="Search city or region..."
+              placeholder="Maghanap ng lungsod o rehiyon..."
               value={locationSearch}
               onChange={(e) => setLocationSearch(e.target.value)}
               style={{ ...styles.postComposerInput, marginBottom: '12px' }}
@@ -1773,7 +1909,7 @@ export default function BrowseJob() {
                 }}
                 onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.25)'}
                 onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
-                title="Dismiss notification"
+                title="Isara ang abiso"
               >
                 ✕
               </button>
@@ -2199,6 +2335,35 @@ composerTextarea: {
     marginBottom: "12px",
     cursor: "pointer",
   },
+  jobMediaPreview: {
+    marginBottom: "12px",
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+  },
+  jobMediaItem: {
+    width: "100%",
+    display: "block",
+    maxHeight: "280px",
+    objectFit: "cover",
+  },
+  jobCardLink: {
+    marginBottom: "12px",
+  },
+  jobLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--primary)",
+    textDecoration: "none",
+    fontWeight: "700",
+    fontSize: "13px",
+  },
   postRole: {
     fontSize: "20px",
     fontWeight: "800",
@@ -2213,6 +2378,7 @@ composerTextarea: {
     margin: 0,
     wordWrap: "break-word",
     overflowWrap: "break-word",
+    textAlign: "left",
   },
   postTags: {
     display: "flex",

@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { translate: t } = useLanguage();
 
   const [isLoading, setIsLoading] =
     useState(true);
@@ -134,7 +136,7 @@ export default function Signup() {
       signupData.confirmPassword
     ) {
       return showMessage(
-        "Passwords do not match.",
+        t("signup.passwordsMismatch"),
         "error"
       );
     }
@@ -169,7 +171,7 @@ export default function Signup() {
 
       showMessage(
         res.data.message ||
-          "Account created successfully.",
+          t("signup.accountCreated"),
         "success"
       );
 
@@ -184,7 +186,7 @@ export default function Signup() {
     } catch (err) {
       showMessage(
         err.response?.data?.message ||
-          "Something went wrong.",
+          t("signup.somethingWrong"),
         "error"
       );
     } finally {
@@ -225,7 +227,7 @@ export default function Signup() {
 
         showMessage(
           res.data.message ||
-            "Login successful.",
+            t("signup.loginSuccess"),
           "success"
         );
 
@@ -434,11 +436,11 @@ export default function Signup() {
             }
           >
             <h2 style={styles.heading}>
-              Create Account
+              {t("signup.signUpTitle")}
             </h2>
 
             <Input
-              label="First Name"
+              label={t("signup.firstName")}
               name="firstName"
               value={
                 signupData.firstName
@@ -455,7 +457,7 @@ export default function Signup() {
             />
 
             <Input
-              label="Last Name"
+              label={t("signup.lastName")}
               name="lastName"
               value={
                 signupData.lastName
@@ -472,7 +474,7 @@ export default function Signup() {
             />
 
             <Input
-              label="Email"
+              label={t("signup.email")}
               name="email"
               type="email"
               value={
@@ -490,7 +492,7 @@ export default function Signup() {
             />
 
             <Input
-              label="Phone Number"
+              label={t("signup.phoneNumber")}
               name="phoneNumber"
               value={
                 signupData.phoneNumber
@@ -507,7 +509,7 @@ export default function Signup() {
             />
 
             <PasswordInput
-              label="Password"
+              label={t("signup.password")}
               value={
                 signupData.password
               }
@@ -524,7 +526,7 @@ export default function Signup() {
             />
 
             <PasswordInput
-              label="Confirm Password"
+              label={t("signup.confirmPassword")}
               value={
                 signupData.confirmPassword
               }
@@ -571,13 +573,12 @@ export default function Signup() {
               disabled={loading}
             >
               {loading
-                ? "Creating..."
-                : "Create Account"}
+                ? t("signup.creating")
+                : t("signup.register")}
             </button>
 
             <p style={styles.footerText}>
-              Already have an
-              account?{" "}
+              {t("signup.alreadyHaveAccount")} {" "}
               <span
                 style={styles.link}
                 onClick={() => {
@@ -585,7 +586,7 @@ export default function Signup() {
                   setMessage("");
                 }}
               >
-                Sign In
+                {t("signup.login")}
               </span>
             </p>
           </form>
@@ -597,11 +598,11 @@ export default function Signup() {
             }
           >
             <h2 style={styles.heading}>
-              Sign In
+              {t("signup.signInTitle")}
             </h2>
 
             <Input
-              label="Email"
+              label={t("signup.email")}
               name="email"
               type="email"
               value={
@@ -619,7 +620,7 @@ export default function Signup() {
             />
 
             <PasswordInput
-              label="Password"
+              label={t("signup.password")}
               value={
                 loginData.password
               }
@@ -666,13 +667,12 @@ export default function Signup() {
               disabled={loading}
             >
               {loading
-                ? "Signing In..."
-                : "Sign In"}
+                ? t("signup.signingIn")
+                : t("signup.login")}
             </button>
 
             <p style={styles.footerText}>
-              Don't have an
-              account?{" "}
+              {t("signup.createAccount")} {" "}
               <span
                 style={styles.link}
                 onClick={() => {
@@ -680,7 +680,7 @@ export default function Signup() {
                   setMessage("");
                 }}
               >
-                Create account
+                {t("signup.signUpTitle")}
               </span>
             </p>
           </form>

@@ -2,6 +2,7 @@ import { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "./ThemeSwitch";
 
 const BellIcon = ({ size = 20, count = 0 }) => (
@@ -114,6 +115,7 @@ export default function Navbar() {
     }
   }, [notificationOpen]);
 
+  const { language, setLanguage, translate } = useLanguage();
   const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
   const initials = fullName
     ? fullName
@@ -154,33 +156,42 @@ export default function Navbar() {
 
         <div style={styles.navLinks}>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>
-            Browse Jobs
+            {translate("nav.browseJobs")}
           </button>
-          <button style={styles.linkButton} onClick={() => navigate("/explore")}>Companies</button>
-          <button style={styles.linkButton} onClick={() => navigate("/explore")}>Resources</button>
+          <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.companies")}</button>
+          <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.resources")}</button>
           {user?.role === "jobseeker" && (
             <button
               style={styles.linkButton}
               onClick={() => navigate("/resume-designs")}
-              title="Create resume from designs"
+              title={translate("nav.resume")}
             >
               <HeartIcon size={16} />
-              <span style={styles.navIconText}>Resume</span>
+              <span style={styles.navIconText}>{translate("nav.resume")}</span>
             </button>
           )}
           {user?.role === "employer" && (
             <button
               style={styles.linkButton}
               onClick={() => navigate("/employer/applicants")}
-              title="View applicants"
+              title={translate("nav.applicants")}
             >
               <JobIcon size={16} />
-              <span style={styles.navIconText}>Applicants</span>
+              <span style={styles.navIconText}>{translate("nav.applicants")}</span>
             </button>
           )}
         </div>
 
         <div style={styles.actions}>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            style={styles.languageSelect}
+            title={translate("nav.language")}
+          >
+            <option value="en">{translate("nav.english")}</option>
+            <option value="tl">{translate("nav.filipino")}</option>
+          </select>
           <ThemeSwitch isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
           {token ? (
             <>
@@ -434,6 +445,15 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 12,
+  },
+  languageSelect: {
+    borderRadius: 999,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    padding: "8px 12px",
+    fontSize: 14,
+    cursor: "pointer",
   },
   createButton: {
     backgroundColor: "var(--primary)",

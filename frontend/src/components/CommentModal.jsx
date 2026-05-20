@@ -19,7 +19,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
 
   const handleSubmit = async () => {
     if (!commentText.trim()) {
-      setError('Please write a comment');
+      setError('Pakiusap magsulat ng komento');
       return;
     }
 
@@ -61,7 +61,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
       console.error('Response data:', error.response?.data);
       console.error('Full error:', error);
       
-      setError(error.response?.data?.message || error.message || 'Failed to post comment');
+      setError(error.response?.data?.message || error.message || 'Nabigong mag-post ng komento');
     } finally {
       setIsSubmitting(false);
     }
@@ -91,7 +91,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
           className="modal-close-btn" 
           onClick={onClose}
           type="button"
-          aria-label="Close"
+          aria-label="Isara"
         >
           ✕
         </button>
@@ -103,8 +103,8 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
               <img src={post.authorAvatar} alt={post.authorName || 'Author'} className="post-preview-avatar" />
             )}
             <div className="post-preview-info">
-              <h4 className="post-preview-author">{post?.authorName || 'Anonymous User'}</h4>
-              <span className="post-preview-role">{post?.authorRole || 'User'}</span>
+              <h4 className="post-preview-author">{post?.authorName || 'Anonymous na User'}</h4>
+              <span className="post-preview-role">{post?.authorRole || 'Gumagamit'}</span>
             </div>
           </div>
           <p className="post-preview-content">{post?.content || ''}</p>
@@ -125,9 +125,9 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
         <div className="comment-input-section">
           <div className="comment-user-info">
             {userAvatar && (
-              <img src={userAvatar} alt={userName || 'You'} className="comment-user-avatar" />
+              <img src={userAvatar} alt={userName || 'Ikaw'} className="comment-user-avatar" />
             )}
-            <span className="comment-user-name">{userName || 'You'}</span>
+            <span className="comment-user-name">{userName || 'Ikaw'}</span>
           </div>
 
           <textarea
@@ -137,7 +137,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
               if (error) setError('');
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Post your reply!"
+            placeholder="Mag-post ng iyong komento!"
             className="comment-input"
             rows="4"
             disabled={isSubmitting}
@@ -152,7 +152,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
               className="reply-btn"
               type="button"
             >
-              {isSubmitting ? 'Posting...' : 'Reply'}
+              {isSubmitting ? 'Nagpo-post...' : 'Sagot'}
             </button>
           </div>
         </div>

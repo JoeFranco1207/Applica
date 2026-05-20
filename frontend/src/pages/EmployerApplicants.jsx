@@ -252,7 +252,9 @@ export default function EmployerApplicants() {
                 }}
               >
                 <div style={styles.tabLabel}>{label}</div>
-                <div style={styles.tabCount}>{applicantsByStatus[key].length}</div>
+                <div style={{ ...styles.tabCount, ...(activeTab === key ? styles.tabCountActive : {}) }}>
+                  {applicantsByStatus[key].length}
+                </div>
               </button>
             ))}
           </div>
@@ -345,13 +347,6 @@ export default function EmployerApplicants() {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div style={styles.modalTitleRow}>
-                {selectedApplicantInfo?.profilePicture && (
-                  <img
-                    src={selectedApplicantInfo.profilePicture}
-                    alt="Applicant"
-                    style={styles.modalAvatar}
-                  />
-                )}
                 <div>
                   <h2 style={styles.modalTitle}>
                     {selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}
@@ -376,43 +371,54 @@ export default function EmployerApplicants() {
                   ) : (
                     <div style={styles.defaultAvatarLarge}>{(selectedApplicantInfo?.firstName || "").charAt(0)}</div>
                   )}
-                  <h3 style={{ margin: "12px 0 4px", fontSize: 20 }}>{selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}</h3>
-                  <div style={{ color: "#64748b", marginBottom: 12 }}>{selectedApplicant.jobTitle || selectedApplicant.jobName || ""}</div>
-                  <div style={styles.infoRow}><strong style={styles.infoLabel}>Status</strong><span style={styles.infoValue}>{selectedApplicant.status || "pending"}</span></div>
-                  <div style={styles.infoRow}><strong style={styles.infoLabel}>Applied</strong><span style={styles.infoValue}>{formatDate(selectedApplicant.appliedAt || selectedApplicant.updatedAt || selectedApplicant.createdAt)}</span></div>
-                  <div style={{ marginTop: 14 }}>{selectedApplicant.jobId && (
-                    <>
-                      {selectedApplicant.status !== "accepted" && (
+                  <h3 style={styles.modalName}>{selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}</h3>
+                  <div style={styles.modalJobTitle}>{selectedApplicant.jobTitle || selectedApplicant.jobName || ""}</div>
+                  <div style={styles.profileStats}>
+                    <div style={styles.statBlock}>
+                      <span style={styles.infoLabel}>Status</span>
+                      <span style={styles.infoValue}>{selectedApplicant.status || "pending"}</span>
+                    </div>
+                    <div style={styles.statBlock}>
+                      <span style={styles.infoLabel}>Applied</span>
+                      <span style={styles.infoValue}>{formatDate(selectedApplicant.appliedAt || selectedApplicant.updatedAt || selectedApplicant.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <div style={styles.modalActions}>
+                    {selectedApplicant.jobId && (
+                      <>
+                        {selectedApplicant.status !== "accepted" && (
+                          <button
+                            style={styles.acceptButton}
+                            disabled={jobActionLoading}
+                            onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicantInfo?._id, "accepted")}
+                          >
+                            Accept
+                          </button>
+                        )}
+                        {selectedApplicant.status !== "rejected" && (
+                          <button
+                            style={styles.rejectButton}
+                            disabled={jobActionLoading}
+                            onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicantInfo?._id, "rejected")}
+                          >
+                            Reject
+                          </button>
+                        )}
                         <button
-                          style={styles.acceptButton}
+                          style={styles.removeButton}
                           disabled={jobActionLoading}
-                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicantInfo?._id, "accepted")}
+                          onClick={() => {
+                            if (window.confirm('Delete this applicant? This cannot be undone.')) {
+                              handleApplicantRemove(selectedApplicant.jobId, selectedApplicantInfo?._id);
+                            }
+                          }}
                         >
-                          Accept
+                          Delete
                         </button>
-                      )}
-                      {selectedApplicant.status !== "rejected" && (
-                        <button
-                          style={{ ...styles.rejectButton, marginLeft: 8 }}
-                          disabled={jobActionLoading}
-                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicantInfo?._id, "rejected")}
-                        >
-                          Reject
-                        </button>
-                      )}
-                      <button
-                        style={{ ...styles.removeButton, marginLeft: 8 }}
-                        disabled={jobActionLoading}
-                        onClick={() => {
-                          if (window.confirm('Delete this applicant? This cannot be undone.')) {
-                            handleApplicantRemove(selectedApplicant.jobId, selectedApplicantInfo?._id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}</div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div style={styles.detailsColumn}>
@@ -472,19 +478,19 @@ const styles = {
     marginBottom: 24,
     padding: 24,
     borderRadius: 20,
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 40px rgba(15, 23, 42, 0.06)",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--card-shadow)",
   },
   pageTitle: {
     margin: 0,
     fontSize: "2rem",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   pageDescription: {
     margin: "10px 0 0",
-    color: "#475569",
+    color: "var(--muted)",
     maxWidth: 620,
     lineHeight: 1.6,
   },
@@ -494,16 +500,16 @@ const styles = {
     justifyContent: "center",
     padding: "12px 18px",
     borderRadius: 14,
-    border: "1px solid #e2e8f0",
-    background: "#ffffff",
-    color: "#0f172a",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text-h)",
     cursor: "pointer",
     fontWeight: 700,
   },
   infoText: {
-    color: "#64748b",
+    color: "var(--muted)",
     padding: 24,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "var(--surface-alt)",
     borderRadius: 18,
   },
   sectionsGrid: {
@@ -514,9 +520,9 @@ const styles = {
     boxSizing: "border-box",
   },
   statusSection: {
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--border)",
     borderRadius: 16,
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--surface)",
     padding: 0,
     minHeight: 220,
     display: "flex",
@@ -533,21 +539,21 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    borderBottom: "1px solid #f1f5f9",
+    borderBottom: "1px solid var(--border)",
     padding: "14px 16px",
-    background: "#ffffff",
+    background: "var(--surface)",
   },
   sectionTitle: {
     margin: 0,
     fontSize: "1rem",
     fontWeight: 800,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   
   sectionCount: {
     fontSize: "0.9rem",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   sectionBody: {
     display: "block",
@@ -562,62 +568,73 @@ const styles = {
   },
   tabBar: {
     display: "flex",
-    gap: 12,
+    gap: 24,
     marginBottom: 12,
+    alignItems: "center",
+    paddingBottom: 8,
+    borderBottom: "1px solid var(--border)",
   },
   tabItem: {
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
-    gap: 10,
-    padding: "10px 14px",
-    borderRadius: 12,
-    background: "#ffffff",
-    border: "1px solid rgba(2,6,23,0.06)",
+    gap: 8,
+    padding: "12px 16px",
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    border: "none",
     cursor: "pointer",
-    boxShadow: "0 6px 18px rgba(2,6,23,0.02)",
+    transition: "color 120ms ease, border-color 120ms ease, background-color 120ms ease",
     fontWeight: 700,
+    color: "var(--muted)",
+    borderBottom: "3px solid transparent",
+    outline: "none",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
   },
   tabActive: {
-    background: "linear-gradient(180deg,#0b69ff,#0a58d6)",
-    color: "#fff",
+    backgroundColor: "transparent",
+    color: "var(--accent)",
     border: "none",
+    boxShadow: "none",
+    transform: "none",
+    borderBottom: "3px solid var(--accent)",
   },
   tabLabel: {
     fontSize: 14,
   },
   tabCount: {
-    background: "rgba(0,0,0,0.06)",
-    padding: "4px 8px",
+    backgroundColor: "var(--surface-alt)",
+    padding: "2px 8px",
     borderRadius: 999,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 800,
+    color: "var(--muted)",
+    marginLeft: 8,
+    minWidth: 26,
+    textAlign: "center",
   },
   tabCountActive: {
-    background: "rgba(255,255,255,0.18)",
-    color: "#fff",
+    backgroundColor: "var(--accent)",
+    color: "var(--cta-text)",
   },
   tabContent: {
     width: "100%",
   },
   cardInner: {
-    background: "#f8fafc",
+    background: "var(--surface-alt)",
     borderRadius: 12,
     padding: 12,
     display: "flex",
     flexDirection: "column",
     gap: 12,
   },
-  cardTop: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  },
   defaultAvatar: {
     width: 56,
     height: 56,
     borderRadius: "50%",
-    background: "#c7d2fe",
-    color: "#0b69ff",
+    background: "var(--accent-bg)",
+    color: "var(--accent)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -647,7 +664,7 @@ const styles = {
     cursor: "default",
   },
   applicantRowTableHover: {
-    backgroundColor: "#fbfdff",
+    backgroundColor: "var(--surface-alt)",
   },
   headerRow: {
     display: "flex",
@@ -655,23 +672,23 @@ const styles = {
     gap: 12,
     padding: "10px 8px",
     borderBottom: "1px solid rgba(2,6,23,0.06)",
-    background: "#fafafa",
+    background: "var(--surface-alt)",
   },
   headerCellLeft: {
     flex: 1,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   headerCellCenter: {
     width: 220,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   headerCellRight: {
     width: 140,
     textAlign: "right",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   rowLeft: {
     display: "flex",
@@ -683,7 +700,7 @@ const styles = {
   rowCenter: {
     width: 220,
     textAlign: "left",
-    color: "#475569",
+    color: "var(--muted)",
   },
   rowRight: {
     width: 140,
@@ -698,16 +715,16 @@ const styles = {
   },
   applicantNameRow: {
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   submissionLabel: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "var(--muted)",
     marginBottom: 6,
   },
   submissionTime: {
     fontSize: 14,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   actionStack: {
     display: "flex",
@@ -720,8 +737,8 @@ const styles = {
   actionPrimary: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#0b69ff",
-    color: "#fff",
+    backgroundColor: "var(--accent)",
+    color: "var(--cta-text)",
     border: "none",
     fontWeight: 700,
     cursor: "pointer",
@@ -729,27 +746,27 @@ const styles = {
   actionSecondary: {
     padding: "8px 12px",
     borderRadius: 8,
-    backgroundColor: "#fff",
-    color: "#0b69ff",
-    border: "1px solid rgba(11,105,255,0.12)",
+    backgroundColor: "var(--surface)",
+    color: "var(--accent)",
+    border: "1px solid rgba(59,130,246,0.12)",
     fontWeight: 700,
     cursor: "pointer",
   },
   jobReference: {
     margin: 4,
     fontSize: "0.85rem",
-    color: "#64748b",
+    color: "var(--muted)",
   },
   jobList: {
     display: "grid",
     gap: 20,
   },
   jobCard: {
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--border)",
     borderRadius: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--surface)",
     overflow: "hidden",
-    boxShadow: "0 18px 40px rgba(15, 23, 42, 0.06)",
+    boxShadow: "var(--card-shadow)",
   },
   jobHeader: {
     display: "flex",
@@ -757,24 +774,24 @@ const styles = {
     justifyContent: "space-between",
     gap: 20,
     padding: 24,
-    borderBottom: "1px solid #e2e8f0",
+    borderBottom: "1px solid var(--border)",
   },
   jobTitle: {
     margin: 0,
     fontSize: "1.3rem",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   jobMeta: {
     margin: "8px 0 0",
-    color: "#475569",
+    color: "var(--muted)",
     fontSize: 14,
   },
   jobStatsRow: {
     display: "flex",
     flexWrap: "wrap",
     gap: 12,
-    color: "#475569",
+    color: "var(--muted)",
     fontSize: 13,
   },
   jobStatItem: {
@@ -783,7 +800,7 @@ const styles = {
     gap: 6,
     padding: "6px 10px",
     borderRadius: 999,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "var(--surface-alt)",
   },
   applicantContainer: {
     display: "grid",
@@ -797,9 +814,9 @@ const styles = {
     gap: 12,
     padding: "12px 14px",
     borderRadius: 12,
-    backgroundColor: "#ffffff",
-    border: "1px solid rgba(2,6,23,0.04)",
-    boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--card-shadow)",
     width: "100%",
     boxSizing: "border-box",
   },
@@ -819,11 +836,11 @@ const styles = {
   applicantName: {
     margin: 0,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   applicantEmail: {
     margin: 4,
-    color: "#475569",
+    color: "var(--muted)",
     fontSize: 13,
   },
   applicantActions: {
@@ -835,25 +852,25 @@ const styles = {
   applicantStatus: {
     padding: "8px 12px",
     borderRadius: 999,
-    backgroundColor: "#e2e8f0",
-    color: "#334155",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--text)",
     fontWeight: 700,
     fontSize: 12,
   },
   viewButton: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#ffffff",
-    border: "1px solid #2563eb",
-    color: "#2563eb",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--accent)",
+    color: "var(--accent)",
     cursor: "pointer",
     fontWeight: 700,
   },
   acceptButton: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#0b69ff",
-    color: "#ffffff",
+    backgroundColor: "var(--accent)",
+    color: "var(--cta-text)",
     border: "none",
     cursor: "pointer",
     fontWeight: 700,
@@ -861,27 +878,27 @@ const styles = {
   rejectButton: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#ffffff",
-    color: "#ef4444",
-    border: "1px solid rgba(239,68,68,0.12)",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--text-h)",
+    border: "1px solid var(--border)",
     cursor: "pointer",
     fontWeight: 700,
   },
   reviewButton: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#ffffff",
-    color: "#0b69ff",
-    border: "1px solid rgba(11,105,255,0.12)",
+    backgroundColor: "var(--surface)",
+    color: "var(--accent)",
+    border: "1px solid rgba(59,130,246,0.12)",
     cursor: "pointer",
     fontWeight: 700,
   },
   removeButton: {
     padding: "8px 12px",
     borderRadius: 10,
-    backgroundColor: "#fff5f5",
-    color: "#b91c1c",
-    border: "1px solid rgba(185,28,28,0.08)",
+    backgroundColor: "var(--surface-alt)",
+    color: "var(--text-h)",
+    border: "1px solid var(--border)",
     cursor: "pointer",
     fontWeight: 700,
   },
@@ -899,11 +916,11 @@ const styles = {
     width: "min(820px, 96%)",
     maxHeight: "90vh",
     overflowY: "auto",
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--surface)",
     borderRadius: 16,
     padding: 28,
-    boxShadow: "0 30px 80px rgba(2,6,23,0.16)",
-    border: "1px solid rgba(2,6,23,0.04)",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border)",
   },
   modalHeader: {
     display: "flex",
@@ -921,66 +938,127 @@ const styles = {
     height: 52,
     borderRadius: "50%",
     objectFit: "cover",
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--border)",
   },
   modalAvatarLarge: {
     width: 120,
     height: 120,
     borderRadius: "50%",
     objectFit: "cover",
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--border)",
   },
   defaultAvatarLarge: {
     width: 120,
     height: 120,
     borderRadius: "50%",
-    background: "#c7d2fe",
+    background: "var(--accent-bg)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: 36,
     fontWeight: 800,
-    color: "#0b69ff",
+    color: "var(--accent)",
+  },
+  modalName: {
+    margin: "16px 0 6px",
+    fontSize: 22,
+    fontWeight: 800,
+    color: "var(--text-h)",
+    lineHeight: 1.1,
+  },
+  modalJobTitle: {
+    color: "var(--muted)",
+    fontSize: 14,
+    lineHeight: 1.5,
+    maxWidth: 260,
+  },
+  profileStats: {
+    display: "grid",
+    gap: 10,
+    width: "100%",
+    marginTop: 18,
+  },
+  statBlock: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    gap: 6,
+    padding: "18px 18px",
+    borderRadius: 16,
+    backgroundColor: "var(--surface-alt)",
+    border: "1px solid var(--border)",
+    width: "100%",
+    textAlign: "left",
+  },
+  modalActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 18,
+    width: "100%",
   },
   modalGrid: {
     display: "grid",
-    gridTemplateColumns: "280px minmax(0, 1fr)",
-    gap: 24,
+    gridTemplateColumns: "minmax(240px, 300px) minmax(0, 1fr)",
+    gap: 28,
     alignItems: "start",
   },
   profileColumn: {
     display: "flex",
     flexDirection: "column",
+    gap: 18,
     alignItems: "flex-start",
   },
   detailsColumn: {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 18,
+    backgroundColor: "var(--surface-alt)",
+    padding: 24,
+    borderRadius: 20,
+    minHeight: 100,
+    alignItems: "flex-start",
+    textAlign: "left",
   },
   infoRow: {
     display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
+    justifyContent: "flex-start",
+    gap: 18,
     alignItems: "flex-start",
-    padding: "6px 0",
-    borderBottom: "1px dashed rgba(2,6,23,0.04)",
+    padding: "10px 0",
+    borderBottom: "1px dashed rgba(2,6,23,0.08)",
+    flexWrap: "wrap",
+    width: "100%",
   },
   infoLabel: {
+    display: "block",
+    marginBottom: 6,
     fontWeight: 800,
-    color: "#0f172a",
+    color: "var(--text-h)",
     minWidth: 100,
     flexShrink: 0,
   },
   infoValue: {
-    color: "#475569",
+    color: "var(--muted)",
+    textAlign: "left",
+    flex: 1,
+    minWidth: 0,
+  },
+  infoBlock: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: "8px 0",
+    width: "100%",
     textAlign: "left",
   },
   infoBlock: {
     padding: "8px 0",
   },
   resumeLink: {
-    color: "#0b69ff",
+    color: "var(--accent)",
     fontWeight: 700,
     textDecoration: "underline",
   },
@@ -988,11 +1066,11 @@ const styles = {
     margin: 0,
     fontSize: "1.6rem",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   modalSubtitle: {
     margin: "6px 0 0",
-    color: "#64748b",
+    color: "var(--muted)",
     fontSize: 14,
     lineHeight: 1.4,
   },
@@ -1001,22 +1079,22 @@ const styles = {
     background: "transparent",
     fontSize: "1.25rem",
     cursor: "pointer",
-    color: "#475569",
+    color: "var(--muted)",
   },
   modalBody: {
     display: "grid",
     gap: 12,
-    color: "#334155",
+    color: "var(--text)",
   },
   modalLabel: {
     margin: 0,
     fontWeight: 700,
     fontSize: 13,
-    color: "#0f172a",
+    color: "var(--text-h)",
   },
   modalValue: {
     margin: 0,
-    color: "#475569",
+    color: "var(--muted)",
     fontSize: 14,
     lineHeight: 1.6,
   },

@@ -1,6 +1,7 @@
 import { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "../components/ThemeSwitch";
 
 export default function Landing() {
@@ -9,6 +10,7 @@ export default function Landing() {
 
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const { translate: t } = useLanguage();
 
   const isAuthenticated =
     !!localStorage.getItem("token");
@@ -49,17 +51,14 @@ export default function Landing() {
             ...styles.heroTitle,
             color: isDarkMode ? "#ffffff" : "#000",
           }}>
-            Welcome to Your
-            Professional Journey
+            {t("landing.welcome")}
           </h1>
 
           <p style={{
             ...styles.heroSubtitle,
             color: isDarkMode ? "#aaa" : "#666",
           }}>
-            Discover amazing job
-            opportunities and connect
-            with leading companies
+            {t("landing.subtitle")}
           </p>
 
           <div
@@ -71,7 +70,7 @@ export default function Landing() {
               }
               onClick={() => navigate("/explore")}
             >
-              Explore Jobs
+              {t("landing.exploreJobs")}
             </button>
 
             <button
@@ -89,8 +88,8 @@ export default function Landing() {
               }}
             >
               {isAuthenticated
-                ? "Complete Profile"
-                : "Get Started"}
+                ? t("landing.completeProfile")
+                : t("landing.getStarted")}
             </button>
           </div>
         </div>
@@ -124,31 +123,31 @@ export default function Landing() {
           ...styles.sectionTitle,
           color: isDarkMode ? "#ffffff" : "#000",
         }}>
-          Why Choose Applica?
+          {t("landing.whyChoose")}
         </h2>
 
         <div style={styles.featuresGrid}>
           <FeatureCard
-            title="Find Perfect Jobs"
-            description="Discover job opportunities tailored to your skills and preferences."
+            title={t("landing.feature1Title")}
+            description={t("landing.feature1Description")}
             isDarkMode={isDarkMode}
           />
 
           <FeatureCard
-            title="Connect with Companies"
-            description="Build relationships with leading organizations and recruiters."
+            title={t("landing.feature2Title")}
+            description={t("landing.feature2Description")}
             isDarkMode={isDarkMode}
           />
 
           <FeatureCard
-            title="Grow Your Career"
-            description="Access resources and guidance to advance your professional journey."
+            title={t("landing.feature3Title")}
+            description={t("landing.feature3Description")}
             isDarkMode={isDarkMode}
           />
 
           <FeatureCard
-            title="Easy Applications"
-            description="Apply to multiple jobs quickly using your profile."
+            title={t("landing.feature4Title")}
+            description={t("landing.feature4Description")}
             isDarkMode={isDarkMode}
           />
         </div>
@@ -160,14 +159,14 @@ export default function Landing() {
           ...styles.sectionTitle,
           color: isDarkMode ? "#ffffff" : "#000",
         }}>
-          Trending Jobs
+          {t("landing.trendingJobs")}
         </h2>
 
         <p style={{
           ...styles.sectionDescription,
           color: isDarkMode ? "#d1d5db" : "#4b5563",
         }}>
-          Do you know the jobs? Discover popular openings and explore a feed of the best roles on the market.
+          {t("landing.jobsDescription")}
         </p>
 
         <div style={styles.jobsList}>
@@ -211,7 +210,7 @@ export default function Landing() {
             }
             onClick={() => navigate("/explore")}
           >
-            View All Jobs
+            {t("landing.viewAllJobs")}
           </button>
         </div>
       </section>
@@ -225,13 +224,11 @@ export default function Landing() {
       }}>
         <div style={styles.ctaContent}>
           <h2 style={styles.ctaTitle}>
-            Ready to Land Your Dream
-            Job?
+            {t("landing.readyTitle")}
           </h2>
 
           <p style={styles.ctaText}>
-            Complete your profile and
-            start applying today.
+            {t("landing.readyText")}
           </p>
 
           <button
@@ -247,8 +244,8 @@ export default function Landing() {
             }}
           >
             {isAuthenticated
-              ? "Complete Your Profile"
-              : "Get Started Now"}
+              ? t("landing.completeYourProfile")
+              : t("landing.getStartedNow")}
           </button>
         </div>
       </section>

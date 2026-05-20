@@ -61,8 +61,10 @@ const CreateJob = () => {
     requirements: "",
     location: "",
     salary: "",
+    externalLink: "",
   });
-
+  const [jobMedia, setJobMedia] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,11 +78,100 @@ const CreateJob = () => {
     }, 3000);
   };
 
+  const autoBulletText = (value) => {
+    return value
+      .split("\n")
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return "";
+        return `- ${trimmed.replace(/^[-*]\s*/, "")}`;
+      })
+      .join("\n");
+  };
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await axios.get("https://nominatim.openstreetmap.org/reverse", {
+        params: {
+          format: "jsonv2",
+          lat,
+          lon: lng,
+          addressdetails: 1,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error("Reverse geocode failed", error);
+      return null;
+    }
+  };
+
+  const formatGeocodedLocation = (data) => {
+    if (!data?.address) return null;
+    const address = data.address;
+
+    const parts = [];
+    if (address.road) parts.push(address.road);
+    if (address.neighbourhood) parts.push(address.neighbourhood);
+    if (address.suburb) parts.push(address.suburb);
+
+    const city = address.city || address.town || address.village || address.hamlet || address.county;
+    if (city && !parts.includes(city)) parts.push(city);
+
+    const region = address.state || address.region || address.county;
+    if (region && !parts.includes(region)) parts.push(region);
+
+    if (parts.length) return parts.join(", ");
+    return data.display_name || null;
+  };
+
+  const fillLocationFromCoords = async (latitude, longitude) => {
+    const data = await reverseGeocode(latitude, longitude);
+    const readableLocation = formatGeocodedLocation(data);
+
+    if (readableLocation) {
+      setFormData((prev) => ({ ...prev, location: readableLocation }));
+      showMessage("Location set to " + readableLocation, "success");
+    } else {
+      setFormData((prev) => ({ ...prev, location: `${latitude},${longitude}` }));
+      showMessage("Unable to determine address; using coordinates as fallback.", "error");
+    }
+  };
+
+  const handleMediaUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = reader.result;
+      const mediaType = file.type.startsWith("video/") ? "video" : "image";
+      setJobMedia({
+        type: mediaType,
+        data: base64Data,
+        contentType: file.type,
+        fileName: file.name,
+      });
+      setMediaPreview(base64Data);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeMedia = () => {
+    setJobMedia(null);
+    setMediaPreview(null);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const formattedValue = ["description", "requirements"].includes(name)
+      ? autoBulletText(value)
+      : value;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: formattedValue,
     }));
   };
 
@@ -97,12 +188,20 @@ const CreateJob = () => {
         return;
       }
 
+      const rawLink = formData.externalLink.trim();
+      const normalizedLink =
+        rawLink && !/^https?:\/\//i.test(rawLink)
+          ? `https://${rawLink}`
+          : rawLink;
+
       const payload = {
         title: formData.title,
         description: formData.description,
         requirements: formData.requirements,
         location: formData.location,
         salary: formData.salary ? parseInt(formData.salary) : 0,
+        externalLink: normalizedLink || undefined,
+        media: jobMedia || undefined,
       };
 
       const response = await axios.post(
@@ -217,9 +316,30 @@ const CreateJob = () => {
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  placeholder="e.g., Manila, NCR"
+                  placeholder="Search city, address, or landmark"
                   style={styles.input}
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!navigator.geolocation) {
+                      showMessage("Geolocation not supported by your browser.", "error");
+                      return;
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                      async (position) => {
+                        const { latitude, longitude } = position.coords;
+                        await fillLocationFromCoords(latitude, longitude);
+                      },
+                      () => {
+                        showMessage("Unable to detect current location.", "error");
+                      }
+                    );
+                  }}
+                  style={styles.locationButton}
+                >
+                  Use current location
+                </button>
               </div>
 
               <div style={styles.formGroup}>
@@ -233,6 +353,64 @@ const CreateJob = () => {
                   style={styles.input}
                 />
               </div>
+            </div>
+
+            <div style={styles.mapPreview}>
+              <iframe
+                title="Job location preview"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                  formData.location || "Philippines"
+                )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                style={styles.mapIframe}
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Application link</label>
+              <input
+                type="text"
+                name="externalLink"
+                value={formData.externalLink}
+                onChange={handleInputChange}
+                placeholder="Optional: website, application form, or company page"
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Job image or video</label>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleMediaUpload}
+                style={styles.fileInput}
+              />
+              {mediaPreview && (
+                <div style={styles.mediaPreviewContainer}>
+                  {jobMedia?.type === "video" ? (
+                    <video
+                      src={mediaPreview}
+                      style={styles.mediaPreviewItem}
+                      controls
+                    />
+                  ) : (
+                    <img
+                      src={mediaPreview}
+                      alt="Job media preview"
+                      style={styles.mediaPreviewItem}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={removeMedia}
+                    style={styles.removeMediaButton}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={styles.formActions}>
@@ -362,7 +540,66 @@ const styles = {
     outline: "none",
     transition: "border-color 0.2s",
   },
-
+  fileInput: {
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "13px",
+    fontFamily: "inherit",
+    outline: "none",
+    transition: "border-color 0.2s",
+  },
+  locationButton: {
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "13px",
+    cursor: "pointer",
+    marginTop: "8px",
+    alignSelf: "flex-start",
+  },
+  mapPreview: {
+    width: "100%",
+    height: "260px",
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid var(--border)",
+  },
+  mapIframe: {
+    width: "100%",
+    height: "100%",
+    border: "0",
+  },
+  mediaPreviewContainer: {
+    position: "relative",
+    marginTop: "12px",
+    borderRadius: "14px",
+    overflow: "hidden",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+  },
+  mediaPreviewItem: {
+    width: "100%",
+    maxHeight: "260px",
+    display: "block",
+    borderRadius: "14px",
+    objectFit: "cover",
+  },
+  removeMediaButton: {
+    position: "absolute",
+    top: "10px",
+    right: "10px",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    border: "none",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
   textarea: {
     padding: "10px 12px",
     borderRadius: "8px",

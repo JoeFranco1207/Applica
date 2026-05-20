@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
+import { useTranslate } from '../hooks/useTranslate';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -26,17 +27,17 @@ const PostCard = ({ post, onUpdate }) => {
     const d = new Date(dateInput);
     const diff = Date.now() - d.getTime();
     const sec = Math.floor(diff / 1000);
-    if (sec < 60) return `${sec}sec`;
+    if (sec < 60) return `${sec}seg`;
     const min = Math.floor(sec / 60);
     if (min < 60) return `${min}min`;
     const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}hr`;
+    if (hr < 24) return `${hr}oras`;
     const day = Math.floor(hr / 24);
-    if (day < 30) return `${day}day`;
+    if (day < 30) return `${day}araw`;
     const month = Math.floor(day / 30);
-    if (month < 12) return `${month}month`;
+    if (month < 12) return `${month}buwan`;
     const year = Math.floor(month / 12);
-    return `${year}yr`;
+    return `${year}taon`;
   };
 
   // Update state when post changes
@@ -130,7 +131,7 @@ const PostCard = ({ post, onUpdate }) => {
 
   const submitComment = async () => {
     if (!commentText.trim()) {
-      alert('Please write a comment');
+      alert('Pakiusap magsulat ng komento');
       return;
     }
 
@@ -150,10 +151,10 @@ const PostCard = ({ post, onUpdate }) => {
       const updatedPost = mergePostData(currentPost, updatedData);
       setCurrentPost(updatedPost);
       onUpdate(updatedPost);
-      alert('Comment posted!');
+      alert('Naipadala ang komento!');
     } catch (error) {
       console.error('Error submitting comment:', error);
-      alert('Failed to post comment: ' + (error.response?.data?.message || error.message));
+      alert('Nabigong mag-post ng komento: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsSubmittingComment(false);
     }
@@ -188,10 +189,10 @@ const PostCard = ({ post, onUpdate }) => {
       const updatedPost = mergePostData(currentPost, updatedData);
       setCurrentPost(updatedPost);
       onUpdate(updatedPost);
-      alert('Post shared successfully!');
+      alert('Matagumpay na naibahagi ang post!');
     } catch (error) {
       console.error('Error sharing post:', error.response?.data || error.message);
-      alert('Failed to share post');
+      alert('Nabigong ibahagi ang post');
     }
   };
 
@@ -212,10 +213,10 @@ const PostCard = ({ post, onUpdate }) => {
         setIsReposted(false);
         setCurrentPost(updatedPost);
         onUpdate(updatedPost);
-        console.log('Repost removed successfully!');
+        console.log('Matagumpay na tanggal ang repost!');
       } catch (error) {
         console.error('Error removing repost:', error.response?.data || error.message);
-        alert('Failed to remove repost');
+        alert('Nabigong tanggalin ang repost');
       }
     } else {
       // Add repost
@@ -234,33 +235,16 @@ const PostCard = ({ post, onUpdate }) => {
         setIsReposted(true);
         setCurrentPost(updatedPost);
         onUpdate(updatedPost);
-        console.log('Post reposted successfully!');
+        console.log('Na-repost na ang post!');
       } catch (error) {
         console.error('Error reposting post:', error.response?.data || error.message);
-        alert('Failed to repost post');
+        alert('Nabigong i-repost ang post');
       }
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    try {
-      console.log('Deleting comment:', commentId);
-      const response = await axios.delete(
-        `http://localhost:8000/api/posts/${currentPost._id}/comment/${commentId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      console.log('Delete comment response:', response.data);
-      const updatedData = response.data.data;
-      const updatedPost = mergePostData(currentPost, updatedData);
-      setCurrentPost(updatedPost);
-      onUpdate(updatedPost);
-    } catch (error) {
-      console.error('Error deleting comment:', error.response?.data || error.message);
-    }
-  };
 
+  const { translated: translatedContent, loading: translating, translateNow } = useTranslate(currentPost.content || '');
 
   return (
     <div className="post-card">
@@ -302,21 +286,30 @@ const PostCard = ({ post, onUpdate }) => {
             >
               {currentPost.authorName}
             </h3>
-            <span className="author-role">{currentPost.authorRole}</span>
-            {currentPost.authorCompanyName && (
-              <span className="author-company">{currentPost.authorCompanyName}</span>
-            )}
-            {currentPost.authorEmail && (
-              <span className="author-email">{currentPost.authorEmail}</span>
-            )}
-            <span className="post-time">{formatRelativeTime(currentPost.createdAt)}</span>
+            <div className="author-meta">
+              <span className="author-role">{currentPost.authorRole}</span>
+              {currentPost.authorCompanyName && (
+                <span className="author-company">{currentPost.authorCompanyName}</span>
+              )}
+              <div className="author-email-date">
+                {currentPost.authorEmail && (
+                  <span className="author-email">{currentPost.authorEmail}</span>
+                )}
+                <span className="post-time">{formatRelativeTime(currentPost.createdAt)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Post Content */}
       <div className="post-content">
-        <p className="post-text">{currentPost.content}</p>
+        <p className="post-text">{translating ? (currentPost.content) : (translatedContent || currentPost.content)}</p>
+        <div style={{ marginTop: 8 }}>
+          <button onClick={() => translateNow(currentPost.content)} style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 12 }}>
+            I-translate
+          </button>
+        </div>
         {currentPost.tags && currentPost.tags.length > 0 && (
           <div className="post-tags">
             {currentPost.tags.map((tag, idx) => (
@@ -342,11 +335,11 @@ const PostCard = ({ post, onUpdate }) => {
 
       {/* Post Stats */}
       <div className="post-stats">
-        <span>{currentPost.likes?.length || 0} Likes</span>
-        <span>{currentPost.comments?.length || 0} Comments</span>
-        <span>{currentPost.views?.length || 0} Views</span>
-        <span>{currentPost.shares?.length || 0} Shares</span>
-        <span>{currentPost.reposts?.length || 0} Reposts</span>
+        <span>{currentPost.likes?.length || 0} Gusto</span>
+        <span>{currentPost.comments?.length || 0} Komento</span>
+        <span>{currentPost.views?.length || 0} Tingin</span>
+        <span>{currentPost.shares?.length || 0} Ibinahagi</span>
+        <span>{currentPost.reposts?.length || 0} I-repost</span>
       </div>
 
       {/* Post Actions */}
@@ -354,35 +347,35 @@ const PostCard = ({ post, onUpdate }) => {
         <button
           className={`action-btn ${isLiked ? 'liked' : ''}`}
           onClick={handleLike}
-          title="Like"
+          title="Gusto"
         >
           ❤️ {currentPost.likes?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={() => setShowCommentModal(true)}
-          title="Comment"
+          title="Magkomento"
         >
           💬 {currentPost.comments?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={handleView}
-          title="View"
+          title="Tingnan"
         >
           👁️ {currentPost.views?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={handleShare}
-          title="Share"
+          title="Ibahagi"
         >
           🔗 {currentPost.shares?.length || 0}
         </button>
         <button
           className={`action-btn ${isReposted ? 'reposted' : ''}`}
           onClick={handleRepost}
-          title="Repost"
+          title="I-repost"
         >
           🔄 {currentPost.reposts?.length || 0}
         </button>
@@ -431,7 +424,7 @@ const PostCard = ({ post, onUpdate }) => {
                       className="delete-comment-btn"
                       onClick={() => handleDeleteComment(comment._id)}
                     >
-                      Delete
+                      Tanggalin
                     </button>
                   )}
                 </div>
@@ -466,7 +459,7 @@ const PostCard = ({ post, onUpdate }) => {
             boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Reply</h2>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Sagot</h2>
               <button 
                 onClick={() => setShowCommentModal(false)}
                 style={{ 
@@ -499,7 +492,7 @@ const PostCard = ({ post, onUpdate }) => {
             <textarea 
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="What do you think?"
+              placeholder="Ano ang iniisip mo?"
               style={{
                 width: '100%',
                 padding: '12px',
@@ -527,7 +520,7 @@ const PostCard = ({ post, onUpdate }) => {
                   fontWeight: '500'
                 }}
               >
-                Cancel
+                Kanselahin
               </button>
               <button
                 onClick={submitComment}
@@ -543,7 +536,7 @@ const PostCard = ({ post, onUpdate }) => {
                   fontWeight: '600'
                 }}
               >
-                {isSubmittingComment ? 'Posting...' : 'Reply'}
+                {isSubmittingComment ? 'Naga-post...' : 'Sagot'}
               </button>
             </div>
           </div>

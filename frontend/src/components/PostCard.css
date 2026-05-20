@@ -54,6 +54,23 @@
   flex-direction: column;
 }
 
+.author-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.author-email-date {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.author-email {
+  font-size: 13px;
+  color: #10766E;
+}
+
 .author-name {
   margin: 0;
   font-size: 14px;

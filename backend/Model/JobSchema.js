@@ -43,6 +43,16 @@ export const jobSchema = new mongoose.Schema({
     },
     location: String,
     salary: Number,
+    externalLink: String,
+    media: {
+      type: {
+        type: String,
+        enum: ["image", "video"],
+      },
+      data: String,
+      contentType: String,
+      fileName: String,
+    },
     views: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: "User",

@@ -4,6 +4,7 @@ import axios from "axios";
 
 import Navbar from "./components/Navbar";
 import NotificationPopup from "./components/NotificationPopup";
+import Footer from "./components/Footer";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
@@ -23,6 +24,7 @@ function Layout() {
       <Navbar />
       <Outlet />
       <NotificationPopup />
+      <Footer />
     </>
   );
 }

@@ -40,11 +40,15 @@ const ProfileSelection = () => {
       return {
         companyName: "",
         companyDescription: "",
+        companySize: "",
+        contactNumber: "",
+        dateEstablished: "",
         location: {
           region: "",
           city: "",
           barangay: "",
           otherDetails: "",
+          coords: null,
         },
         industry: "",
         website: "",
@@ -77,11 +81,12 @@ const ProfileSelection = () => {
       ? [
           data.companyName,
           data.companyDescription,
-          data.location?.region,
-          data.location?.city,
-          data.location?.barangay,
+          data.companySize,
           data.industry,
           data.website,
+          data.contactNumber,
+          data.dateEstablished,
+          locationComplete,
         ]
       : [
           data.bio,
@@ -121,6 +126,13 @@ const ProfileSelection = () => {
         return;
       }
 
+      if (profileProgress < 100) {
+        setProfileError(
+          `Please complete your ${selectedRole === "employer" ? "Employer" : "Jobseeker"} profile before saving. Progress: ${profileProgress}%`
+        );
+        return;
+      }
+
       const roleResponse = await fetch("http://localhost:8000/api/auth/select-role", {
         method: "PUT",
         headers: {
@@ -144,6 +156,9 @@ const ProfileSelection = () => {
         ? {
             companyName: profileData.companyName,
             companyDescription: profileData.companyDescription,
+            companySize: profileData.companySize,
+            contactNumber: profileData.contactNumber,
+            dateEstablished: profileData.dateEstablished,
             companyLocation: profileData.location,
             industry: profileData.industry,
             website: profileData.website,
@@ -196,6 +211,13 @@ const ProfileSelection = () => {
   };
 
   const handleBack = () => {
+    const storedUser = safeGetStoredUser();
+    if (!storedUser.role || storedUser.role === "user") {
+      setProfileError(
+        "Please finish your profile setup before navigating away. Your role and profile information must be completed."
+      );
+      return;
+    }
     navigate("/");
   };
 
@@ -368,6 +390,7 @@ const ProfileSelection = () => {
                 <div style={{ width: 520 }}>
                   {/* Stepper single-field layout */}
                   <ModalStepper
+                    key={selectedRole}
                     role={selectedRole}
                     data={profileData}
                     onChange={(next) => setProfileData(next)}
@@ -726,29 +749,35 @@ backButton: {
 
 // Inline stepper used inside the modal for compact single-field flow
 function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
+  // strictly use explicit role prop to decide employer vs jobseeker steps
   const isEmployer = role === 'employer';
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [role]);
   const employerSteps = [
     { key: 'companyName', label: 'Company Name', type: 'text' },
     { key: 'companyDescription', label: 'Company Description', type: 'textarea' },
+    { key: 'location', label: 'Location Setup', type: 'map' },
     { key: 'industry', label: 'Industry', type: 'text' },
     { key: 'companySize', label: 'Company Size', type: 'select', options: ['1-10','11-50','51-200','201-500','501-1000','1001+'] },
-    { key: 'website', label: 'Website', type: 'text' },
-    { key: 'contactNumber', label: 'Contact Number', type: 'text' },
-    { key: 'dateEstablished', label: 'Established (YYYY-MM-DD)', type: 'date' },
-    { key: 'location', label: 'Location', type: 'map' },
+    { key: 'contactDetails', label: 'Contact Details', type: 'contact' },
+    { key: 'companyIdentity', label: 'Company Identity (Logo + Date Established)', type: 'companyIdentity' },
   ];
 
   const jobseekerSteps = [
+    { key: 'profilePicture', label: 'Profile Picture', type: 'image' },
     { key: 'bio', label: 'Bio', type: 'textarea' },
-    { key: 'experience', label: 'Experience', type: 'text' },
-    { key: 'education', label: 'Education', type: 'text' },
     { key: 'citizenShip', label: 'Citizenship', type: 'select', options: ['Filipino', 'Foreign'] },
     { key: 'location', label: 'Location', type: 'map' },
-    { key: 'resume', label: 'Resume / CV', type: 'file' },
+    { key: 'experience', label: 'Experience', type: 'text' },
+    { key: 'education', label: 'Education', type: 'text' },
+    { key: 'resume', label: 'Resume', type: 'file' },
   ];
 
   const steps = isEmployer ? employerSteps : jobseekerSteps;
-  const [index, setIndex] = useState(0);
+  
 
   const getValue = (key) => {
     if (key === 'location') return data.location || null;
@@ -780,7 +809,10 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
 
   return (
     <div>
-      <div style={{ fontSize: 14, color: '#cbd5e1', marginBottom: 8 }}>{step.label}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#cbd5e1' }}>{step.label}</div>
+        <div style={{ fontSize: 12, color: '#9ca3af' }}>Step {index + 1} / {steps.length}</div>
+      </div>
       <div>
         {step.type === 'textarea' ? (
           <textarea value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.textarea} />
@@ -872,6 +904,58 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
                 />
               </div>
             </div>
+          </div>
+        ) : step.type === 'image' ? (
+          <div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setValue(step.key, file.name);
+                }
+              }}
+              style={styles.input}
+            />
+            {getValue(step.key) && (
+              <div style={{ marginTop: 8, color: '#cbd5e1' }}>Selected image: {getValue(step.key)}</div>
+            )}
+          </div>
+        ) : step.type === 'contact' ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <input
+              type="text"
+              value={getValue('contactNumber') || ''}
+              onChange={(e) => setValue('contactNumber', e.target.value)}
+              placeholder="Contact Number"
+              style={styles.input}
+            />
+            <input
+              type="text"
+              value={getValue('website') || ''}
+              onChange={(e) => setValue('website', e.target.value)}
+              placeholder="Website"
+              style={styles.input}
+            />
+          </div>
+        ) : step.type === 'companyIdentity' ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setValue('companyLogo', file.name);
+              }}
+              style={styles.input}
+            />
+            <input
+              type="date"
+              value={getValue('dateEstablished') || ''}
+              onChange={(e) => setValue('dateEstablished', e.target.value)}
+              style={styles.input}
+            />
           </div>
         ) : step.type === 'file' ? (
           <div>

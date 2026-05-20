@@ -305,11 +305,6 @@ const PostCard = ({ post, onUpdate }) => {
       {/* Post Content */}
       <div className="post-content">
         <p className="post-text">{translating ? (currentPost.content) : (translatedContent || currentPost.content)}</p>
-        <div style={{ marginTop: 8 }}>
-          <button onClick={() => translateNow(currentPost.content)} style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: 12 }}>
-            I-translate
-          </button>
-        </div>
         {currentPost.tags && currentPost.tags.length > 0 && (
           <div className="post-tags">
             {currentPost.tags.map((tag, idx) => (

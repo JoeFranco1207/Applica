@@ -1,7 +1,9 @@
 import Job from "../Model/JobSchema.js";
 import AppError from "../Middleware/AppError.js";
 import User from "../Model/UserSchema.js";
+import Jobseeker from "../Model/JobseekerSchema.js";
 import { createNotificationService } from "./Notification.service.js";
+import { sendApplicantStatusEmail } from "./NodeMailer.js";
 
 export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => {
   const query = Job.find()
@@ -100,8 +102,12 @@ export const applyToJob = async (jobId, userId) => {
     return job;
   }
 
-  const applicantUser = await User.findById(userId).select('resume');
-  if (!applicantUser || !applicantUser.resume) {
+  let applicantUser = await Jobseeker.findById(userId).select('resume');
+  if (!applicantUser) {
+    applicantUser = await User.findById(userId).select('resume');
+  }
+
+  if (!applicantUser || !applicantUser.resume || !applicantUser.resume.toString().trim()) {
     throw new AppError("Please create and save your resume before applying", 400);
   }
 
@@ -209,6 +215,7 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
   job.applicants[applicationIndex] = {
     user: applicantUserId,
     status,
+    resume: entry.resume,
     appliedAt: entry.appliedAt || new Date(),
     updatedAt: new Date(),
   };
@@ -218,6 +225,34 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
     path: "applicants.user",
     select: "_id firstName lastName email phoneNumber bio citizenShip experience education resume location profilePicture",
   });
+
+  const applicantUser = await User.findById(applicantUserId).select('email firstName lastName');
+  if (applicantUser && applicantUser.email) {
+    const applicantName = `${applicantUser.firstName || ''} ${applicantUser.lastName || ''}`.trim();
+    const employerUser = await User.findById(employerId).select('companyName firstName lastName');
+    const employerName = employerUser?.companyName || `${employerUser?.firstName || ''} ${employerUser?.lastName || ''}`.trim() || 'Applica Employer';
+    const message = `Your application for ${job.title} has been ${status}.`;
+
+    try {
+      await createNotificationService({
+        type: 'status',
+        recipient: applicantUser._id,
+        actor: employerId,
+        message,
+        jobId: job._id,
+      });
+    } catch (notificationError) {
+      console.error('Failed to create application status notification:', notificationError);
+    }
+
+    if (status === 'accepted' || status === 'rejected') {
+      try {
+        await sendApplicantStatusEmail(applicantUser.email, status, job.title || 'your job', employerName);
+      } catch (emailError) {
+        console.error('Failed to send applicant status email:', emailError);
+      }
+    }
+  }
 
   return job;
 };

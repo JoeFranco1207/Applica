@@ -387,7 +387,7 @@ export default function BrowseJob() {
       return;
     }
     if (isEmployer) {
-      alert('Hindi maaaring mag-apply ang employer. Lumipat sa jobseeker account upang mag-apply.');
+      alert(t('browse.employerCannotApply'));
       return;
     }
     setApplyJobInfo(job);
@@ -406,13 +406,13 @@ export default function BrowseJob() {
 
     const jobId = applyJobInfo._id || applyJobInfo.id;
     if (!jobId) {
-      setApplyError("Hindi mahanap ang trabaho. I-refresh at subukang muli.");
+      setApplyError(t('browse.jobNotFound'));
       return;
     }
 
     try {
       setJobActionLoading(true);
-      const response = await axios.post(
+        const response = await axios.post(
         `http://localhost:8000/api/jobs/${jobId}/apply`,
         {},
         {
@@ -432,10 +432,18 @@ export default function BrowseJob() {
 
       setShowApplyModal(false);
       setApplyJobInfo(null);
-      alert(`Naipadala na ang iyong aplikasyon para sa ${applyJobInfo.title}.`);
+      alert(`${t('browse.applicationSuccess')}: ${applyJobInfo.title}`);
     } catch (error) {
       console.error("Apply error", error);
-      setApplyError("Hindi maisumite ang aplikasyon. Subukang muli.");
+      const backendMessage = error.response?.data?.message?.toString() || "";
+      const isResumeError = /resume/i.test(backendMessage);
+      setApplyError(
+        backendMessage
+          ? isResumeError
+            ? t('browse.applyErrorResume')
+            : backendMessage
+          : t('browse.applyErrorSubmit')
+      );
     } finally {
       setJobActionLoading(false);
     }
@@ -558,7 +566,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     }
 
     if (!newPostContent.trim()) {
-      alert("Pakiusap magsulat ng isang post bago mag-upload.");
+      alert(t('browse.postContentRequired'));
       return;
     }
 
@@ -1577,11 +1585,6 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
           <div style={{ ...styles.modalCard, background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ ...styles.modalHeader, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
               <h2 style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 800, textAlign: 'left', flex: 1 }}>{translatingModalTitle ? modalJob.title : (translatedModalTitle || modalJob.title)}</h2>
-              <div style={{ marginLeft: 12 }}>
-                <button onClick={() => window.localStorage && (localStorage.removeItem(`translate::tl::${btoa(unescape(encodeURIComponent(modalJob.title))).slice(0,200)}`), window.location.reload())} style={{ background: 'transparent', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: 12 }}>
-                  I-translate (manual)
-                </button>
-              </div>
               <button style={{ ...styles.modalClose, position: 'absolute', right: 12, top: 8 }} onClick={closeJobModal}>✕</button>
             </div>
 
@@ -1691,7 +1694,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 }}
                 onClick={() => handleToggleLike(modalJob._id)}
                 disabled={jobActionLoading}
-                title="Gusto ang trabahong ito"
+                title={t('browse.likeJobTitle')}
               >
                 <HeartIcon filled={modalJob.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
                 <span>{modalJob.likes?.length || 0}</span>
@@ -1700,12 +1703,12 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
                 onClick={() => openApplyModal(modalJob)}
                 disabled={jobActionLoading || isEmployer}
-                title={isEmployer ? 'Hindi makaka-apply ang employer' : 'Mag-apply'}
+                title={isEmployer ? t('browse.applyButtonTitleEmployer') : t('browse.applyNow')}
               >
-                Mag-apply
+                {isEmployer ? t('browse.applyButtonTitleEmployer') : t('browse.applyNow')}
               </button>
               <button style={styles.actionButton} onClick={() => { navigator.share ? navigator.share({ title: modalJob.title, text: modalJob.description }) : alert(modalJob.title + '\n' + modalJob.description); }}>
-                Ibahagi
+                {t('browse.share')}
               </button>
             </div>
             {/* Bottom comment input bar */}
@@ -1719,7 +1722,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               </div>
               <input
                 type="text"
-                placeholder="Sumulat ng sagot..."
+                placeholder={t('browse.commentPlaceholder')}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)', color: '#fff' }}
@@ -1728,7 +1731,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 onClick={handleJobComment}
                 disabled={!commentText.trim()}
                 style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#60a5fa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
-                title="I-post ang sagot"
+                title={t('browse.postAnswerTitle')}
               >
                 ➤
               </button>
@@ -1742,10 +1745,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
           <div style={{ ...styles.modalCard, ...styles.applyModalCard }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div>
-                <h2 style={{ margin: 0 }}>{translatingApplyTitle ? (applyJobInfo.title || applyJobInfo.role || 'Aplikasyon sa Trabaho') : (translatedApplyTitle || applyJobInfo.title || applyJobInfo.role || 'Aplikasyon sa Trabaho')}</h2>
-                <p style={styles.modalCompany}>{applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Kumpanya'} · {applyJobInfo.location || 'Remote'}</p>
-              </div>
-              <button style={styles.modalClose} onClick={closeApplyModal}>✕</button>
+                  <h2 style={{ margin: 0 }}>
+                    {translatingApplyTitle
+                      ? (applyJobInfo.title || applyJobInfo.role || t('browse.applyModalDefaultTitle'))
+                      : (translatedApplyTitle || applyJobInfo.title || applyJobInfo.role || t('browse.applyModalDefaultTitle'))}
+                  </h2>
+                  <p style={styles.modalCompany}>
+                    {applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.company')} · {applyJobInfo.location || t('browse.remote')}
+                  </p>
+                </div>
             </div>
 
             <div style={styles.modalBody}>
@@ -1763,50 +1771,52 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     )}
                   </div>
                   <div style={styles.applyProfileInfo}>
-                    <p style={styles.applyInfoTitle}>In-post ni</p>
+                    <p style={styles.applyInfoTitle}>{t('browse.postedBy')}</p>
                     <p style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-h)' }}>
-                      {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.createdBy?.companyName || applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Employer'}
+                      {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.createdBy?.companyName || applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.employer')}
                     </p>
                     <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Walang email na ibinigay'}
+                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || t('browse.notProvided')}
                     </p>
                     <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {applyJobInfo.createdBy?.role || 'Employer'} · {applyJobInfo.location || 'Remote'}
+                      {applyJobInfo.createdBy?.role || t('browse.employer')} · {applyJobInfo.location || t('browse.remote')}
                     </p>
                   </div>
                 </div>
 
                 <div style={{ marginTop: '16px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Pangkalahatang paglalarawan ng trabaho</p>
-                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>{applyJobInfo.description || applyJobInfo.postedAt || 'Walang inilagay na paglalarawan.'}</p>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>{t('browse.jobDescription')}</p>
+                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>
+                    {applyJobInfo.description || applyJobInfo.postedAt || t('browse.noDescriptionProvided')}
+                  </p>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>Mga Kailangan</p>
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>{t('browse.requirements')}</p>
                   {renderBulletList(applyJobInfo.requirements, { color: 'var(--text-muted)' }) || (
                     <p style={{ margin: 0, lineHeight: 1.7, color: 'var(--text-muted)' }}>
-                      {applyJobInfo.details?.join(', ') || 'Walang inilagay na requirements.'}
+                      {applyJobInfo.details?.join(', ') || t('browse.noRequirementsProvided')}
                     </p>
                   )}
                 </div>
 
                 <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>Detalye ng trabaho</p>
-                  <div style={styles.applyInfoRow}><span>Sahod</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : 'Negoasyable'}</span></div>
-                  <div style={styles.applyInfoRow}><span>Lokasyon</span><span>{applyJobInfo.location || 'Remote'}</span></div>
-                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>Kategorya</span><span>{applyJobInfo.category}</span></div>}
-                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>Uri</span><span>{applyJobInfo.jobType}</span></div>}
-                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>Karanasan</span><span>{applyJobInfo.experienceLevel}</span></div>}
-                  <div style={styles.applyInfoRow}><span>Aplikante</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
-                  <div style={styles.applyInfoRow}><span>Ipinost</span><span>{applyJobInfo.createdAt ? formatDateMonthDay(applyJobInfo.createdAt) : applyJobInfo.postedAt || 'Hindi kilala'}</span></div>
+                  <p style={styles.applyInfoTitle}>{t('browse.jobDetails')}</p>
+                  <div style={styles.applyInfoRow}><span>{t('browse.salary')}</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : t('browse.negotiable')}</span></div>
+                  <div style={styles.applyInfoRow}><span>{t('browse.location')}</span><span>{applyJobInfo.location || t('browse.remote')}</span></div>
+                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>{t('browse.category')}</span><span>{applyJobInfo.category}</span></div>}
+                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>{t('browse.type')}</span><span>{applyJobInfo.jobType}</span></div>}
+                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>{t('browse.experience')}</span><span>{applyJobInfo.experienceLevel}</span></div>}
+                  <div style={styles.applyInfoRow}><span>{t('browse.applicantsCount')}</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
+                  <div style={styles.applyInfoRow}><span>{t('browse.posted')}</span><span>{applyJobInfo.createdAt ? formatDateMonthDay(applyJobInfo.createdAt) : applyJobInfo.postedAt || t('browse.unknown')}</span></div>
                 </div>
 
                 <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>Impormasyon ng kumpanya</p>
-                  <div style={styles.applyInfoRow}><span>Employer</span><span>{applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || 'Employer'}</span></div>
-                  <div style={styles.applyInfoRow}><span>Email</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || 'Hindi ibinigay'}</span></div>
-                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>Kumpanya</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
-                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>Lokasyon</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
+                  <p style={styles.applyInfoTitle}>{t('browse.companyInformation')}</p>
+                  <div style={styles.applyInfoRow}><span>{t('browse.employer')}</span><span>{applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || t('browse.employer')}</span></div>
+                  <div style={styles.applyInfoRow}><span>{t('browse.email')}</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || t('browse.notProvided')}</span></div>
+                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>{t('browse.company')}</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
+                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>{t('browse.location')}</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
                 </div>
               </div>
 
@@ -1814,8 +1824,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', margin: '24px 20px 20px' }}>
-              <button style={styles.secondaryButton} onClick={closeApplyModal}>Kanselahin</button>
-              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>Kumpirmahin ang aplikasyon</button>
+              <button style={styles.secondaryButton} onClick={closeApplyModal}>{t('browse.cancel')}</button>
+              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>{t('browse.confirmApplication')}</button>
             </div>
           </div>
         </div>
@@ -1826,7 +1836,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
         <div style={styles.modalOverlay} onClick={() => setShowLocationModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h2 style={{ margin: 0 }}>Pumili ng Lokasyon</h2>
+              <h2 style={{ margin: 0 }}>{t('browse.chooseLocation')}</h2>
               <button style={styles.modalClose} onClick={() => setShowLocationModal(false)}>✕</button>
             </div>
 

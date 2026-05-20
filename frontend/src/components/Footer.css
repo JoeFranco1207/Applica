@@ -1,33 +1,38 @@
 .app-footer {
   background: var(--surface-strong);
   border-top: 1px solid var(--border);
-  padding: 18px 20px;
+  padding: 24px 20px;
   color: var(--text-muted);
   font-size: 14px;
 }
 
 .footer-inner {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
   display: flex;
   gap: 20px;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
 }
 
-.footer-left, .footer-center, .footer-right {
+.footer-left,
+.footer-center,
+.footer-right {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .footer-brand {
+  font-size: 1.1rem;
   font-weight: 800;
   color: var(--text-h);
 }
 
 .footer-devs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   color: var(--text-muted);
@@ -38,10 +43,32 @@
   color: var(--text-muted);
 }
 
-.footer-links a, .footer-socials a {
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-links a,
+.footer-socials a {
   color: var(--text-muted);
   text-decoration: none;
-  margin-right: 10px;
+}
+
+.footer-links a:hover,
+.footer-socials a:hover {
+  color: var(--text-h);
+}
+
+.footer-right {
+  align-items: flex-end;
+}
+
+.social-label {
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .footer-socials {
@@ -49,10 +76,41 @@
   gap: 10px;
 }
 
+.footer-social-link {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.footer-social-link:hover {
+  transform: translateY(-1px);
+  background: var(--surface-strong);
+  border-color: var(--border);
+}
+
+.footer-social-link svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-h);
+}
+
 .divider {
   opacity: 0.6;
 }
 
 @media (max-width: 700px) {
-  .footer-inner { flex-direction: column; align-items: flex-start; }
+  .footer-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .footer-right {
+    align-items: flex-start;
+  }
 }

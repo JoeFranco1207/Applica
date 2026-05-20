@@ -21,10 +21,6 @@ export const useTranslate = (text, opts = {}) => {
   const doTranslate = async (t) => {
     const src = t ?? text;
     if (!src || typeof src !== 'string') return src;
-    if (!target || target === 'en') {
-      setTranslated(src);
-      return src;
-    }
     const cacheKey = makeCacheKey(src, target);
     const cached = localStorage.getItem(cacheKey);
     if (cached) {

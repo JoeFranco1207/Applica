@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import Navbar from "./components/Navbar";
 import NotificationPopup from "./components/NotificationPopup";
 import Footer from "./components/Footer";
+import GlobalTranslator from "./components/GlobalTranslator";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
@@ -19,9 +20,33 @@ import EmployerApplicants from "./pages/EmployerApplicants";
 import ResumeDesigns from "./pages/ResumeDesigns";
 
 function Layout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let storedUser = null;
+    try {
+      storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (error) {
+      storedUser = null;
+    }
+
+    if (
+      storedUser?.role === "user" &&
+      !location.pathname.startsWith("/create") &&
+      location.pathname !== "/auth"
+    ) {
+      navigate("/create", { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   return (
     <>
       <Navbar />
+      <GlobalTranslator />
       <Outlet />
       <NotificationPopup />
       <Footer />

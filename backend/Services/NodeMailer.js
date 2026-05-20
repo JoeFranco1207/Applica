@@ -24,17 +24,33 @@ return code;
 };
 
 export const sendForgotPasswordEmail = async (to, code) => {
-
-
     await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to,
         subject: 'Your Password Reset Code',
         text: `Your password reset code is: ${code}`,
-    })
+    });
     return code;
 };
 
+export const sendApplicantStatusEmail = async (to, status, jobTitle, employerName) => {
+    const statusText = status === 'accepted' ? 'accepted' : status === 'rejected' ? 'rejected' : status;
+    const subject = `Your application was ${statusText}`;
+    const html = `
+      <p>Hi there,</p>
+      <p>Your application for <strong>${jobTitle}</strong> has been <strong>${statusText}</strong>.</p>
+      ${employerName ? `<p>Employer: <strong>${employerName}</strong></p>` : ''}
+      <p>Open Applica to see the latest status and next steps.</p>
+      <p>Thank you for using Applica.</p>
+    `;
 
+    await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to,
+        subject,
+        html,
+    });
+    return true;
+};
 
-export default {sendVerificationEmail, sendForgotPasswordEmail};
+export default {sendVerificationEmail, sendForgotPasswordEmail, sendApplicantStatusEmail};

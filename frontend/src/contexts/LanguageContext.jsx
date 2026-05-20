@@ -3,16 +3,31 @@ import translations from "../translations";
 
 export const LanguageContext = createContext();
 
+const getStoredUserId = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const storedUser = localStorage.getItem("user");
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    return parsedUser?.id || parsedUser?._id || null;
+  } catch {
+    return null;
+  }
+};
+
 const getInitialLanguage = () => {
   if (typeof window === "undefined") return "en";
-  return localStorage.getItem("language") || "en";
+  const userId = getStoredUserId();
+  const storageKey = userId ? `language_${userId}` : "language";
+  return localStorage.getItem(storageKey) || "en";
 };
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState(getInitialLanguage);
 
   useEffect(() => {
-    localStorage.setItem("language", language);
+    const userId = getStoredUserId();
+    const storageKey = userId ? `language_${userId}` : "language";
+    localStorage.setItem(storageKey, language);
   }, [language]);
 
   const translate = (key, fallback = "") => {

@@ -74,6 +74,7 @@ const NotificationPopup = () => {
       case 'repost':
         return <RepostIcon size={18} />;
       case 'apply':
+      case 'status':
         return <BriefcaseIcon size={18} />;
       default:
         return <BellIcon size={18} />;
@@ -94,6 +95,7 @@ const NotificationPopup = () => {
       case 'repost':
         return '#f39c12';
       case 'apply':
+      case 'status':
         return '#2563eb';
       default:
         return '#34495e';

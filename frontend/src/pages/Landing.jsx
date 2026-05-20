@@ -17,7 +17,12 @@ export default function Landing() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/explore", { replace: true });
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (user?.role === "user") {
+        navigate("/create", { replace: true });
+      } else {
+        navigate("/explore", { replace: true });
+      }
     }
   }, [isAuthenticated, navigate]);
 
@@ -249,146 +254,6 @@ export default function Landing() {
           </button>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer style={{
-        ...styles.footer,
-        backgroundColor: isDarkMode ? "#000000" : "#0f172a",
-      }}>
-        <div style={styles.footerContent}>
-          <div
-            style={styles.footerSection}
-          >
-            <h4
-              style={styles.footerTitle}
-            >
-              About Applica
-            </h4>
-
-            <p style={{
-              ...styles.footerText,
-              color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
-            }}>
-              Connecting talented
-              professionals with
-              leading companies.
-            </p>
-          </div>
-
-          <div
-            style={styles.footerSection}
-          >
-            <h4
-              style={styles.footerTitle}
-            >
-              Quick Links
-            </h4>
-
-            <ul
-              style={styles.footerLinks}
-            >
-              <li>
-                <a
-                  href="#"
-                  style={{
-                    ...styles.footerLink,
-                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
-                  }}
-                >
-                  Browse Jobs
-                </a>
-              </li>
-
-              <li>
-                <a
-                  href="#"
-                  style={{
-                    ...styles.footerLink,
-                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
-                  }}
-                >
-                  Companies
-                </a>
-              </li>
-
-              <li>
-                <a
-                  href="#"
-                  style={{
-                    ...styles.footerLink,
-                    color: isDarkMode ? "#999" : "rgba(255,255,255,0.7)",
-                  }}
-                >
-                  Contact
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div
-            style={styles.footerSection}
-          >
-            <h4
-              style={styles.footerTitle}
-            >
-              Connect With Us
-            </h4>
-
-            <div
-              style={styles.socialLinks}
-            >
-              <a
-                href="#"
-                style={{
-                  ...styles.socialLink,
-                  backgroundColor: isDarkMode 
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(255,255,255,0.1)",
-                }}
-              >
-                f
-              </a>
-
-              <a
-                href="#"
-                style={{
-                  ...styles.socialLink,
-                  backgroundColor: isDarkMode 
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(255,255,255,0.1)",
-                }}
-              >
-                𝕏
-              </a>
-
-              <a
-                href="#"
-                style={{
-                  ...styles.socialLink,
-                  backgroundColor: isDarkMode 
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(255,255,255,0.1)",
-                }}
-              >
-                in
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <div style={{
-          ...styles.footerBottom,
-          borderColor: isDarkMode 
-            ? "rgba(255,255,255,0.1)"
-            : "rgba(255,255,255,0.1)",
-          color: isDarkMode ? "#666" : "rgba(255,255,255,0.6)",
-        }}>
-          <p>
-            © 2026 Applica. All rights
-            reserved.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

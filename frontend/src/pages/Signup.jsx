@@ -454,6 +454,7 @@ export default function Signup() {
               setFocusedField={
                 setFocusedField
               }
+              autoComplete="given-name"
             />
 
             <Input
@@ -471,6 +472,7 @@ export default function Signup() {
               setFocusedField={
                 setFocusedField
               }
+              autoComplete="family-name"
             />
 
             <Input
@@ -489,6 +491,7 @@ export default function Signup() {
               setFocusedField={
                 setFocusedField
               }
+              autoComplete="email"
             />
 
             <Input
@@ -506,6 +509,7 @@ export default function Signup() {
               setFocusedField={
                 setFocusedField
               }
+              autoComplete="tel"
             />
 
             <PasswordInput
@@ -523,6 +527,7 @@ export default function Signup() {
               setShowPassword={
                 setShowPassword
               }
+              autoComplete="new-password"
             />
 
             <PasswordInput
@@ -540,6 +545,7 @@ export default function Signup() {
               setShowPassword={
                 setShowPassword
               }
+              autoComplete="new-password"
             />
 
             {message && (
@@ -617,6 +623,7 @@ export default function Signup() {
               setFocusedField={
                 setFocusedField
               }
+              autoComplete="username"
             />
 
             <PasswordInput
@@ -634,6 +641,7 @@ export default function Signup() {
               setShowPassword={
                 setShowPassword
               }
+              autoComplete="current-password"
             />
 
             {message && (
@@ -729,6 +737,7 @@ function Input({
   focusedField,
   setFocusedField,
   type = "text",
+  autoComplete,
 }) {
   return (
     <div style={styles.inputGroup}>
@@ -759,6 +768,8 @@ function Input({
           type={type}
           name={name}
           value={value}
+          placeholder={label}
+          autoComplete={autoComplete}
           onChange={onChange}
           required
           onFocus={() =>
@@ -787,6 +798,7 @@ function PasswordInput({
   name,
   showPassword,
   setShowPassword,
+  autoComplete,
 }) {
   return (
     <div style={styles.inputGroup}>
@@ -821,6 +833,8 @@ function PasswordInput({
           }
           name={name}
           value={value}
+          placeholder={label}
+          autoComplete={autoComplete}
           onChange={onChange}
           required
           style={

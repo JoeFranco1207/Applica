@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const ProfileSelection = () => {
@@ -19,7 +19,6 @@ const ProfileSelection = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileError, setProfileError] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [profileProgress, setProfileProgress] = useState(0);
   const [profileData, setProfileData] = useState({});
 
   useEffect(() => {
@@ -59,7 +58,7 @@ const ProfileSelection = () => {
       bio: "",
       experience: "",
       education: "",
-      citizenShip: "Filipino",
+      citizenShip: "",
       resume: "",
       location: {
         region: "",
@@ -71,13 +70,23 @@ const ProfileSelection = () => {
     };
   };
 
-  const computeProgress = useCallback((data) => {
+  const computeProgress = (data, roleToUse = selectedRole) => {
     if (!data) return 0;
-    const locationComplete = data.location?.coords?.lat && data.location?.coords?.lng
-      ? true
-      : data.location?.region && data.location?.city && data.location?.barangay;
+    const role = typeof roleToUse === 'string' ? roleToUse.toLowerCase() : roleToUse;
 
-    const fields = selectedRole === "employer"
+    const locationComplete = Boolean(
+      (data.location?.coords?.lat && data.location?.coords?.lng) ||
+      (data.location?.region && data.location?.city && data.location?.barangay)
+    );
+
+    const normalize = (value) => {
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return !Number.isNaN(value);
+      return Boolean(value);
+    };
+
+    const fields = role === 'employer'
       ? [
           data.companyName,
           data.companyDescription,
@@ -86,23 +95,24 @@ const ProfileSelection = () => {
           data.website,
           data.contactNumber,
           data.dateEstablished,
+          data.companyLogo,
           locationComplete,
         ]
       : [
           data.bio,
+          data.citizenShip,
           data.experience,
           data.education,
-          data.citizenShip,
           data.resume,
           locationComplete,
         ];
 
     const filled = fields.reduce(
-      (count, value) => count + (value ? 1 : 0),
+      (count, value) => count + (normalize(value) ? 1 : 0),
       0
     );
-    return Math.round((filled / fields.length) * 100);
-  }, [selectedRole]);
+    return fields.length ? Math.round((filled / fields.length) * 100) : 0;
+  };
 
   const handleContinue = () => {
     if (selectedRole) {
@@ -112,9 +122,7 @@ const ProfileSelection = () => {
     }
   };
 
-  useEffect(() => {
-    setProfileProgress(computeProgress(profileData));
-  }, [profileData, computeProgress]);
+  const profileProgress = computeProgress(profileData, selectedRole);
 
   const handleSaveProfile = async () => {
     try {
@@ -369,7 +377,7 @@ const ProfileSelection = () => {
       </div>
 
       {showProfileModal && (
-            <div style={styles.modalOverlay} onClick={() => setShowProfileModal(false)}>
+            <div style={styles.modalOverlay}>
               <div
                 style={{ ...styles.modalContainer, width: 'min(920px, 95vw)', display: 'flex', gap: 24, alignItems: 'center' }}
                 onClick={(e) => e.stopPropagation()}
@@ -752,9 +760,12 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
   // strictly use explicit role prop to decide employer vs jobseeker steps
   const isEmployer = role === 'employer';
   const [index, setIndex] = useState(0);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
 
   useEffect(() => {
     setIndex(0);
+    setLocationError(null);
   }, [role]);
   const employerSteps = [
     { key: 'companyName', label: 'Company Name', type: 'text' },
@@ -767,7 +778,6 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
   ];
 
   const jobseekerSteps = [
-    { key: 'profilePicture', label: 'Profile Picture', type: 'image' },
     { key: 'bio', label: 'Bio', type: 'textarea' },
     { key: 'citizenShip', label: 'Citizenship', type: 'select', options: ['Filipino', 'Foreign'] },
     { key: 'location', label: 'Location', type: 'map' },
@@ -796,7 +806,31 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
     if (onChange) onChange(next);
   };
 
+  const isStepComplete = (currentStep) => {
+    if (!currentStep) return false;
+
+    if (currentStep.type === 'map') {
+      const location = getValue('location');
+      return Boolean(
+        (location?.coords?.lat && location?.coords?.lng) ||
+          (location?.region && location?.city && location?.barangay)
+      );
+    }
+
+    if (currentStep.type === 'contact') {
+      return Boolean(getValue('contactNumber') && getValue('website'));
+    }
+
+    if (currentStep.type === 'companyIdentity') {
+      return Boolean(getValue('companyLogo') && getValue('dateEstablished'));
+    }
+
+    return Boolean(getValue(currentStep.key));
+  };
+
   const handleNext = () => {
+    const currentStep = steps[index];
+    if (!isStepComplete(currentStep)) return;
     if (index === steps.length - 1) {
       if (onSave) onSave();
       return;
@@ -805,46 +839,83 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
   };
   const handleBack = () => setIndex((i) => Math.max(0, i - 1));
 
-  const step = steps[index];
+  const step = steps[index] || steps[0];
 
   return (
-    <div>
+    <div key={step.key}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#cbd5e1' }}>{step.label}</div>
         <div style={{ fontSize: 12, color: '#9ca3af' }}>Step {index + 1} / {steps.length}</div>
       </div>
       <div>
         {step.type === 'textarea' ? (
-          <textarea value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.textarea} />
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            <textarea value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.textarea} />
+          </div>
         ) : step.type === 'select' ? (
-          <select value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.input}>
-            <option value="">Select {step.label}</option>
-            {step.options.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            <select value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.input}>
+              <option value="">Select {step.label}</option>
+              {step.options.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
         ) : step.type === 'map' ? (
           <div>
+            <label style={styles.label}>{step.label}</label>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <button
+                type="button"
                 onClick={() => {
                   if (!navigator.geolocation) return alert('Geolocation not supported by your browser.');
+                  setLocationLoading(true);
+                  setLocationError(null);
                   navigator.geolocation.getCurrentPosition((pos) => {
                     const { latitude: lat, longitude: lng } = pos.coords;
                     const existingLocation = getValue('location') || {};
-                    setValue('location', {
-                      ...existingLocation,
-                      coords: { lat, lng },
-                      otherDetails: `${lat},${lng}`,
-                    });
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
+                      .then((response) => response.json())
+                      .then((data) => {
+                        const address = data.address || {};
+                        const region = address.state || address.county || address.region || '';
+                        const city = address.city || address.town || address.village || address.municipality || '';
+                        const barangay = address.suburb || address.neighbourhood || address.hamlet || '';
+                        const otherDetails = [
+                          address.road,
+                          address.house_number,
+                          address.postcode,
+                          address.city_district,
+                        ]
+                          .filter(Boolean)
+                          .join(', ');
+
+                        setValue('location', {
+                          ...existingLocation,
+                          coords: { lat, lng },
+                          region,
+                          city,
+                          barangay,
+                          otherDetails: otherDetails || data.display_name || `${lat},${lng}`,
+                        });
+                      })
+                      .catch(() => {
+                        setLocationError('Unable to resolve your address automatically. Please enter it manually.');
+                      })
+                      .finally(() => setLocationLoading(false));
                   }, () => {
-                    alert('Unable to retrieve your location. Please allow location access.');
+                    setLocationLoading(false);
+                    setLocationError('Unable to retrieve your location. Please allow location access.');
                   });
                 }}
                 style={styles.confirmButton}
+                disabled={locationLoading}
               >
-                Use my current location
+                {locationLoading ? 'Finding address…' : 'Use my current location'}
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   const loc = getValue('location');
                   const coords = loc && loc.coords;
@@ -869,6 +940,9 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
 
             <div style={{ marginTop: 16 }}>
               <div style={{ marginBottom: 8, color: '#cbd5e1' }}>You can also enter your address manually if needed.</div>
+              {locationError && (
+                <div style={{ marginBottom: 12, color: '#f87171' }}>{locationError}</div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <input
                   type="text"
@@ -907,6 +981,7 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
           </div>
         ) : step.type === 'image' ? (
           <div>
+            <label style={styles.label}>{step.label}</label>
             <input
               type="file"
               accept="image/*"
@@ -923,42 +998,49 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
             )}
           </div>
         ) : step.type === 'contact' ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            <input
-              type="text"
-              value={getValue('contactNumber') || ''}
-              onChange={(e) => setValue('contactNumber', e.target.value)}
-              placeholder="Contact Number"
-              style={styles.input}
-            />
-            <input
-              type="text"
-              value={getValue('website') || ''}
-              onChange={(e) => setValue('website', e.target.value)}
-              placeholder="Website"
-              style={styles.input}
-            />
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input
+                type="text"
+                value={getValue('contactNumber') || ''}
+                onChange={(e) => setValue('contactNumber', e.target.value)}
+                placeholder="Contact Number"
+                style={styles.input}
+              />
+              <input
+                type="text"
+                value={getValue('website') || ''}
+                onChange={(e) => setValue('website', e.target.value)}
+                placeholder="Website"
+                style={styles.input}
+              />
+            </div>
           </div>
         ) : step.type === 'companyIdentity' ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) setValue('companyLogo', file.name);
-              }}
-              style={styles.input}
-            />
-            <input
-              type="date"
-              value={getValue('dateEstablished') || ''}
-              onChange={(e) => setValue('dateEstablished', e.target.value)}
-              style={styles.input}
-            />
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setValue('companyLogo', file.name);
+                }}
+                style={styles.input}
+              />
+              <input
+                type="date"
+                value={getValue('dateEstablished') || ''}
+                onChange={(e) => setValue('dateEstablished', e.target.value)}
+                style={styles.input}
+              />
+            </div>
           </div>
         ) : step.type === 'file' ? (
           <div>
+            <label style={styles.label}>{step.label}</label>
             <input
               type="file"
               accept=".pdf,.doc,.docx"
@@ -975,16 +1057,16 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
             )}
           </div>
         ) : (
-          <input type={step.type === 'date' ? 'date' : 'text'} value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.input} />
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            <input type={step.type === 'date' ? 'date' : 'text'} value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.input} />
+          </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-        <button onClick={onClose} style={styles.cancelButton}>Skip for now</button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleBack} disabled={index === 0} style={{ ...styles.cancelButton, opacity: index === 0 ? 0.5 : 1 }}>Back</button>
-          <button onClick={handleNext} style={styles.confirmButton} disabled={loading}>{index === steps.length - 1 ? (loading ? 'Saving...' : 'Save Profile') : 'Next'}</button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <button type="button" onClick={handleBack} disabled={index === 0} style={{ ...styles.cancelButton, opacity: index === 0 ? 0.5 : 1 }}>Back</button>
+        <button type="button" onClick={handleNext} style={styles.confirmButton} disabled={loading || !isStepComplete(step)}>{index === steps.length - 1 ? (loading ? 'Saving...' : 'Save Profile') : 'Next'}</button>
       </div>
     </div>
   );

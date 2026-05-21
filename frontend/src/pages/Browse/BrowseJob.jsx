@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import "./BrowseJob.css";
@@ -577,6 +577,26 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     setShowJobModal(false);
     setModalJob(null);
   };
+
+  // Open job modal if navigation provided an openJobId state or query param
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      const jobIdFromState = location?.state?.openJobId;
+      const params = new URLSearchParams(location.search || '');
+      const jobIdFromQuery = params.get('jobId') || params.get('job_id');
+      const jobIdToOpen = jobIdFromState || jobIdFromQuery;
+      if (jobIdToOpen) {
+        openJobModal(jobIdToOpen);
+        // clear history state/query to avoid reopening repeatedly
+        if (window && window.history && window.history.replaceState) {
+          try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, [location?.state, location?.search]);
 
   const handleToggleLike = async (jobId) => {
     if (!token) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import './Notifications.css';
 
 // Icon Components
@@ -76,12 +77,13 @@ const Notifications = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        'http://localhost:8000/api/notifications?limit=100',
+        'http://localhost:8000/api/notifications?limit=1000',
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setNotifications((response.data.data.notifications || []).filter(isRelevantNotification));
+      // show all notifications (no client-side type filtering)
+      setNotifications(response.data.data.notifications || []);
       setError(null);
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -106,7 +108,7 @@ const Notifications = () => {
       );
       setNotifications((prev) =>
         prev.map((notif) =>
-          notif._id === notificationId ? { ...notif, read: true } : notif
+          (notif._id === notificationId || notif.id === notificationId) ? { ...notif, read: true } : notif
         )
       );
     } catch (error) {
@@ -123,10 +125,56 @@ const Notifications = () => {
         }
       );
       setNotifications((prev) =>
-        prev.filter((notif) => notif._id !== notificationId)
+        prev.filter((notif) => (notif._id || notif.id) !== notificationId)
       );
     } catch (error) {
       console.error('Error deleting notification:', error);
+    }
+  };
+
+  const navigate = useNavigate();
+
+  const resolveId = (maybeObj) => {
+    if (!maybeObj) return null;
+    return typeof maybeObj === 'string' ? maybeObj : (maybeObj._id || maybeObj.id || null);
+  };
+
+  const openNotification = async (notification) => {
+    if (!notification) return;
+    const nid = notification._id || notification.id || (notification._id && notification._id.toString());
+    try {
+      // mark read on server
+      if (nid) {
+        await axios.patch(
+          `http://localhost:8000/api/notifications/${nid}/read`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setNotifications((prev) => prev.map((n) => ((n._id === nid || n.id === nid) ? { ...n, read: true } : n)));
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    // route to post if present
+    const postId = resolveId(notification.postId) || notification.postId;
+    if (postId) {
+      navigate(`/post/${postId}${notification.commentId ? `?commentId=${notification.commentId}` : ''}`);
+      return;
+    }
+
+    // route to job if present
+    const jobId = resolveId(notification.jobId) || notification.jobId;
+    if (jobId) {
+      navigate(`/explore?jobId=${encodeURIComponent(jobId)}`, { state: { openJobId: jobId } });
+      return;
+    }
+
+    // route to actor profile when available
+    const actorId = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor || null;
+    if (actorId) {
+      navigate(`/profile/${actorId}`);
+      return;
     }
   };
 
@@ -193,24 +241,26 @@ const Notifications = () => {
         <div className="notifications-list">
           {notifications.map((notification) => (
             <div
-              key={notification._id}
+              key={notification._id || notification.id}
               className={`notification-item ${notification.read ? 'read' : 'unread'}`}
+              onClick={() => openNotification(notification)}
             >
               <div className="notification-icon">
                 {getNotificationIcon(notification.type)}
               </div>
               <div className="notification-body">
                 <div className="notification-author">
-                  {notification.actorAvatar && (
+                  {(notification.actorAvatar || notification.actor?.profilePicture) && (
                     <img
-                      src={notification.actorAvatar}
-                      alt={notification.actorName}
+                      src={notification.actorAvatar || notification.actor?.profilePicture}
+                      alt={notification.actorName || (notification.actor && (notification.actor.firstName || notification.actor.name)) || 'User'}
                       className="notification-avatar"
+                      onClick={(e) => { e.stopPropagation(); const aid = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor; if (aid) navigate(`/profile/${aid}`); }}
                     />
                   )}
                   <div className="notification-info">
                     <h3 className="notification-title">
-                      {getNotificationTitle(notification.type, notification.actorName)}
+                      <span onClick={(e) => { e.stopPropagation(); const aid = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor; if (aid) navigate(`/profile/${aid}`); }}>{getNotificationTitle(notification.type, notification.actorName || (notification.actor && `${notification.actor.firstName || ''} ${notification.actor.lastName || ''}`.trim()))}</span>
                     </h3>
                     <span className="notification-time">
                       {new Date(notification.createdAt).toLocaleString()}
@@ -225,7 +275,7 @@ const Notifications = () => {
                 {!notification.read && (
                   <button
                     className="action-btn read-btn"
-                    onClick={() => handleMarkAsRead(notification._id)}
+                    onClick={(e) => { e.stopPropagation(); handleMarkAsRead(notification._id || notification.id); }}
                     title="Mark as read"
                   >
                     ✓
@@ -233,7 +283,7 @@ const Notifications = () => {
                 )}
                 <button
                   className="action-btn delete-btn"
-                  onClick={() => handleDelete(notification._id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(notification._id || notification.id); }}
                   title="Delete"
                 >
                   ✕

@@ -5,6 +5,7 @@ import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "./ThemeSwitch";
+import NotificationPanel from "./NotificationPanel";
 
 const BellIcon = ({ size = 20, count = 0 }) => (
   <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -206,38 +207,8 @@ export default function Navbar() {
                   <BellIcon size={20} count={unreadCount} />
                 </button>
                 {notificationOpen && (
-                  <div style={styles.notificationDropdown}>
-                    {notifications.length === 0 ? (
-                      <div style={styles.notificationItem}>
-                        No new notifications
-                      </div>
-                    ) : (
-                      notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          style={{
-                            ...styles.notificationItem,
-                            ...(notification.read ? styles.notificationItemRead : styles.notificationItemUnread),
-                          }}
-                          onClick={async () => {
-                            if (notification.id) {
-                              await markNotificationAsRead(notification.id);
-                            }
-                            if (notification.postId) {
-                              const postId = typeof notification.postId === 'string'
-                                ? notification.postId
-                                : notification.postId?._id || notification.postId?.id || null;
-                              if (postId) {
-                                navigate(`/post/${postId}`);
-                              }
-                            }
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, marginBottom: 4 }}>{notification.actorName || 'New notification'}</div>
-                          <div style={{ fontSize: 13, color: notification.read ? '#374151' : '#6b7280' }}>{notification.message}</div>
-                        </div>
-                      ))
-                    )}
+                  <div style={styles.notificationPanel}>
+                    <NotificationPanel onClose={() => setNotificationOpen(false)} />
                   </div>
                 )}
               </div>

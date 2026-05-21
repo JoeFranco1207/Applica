@@ -60,6 +60,17 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const token = localStorage.getItem('token');
+  const relevantNotificationTypes = ['like', 'share', 'repost', 'comment', 'reply', 'apply', 'status'];
+
+  const isRelevantNotification = (notification) => {
+    if (!notification || !notification.type) return false;
+    if (!relevantNotificationTypes.includes(notification.type)) return false;
+    if (notification.type === 'status') {
+      const message = String(notification.message || '').toLowerCase();
+      return /accept|accepted|reject|rejected|rejection/.test(message);
+    }
+    return true;
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -70,7 +81,7 @@ const Notifications = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setNotifications(response.data.data.notifications || []);
+      setNotifications((response.data.data.notifications || []).filter(isRelevantNotification));
       setError(null);
     } catch (err) {
       console.error('Error fetching notifications:', err);

@@ -26,7 +26,9 @@ export const createNotificationService = async (notificationData) => {
       throw new AppError('Actor user not found', 404);
     }
 
-    actorName = `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() || actorUser.email;
+    actorName = actorUser.role === 'employer'
+      ? actorUser.companyName || `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() || actorUser.email
+      : `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() || actorUser.email;
     actorAvatar = actorUser.role === 'employer' ? actorUser.companyLogo : actorUser.profilePicture;
   }
 
@@ -99,10 +101,13 @@ export const createSystemNotificationService = async (recipient, message, type =
 };
 
 export const getNotificationsService = async (userId, options = {}) => {
-  const { limit = 50, skip = 0, unreadOnly = false } = options;
+  const { limit = 50, skip = 0, unreadOnly = false, types } = options;
 
   const filter = { recipient: userId };
   if (unreadOnly) filter.read = false;
+  if (types && types.length > 0) {
+    filter.type = { $in: types };
+  }
 
   const notifications = await Notification.find(filter)
     .sort({ createdAt: -1 })
@@ -141,11 +146,17 @@ export const deleteNotificationService = async (notificationId) => {
   return result;
 };
 
-export const getUnreadCountService = async (userId) => {
-  const count = await Notification.countDocuments({
+export const getUnreadCountService = async (userId, options = {}) => {
+  const { types } = options;
+  const filter = {
     recipient: userId,
     read: false,
-  });
+  };
 
+  if (types && types.length > 0) {
+    filter.type = { $in: types };
+  }
+
+  const count = await Notification.countDocuments(filter);
   return count;
 };

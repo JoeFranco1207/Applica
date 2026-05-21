@@ -22,6 +22,9 @@ const applicantSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  rejectedAt: {
+    type: Date,
+  },
 });
 
 export const jobSchema = new mongoose.Schema({

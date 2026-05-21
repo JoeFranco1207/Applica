@@ -374,7 +374,6 @@ export default function BrowseJob() {
   const [applyJobInfo, setApplyJobInfo] = useState(null);
   const [applyError, setApplyError] = useState("");
   const [userLikes, setUserLikes] = useState(new Set());
-  const [feedNotifications, setFeedNotifications] = useState([]);
 
   // Listen for profile updates and update displayed social posts and job employer avatars/names
   useEffect(() => {
@@ -917,25 +916,6 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     }
   };
 
-  const dismissNotification = async (notificationId) => {
-    setFeedNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-    
-    // Mark as read in backend
-    try {
-      await axios.patch(
-        `http://localhost:8000/api/notifications/${notificationId}/read`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-    } catch (error) {
-      console.error("Error marking notification as read", error);
-    }
-  };
-
   const handleRepost = async (postId) => {
     if (!token) {
       navigate('/auth');
@@ -1008,44 +988,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       }
     };
 
-    const fetchNotifications = async () => {
-      if (!token) return;
-      try {
-        const response = await axios.get("http://localhost:8000/api/notifications", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
-        // Safely extract notifications array
-        const notificationsArray = response.data?.data?.notifications || [];
-        
-        // Only show unread notifications as feed notifications
-        const unreadNotifs = notificationsArray.filter((n) => !n.read);
-        const formattedNotifs = unreadNotifs.map((n) => ({
-          id: n._id,
-          type: n.type,
-          author: n.actorName,
-          message: n.message,
-          postId: n.postId,
-          jobId: n.jobId,
-        }));
-        
-        setFeedNotifications(formattedNotifs);
-      } catch (error) {
-        console.error("Notifications fetch error:", error?.response?.status, error?.message);
-        // Don't throw - silently fail, notifications are optional
-      }
-    };
-
     fetchJobs();
     fetchSocialPosts();
-    fetchNotifications();
-    
-    // Poll for new notifications every 5 seconds
-    const notificationInterval = setInterval(fetchNotifications, 5000);
-    
-    return () => clearInterval(notificationInterval);
   }, [token]);
 
   const tabs = ["forYou", "following", "job", "post", "saved"];
@@ -1959,48 +1903,6 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
         </div>
       )}
 
-      {/* Toast Notifications */}
-      <div style={styles.notificationToastContainer}>
-        {feedNotifications.map((notif) => (
-          <div key={notif.id} style={styles.notificationToast}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'white', lineHeight: '1.3' }}>
-                  {notif.type === 'like' ? '❤️' : '📨'} {notif.author}
-                </div>
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', marginTop: '6px', lineHeight: '1.4' }}>
-                  {notif.message}
-                </div>
-              </div>
-              <button
-                onClick={() => dismissNotification(notif.id)}
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  lineHeight: '1',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: '24px',
-                  minHeight: '24px',
-                  transition: 'background 0.2s',
-                  flexShrink: 0,
-                }}
-                onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.25)'}
-                onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
-                title="Isara ang abiso"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

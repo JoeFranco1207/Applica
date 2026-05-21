@@ -3,7 +3,6 @@ import { Routes, Route, Outlet, useLocation, useNavigate } from "react-router-do
 import axios from "axios";
 
 import Navbar from "./components/Navbar";
-import NotificationPopup from "./components/NotificationPopup";
 import Footer from "./components/Footer";
 import GlobalTranslator from "./components/GlobalTranslator";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -49,7 +48,6 @@ function Layout() {
       <Navbar />
       <GlobalTranslator />
       <Outlet />
-      <NotificationPopup />
       <Footer />
     </>
   );

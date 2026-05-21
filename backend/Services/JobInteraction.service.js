@@ -92,15 +92,15 @@ export const applyToJob = async (jobId, userId) => {
     throw new AppError("Job not found", 404);
   }
 
-  if (
-    job.applicants.some(
-      (application) =>
-        application.user?.toString() === userId.toString() ||
-        application.toString() === userId.toString()
-    )
-  ) {
-    return job;
-  }
+  const existingApplication = job.applicants.find((application) => {
+    if (application.user) {
+      return application.user.toString() === userId.toString();
+    }
+    if (application._id) {
+      return application._id.toString() === userId.toString();
+    }
+    return application.toString() === userId.toString();
+  });
 
   let applicantUser = await Jobseeker.findById(userId).select('resume');
   if (!applicantUser) {
@@ -111,13 +111,36 @@ export const applyToJob = async (jobId, userId) => {
     throw new AppError("Please create and save your resume before applying", 400);
   }
 
-  job.applicants.push({
-    user: userId,
-    resume: applicantUser.resume,
-    status: "pending",
-    appliedAt: new Date(),
-    updatedAt: new Date(),
-  });
+  if (existingApplication) {
+    if (existingApplication.status === 'rejected') {
+      const rejectedAt = existingApplication.rejectedAt || existingApplication.updatedAt || existingApplication.appliedAt;
+      const reapplyDelayMs = 20 * 24 * 60 * 60 * 1000;
+      const canReapplyAt = new Date(new Date(rejectedAt).getTime() + reapplyDelayMs);
+
+      if (new Date() < canReapplyAt) {
+        throw new AppError(
+          "You can reapply to this job only after 20 days from rejection.",
+          400
+        );
+      }
+
+      existingApplication.status = 'pending';
+      existingApplication.resume = applicantUser.resume;
+      existingApplication.appliedAt = new Date();
+      existingApplication.updatedAt = new Date();
+      existingApplication.rejectedAt = undefined;
+    } else {
+      throw new AppError("You have already applied for this job", 400);
+    }
+  } else {
+    job.applicants.push({
+      user: userId,
+      resume: applicantUser.resume,
+      status: "pending",
+      appliedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
 
   await job.save();
 
@@ -128,7 +151,9 @@ export const applyToJob = async (jobId, userId) => {
         type: 'apply',
         recipient: creatorId,
         actor: userId,
-        message: `applied for ${job.title || 'your job'}`,
+        message: existingApplication
+          ? `re-applied for ${job.title || 'your job'}`
+          : `applied for ${job.title || 'your job'}`,
         jobId: job._id,
       });
     } catch (notificationError) {
@@ -218,6 +243,7 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
     resume: entry.resume,
     appliedAt: entry.appliedAt || new Date(),
     updatedAt: new Date(),
+    rejectedAt: status === 'rejected' ? new Date() : undefined,
   };
 
   await job.save();
@@ -231,7 +257,10 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
     const applicantName = `${applicantUser.firstName || ''} ${applicantUser.lastName || ''}`.trim();
     const employerUser = await User.findById(employerId).select('companyName firstName lastName');
     const employerName = employerUser?.companyName || `${employerUser?.firstName || ''} ${employerUser?.lastName || ''}`.trim() || 'Applica Employer';
-    const message = `Your application for ${job.title} has been ${status}.`;
+    const message =
+      status === 'rejected'
+        ? `Your application for ${job.title} has been rejected. You can reapply after 20 days.`
+        : `Your application for ${job.title} has been ${status}.`;
 
     try {
       await createNotificationService({

@@ -85,36 +85,11 @@ const HeartIcon = ({ size = 16 }) => (
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [dbNotifications, setDbNotifications] = useState([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(false);
   const navigate = useNavigate();
+  const { notifications, unreadCount, markNotificationAsRead, fetchNotifications } = useNotification();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { unreadCount, markAsRead } = useNotification();
   const token = localStorage.getItem("token");
   const user = token ? JSON.parse(localStorage.getItem("user") || "{}") : null;
-
-  // Fetch notifications from database
-  const fetchNotifications = async () => {
-    try {
-      setLoadingNotifs(true);
-      const response = await fetch('http://localhost:8000/api/notifications?limit=20', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setDbNotifications(data.data.notifications || []);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
-      setLoadingNotifs(false);
-    }
-  };
-
-  // Fetch notifications when dropdown opens
-  useEffect(() => {
-    if (notificationOpen && token) {
-      fetchNotifications();
-    }
-  }, [notificationOpen]);
 
   const { language, setLanguage, translate } = useLanguage();
   const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
@@ -215,119 +190,53 @@ export default function Navbar() {
             <>
               <div style={styles.notificationMenu}>
                 <button
-                  style={{...styles.notificationButton, cursor: 'pointer'}}
-                  onClick={() => {
-                    const isOpening = !notificationOpen;
-                    setNotificationOpen(isOpening);
-                    if (!isOpening) {
-                      markAsRead();
-                    }
-                  }}
+                  type="button"
+                  style={{ ...styles.notificationButton, cursor: 'pointer' }}
                   title="Notifications"
+                  onClick={() => {
+                    setNotificationOpen((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        fetchNotifications();
+                      }
+                      return next;
+                    });
+                  }}
                 >
                   <BellIcon size={20} count={unreadCount} />
                 </button>
                 {notificationOpen && (
-                  <div style={{
-                    ...styles.notificationPanel,
-                    backgroundColor: "var(--surface-strong)",
-                    borderColor: "var(--border)",
-                    color: "var(--text)",
-                  }}>
-                    <div style={styles.notificationPanelHeader}>
-                      <h3 style={{margin: 0, fontSize: '18px', fontWeight: 700}}>Notifications</h3>
-                    </div>
-                    {loadingNotifs ? (
-                      <div style={{padding: '20px', textAlign: 'center', color: 'var(--text-muted)'}}>
-                        Loading...
-                      </div>
-                    ) : dbNotifications.length === 0 ? (
-                      <div style={{padding: '20px', textAlign: 'center', color: 'var(--text-muted)'}}>
-                        No notifications yet
+                  <div style={styles.notificationDropdown}>
+                    {notifications.length === 0 ? (
+                      <div style={styles.notificationItem}>
+                        No new notifications
                       </div>
                     ) : (
-                      <div style={styles.notificationList}>
-                        {dbNotifications.map((notif) => (
-                          <div
-                            key={notif._id}
-                            onClick={async () => {
-                              try {
-                                const token = localStorage.getItem('token');
-                                if (token) {
-                                  await fetch(`http://localhost:8000/api/notifications/${notif._id}/read`, {
-                                    method: 'POST',
-                                    headers: { Authorization: `Bearer ${token}` },
-                                  });
-                                }
-                              } catch (err) {
-                                console.error('Failed to mark notification read', err);
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          style={{
+                            ...styles.notificationItem,
+                            ...(notification.read ? styles.notificationItemRead : styles.notificationItemUnread),
+                          }}
+                          onClick={async () => {
+                            if (notification.id) {
+                              await markNotificationAsRead(notification.id);
+                            }
+                            if (notification.postId) {
+                              const postId = typeof notification.postId === 'string'
+                                ? notification.postId
+                                : notification.postId?._id || notification.postId?.id || null;
+                              if (postId) {
+                                navigate(`/post/${postId}`);
                               }
-
-                              // Navigate to post view, include commentId if present
-                              if (notif.postId) {
-                                const pid = typeof notif.postId === 'string'
-                                  ? notif.postId
-                                  : (notif.postId && (notif.postId._id || notif.postId.id || notif.postId.toString())) || null;
-                                if (pid) {
-                                  const commentQuery = notif.commentId ? `?commentId=${notif.commentId}` : '';
-                                  navigate(`/post/${pid}${commentQuery}`);
-                                }
-                              }
-                            }}
-                            style={{
-                              ...styles.notificationItemPanel,
-                              backgroundColor: notif.read ? 'transparent' : 'rgba(52, 152, 219, 0.05)',
-                              borderColor: "var(--border)",
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <div style={{display: 'flex', gap: '12px'}}>
-                              {notif.actorAvatar ? (
-                                <img 
-                                  src={notif.actorAvatar} 
-                                  alt={notif.actorName}
-                                  style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '50%',
-                                    flexShrink: 0,
-                                    objectFit: 'cover'
-                                  }}
-                                />
-                              ) : (
-                                <div style={{
-                                  width: '40px',
-                                  height: '40px',
-                                  borderRadius: '50%',
-                                  background: '#3498db',
-                                  flexShrink: 0
-                                }}/>
-                              )}
-                              <div style={{flex: 1}}>
-                                <div style={{fontSize: '13px', fontWeight: 600}}>
-                                  {notif.actorName}
-                                </div>
-                                <div style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px'}}>
-                                  {notif.message}
-                                </div>
-                                <div style={{fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px'}}>
-                                  {new Date(notif.createdAt).toLocaleDateString()} {new Date(notif.createdAt).toLocaleTimeString()}
-                                </div>
-                              </div>
-                              {!notif.read && (
-                                <div style={{
-                                  width: '8px',
-                                  height: '8px',
-                                  borderRadius: '50%',
-                                  background: '#3498db',
-                                  flexShrink: 0,
-                                  marginTop: '4px'
-                                }}/>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                            }
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>{notification.actorName || 'New notification'}</div>
+                          <div style={{ fontSize: 13, color: notification.read ? '#374151' : '#6b7280' }}>{notification.message}</div>
+                        </div>
+                      ))
                     )}
                   </div>
                 )}
@@ -556,6 +465,14 @@ const styles = {
     transition: "background 0.2s",
     fontSize: 13,
     lineHeight: 1.4,
+  },
+  notificationItemUnread: {
+    backgroundColor: "#f8fafc",
+    color: "#475569",
+  },
+  notificationItemRead: {
+    backgroundColor: "#ffffff",
+    color: "#1f2937",
   },
   notificationPanel: {
     position: "absolute",

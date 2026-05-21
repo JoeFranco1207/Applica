@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 import { io } from 'socket.io-client';
 
 const NotificationContext = createContext();
@@ -17,10 +18,79 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
 
-  // Initialize socket connection
+  const relevantNotificationTypes = ['like', 'share', 'repost', 'comment', 'reply', 'apply', 'status'];
+
+  const isRelevantNotification = (notification) => {
+    if (!notification || !notification.type) return false;
+    if (!relevantNotificationTypes.includes(notification.type)) return false;
+    if (notification.type === 'status') {
+      const message = String(notification.message || '').toLowerCase();
+      return /accept|accepted|reject|rejected|rejection/.test(message);
+    }
+    return true;
+  };
+
+  const fetchUnreadCount = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await fetch(
+        'http://localhost:8000/api/notifications/unread/count?types=like,share,repost,comment,reply,apply,status',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+      if (data?.data?.count != null) {
+        setUnreadCount(data.data.count);
+      }
+    } catch (err) {
+      console.error('Failed to fetch unread notification count:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await fetch(
+        'http://localhost:8000/api/notifications?types=like,share,repost,comment,reply,apply,status',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+      const items = (data?.data?.notifications || [])
+        .filter(isRelevantNotification)
+        .map((notification) => ({
+          id: notification._id || notification.id,
+          ...notification,
+          createdAt: notification.createdAt || new Date(),
+        }));
+      setNotifications(items);
+      setUnreadCount(items.filter((notification) => !notification.read).length);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
+  // Initialize socket connection and unread badge count
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId');
+    let userId = null;
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      userId = storedUser?._id || storedUser?.id || null;
+    } catch (err) {
+      userId = null;
+    }
+
+    fetchUnreadCount();
+    fetchNotifications();
 
     if (token && userId) {
       console.log('Initializing Socket.IO connection for user:', userId);
@@ -45,22 +115,23 @@ export const NotificationProvider = ({ children }) => {
 
       newSocket.on('notification', (notification) => {
         console.log('Received notification:', notification);
-        
-        // Add notification to state
-        const newNotif = {
+
+        if (!isRelevantNotification(notification)) {
+          return;
+        }
+
+        // Keep unread badge updated in real time
+        setUnreadCount((prev) => prev + 1);
+
+        setNotifications((prev) => [
+          {
             id: notification._id || notification.id || Date.now(),
             ...notification,
             read: false,
             createdAt: notification.createdAt || new Date(),
-          };
-        
-        setNotifications((prev) => [newNotif, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-        
-        // Optional: Auto-dismiss after 5 seconds
-        setTimeout(() => {
-          removeNotification(newNotif.id);
-        }, 5000);
+          },
+          ...prev,
+        ]);
       });
 
       newSocket.on('disconnect', () => {
@@ -89,6 +160,29 @@ export const NotificationProvider = ({ children }) => {
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
   };
 
+  const markNotificationAsRead = async (notificationId) => {
+    const token = localStorage.getItem('token');
+    if (!token || !notificationId) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:8000/api/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setNotifications((prev) => prev.map((notification) =>
+        notification.id === notificationId ? { ...notification, read: true } : notification
+      ));
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+  };
+
   const clearNotifications = () => {
     setNotifications([]);
     setUnreadCount(0);
@@ -103,6 +197,8 @@ export const NotificationProvider = ({ children }) => {
     socket,
     unreadCount,
     removeNotification,
+    markNotificationAsRead,
+    fetchNotifications,
     clearNotifications,
     markAsRead,
     isConnected,

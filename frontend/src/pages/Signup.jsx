@@ -202,12 +202,13 @@ export default function Signup() {
     try {
       setLoading(true);
 
+      const deviceInfo = `${navigator.platform} - ${navigator.userAgent}`;
       const res = await axios.post(
         "http://localhost:8000/api/auth/Login",
         {
           email: loginData.email,
-          password:
-            loginData.password,
+          password: loginData.password,
+          deviceInfo,
         }
       );
 
@@ -230,6 +231,18 @@ export default function Signup() {
             t("signup.loginSuccess"),
           "success"
         );
+
+        // If the user exists but is NOT verified, show the verification modal
+        const loggedUser = res.data.data.user;
+        if (loggedUser && !loggedUser.isVerified) {
+          setVerificationEmail(loggedUser.email || loginData.email);
+          setShowVerificationModal(true);
+          await handleSendVerificationCode(loggedUser.email || loginData.email);
+
+          // clear sensitive fields and stop further navigation so user can verify
+          setLoginData({ email: "", password: "" });
+          return;
+        }
 
         setTimeout(() => {
           const user = res.data.data.user;
@@ -259,11 +272,19 @@ export default function Signup() {
         password: "",
       });
     } catch (err) {
-      showMessage(
-        err.response?.data?.message ||
-          "Invalid credentials.",
-        "error"
-      );
+      if (err.response?.status === 409) {
+        showMessage(
+          err.response?.data?.message ||
+            "This account is already logged in. Please log out from the other device first.",
+          "error"
+        );
+      } else {
+        showMessage(
+          err.response?.data?.message ||
+            "Invalid credentials.",
+          "error"
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -707,6 +728,11 @@ export default function Signup() {
           onSubmit={
             handleVerifyCode
           }
+          onResend={() =>
+            handleSendVerificationCode(
+              verificationEmail || loginData.email
+            )
+          }
           loading={
             verificationLoading
           }
@@ -865,6 +891,7 @@ function VerificationModal({
   verificationCode,
   setVerificationCode,
   onSubmit,
+  onResend,
   loading,
   onClose,
 }) {
@@ -920,6 +947,22 @@ function VerificationModal({
               ? "Verifying..."
               : "Verify Code"}
           </button>
+          <div style={{marginTop:12, display:'flex', justifyContent:'center'}}>
+            <button
+              type="button"
+              onClick={onResend}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontWeight: 700
+              }}
+              disabled={loading}
+            >
+              {loading ? 'Sending...' : 'Resend code'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

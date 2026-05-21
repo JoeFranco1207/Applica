@@ -1,6 +1,7 @@
 import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService, deleteUserService } from '../Services/User.service.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
+import User from '../Model/UserSchema.js';
 import jwt from 'jsonwebtoken';
 //USER CONTROLLER
 
@@ -63,11 +64,13 @@ export const Register = async(req,res,next)=>{
 };
 
     export const Login = async(req,res,next)=>{
-   const {email, password} = req.body;
+   const {email, password, deviceInfo} = req.body;
      try{
-        const response = await loginService(email, password);
-        const {token, user} = response;
-         res.cookie(
+        const response = await loginService(email, password, deviceInfo);
+        const {token, user, alreadyLoggedIn} = response;
+
+        if (token) {
+         return res.cookie(
       'Authorization',
       'Bearer ' + token,
       {
@@ -78,8 +81,19 @@ export const Register = async(req,res,next)=>{
       }
     ).json({
       success: true,
-      message: response.message, 
+      message: response.message,
        data: {user, token}});
+        }
+
+        if (alreadyLoggedIn) {
+          return res.status(409).json({
+            success: false,
+            message: 'This account is already logged in on another device.',
+            data: { user }
+          });
+        }
+
+        return res.success(new AppSuccessful("Email not verified", 200, { user }));
      
         }catch(err){
           console.log(err);
@@ -87,22 +101,23 @@ export const Register = async(req,res,next)=>{
         }};
 
     //Logging Out
- export const Logout = async(req, res)=>{
-  const result = await LogOutService();
-            try{
-             res.clearCookie('Authorization', {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Strict'
-            }).json({success:true, message: "User logged out successfully"});
-            
-            if(!res.clearCookie){
-                return next(new AppError("Logout failed", 400));
-            }
-        }catch(err){
-            return next(err);
-           }
-        }
+ export const Logout = async(req, res, next)=>{
+   try {
+     await User.findByIdAndUpdate(req.user.id, {
+       activeSessionToken: null,
+       activeSessionDevice: "",
+       activeSessionExpires: null,
+     });
+
+     return res.clearCookie('Authorization', {
+       httpOnly: true,
+       secure: process.env.NODE_ENV === 'production',
+       sameSite: 'Strict'
+     }).json({success:true, message: "User logged out successfully"});
+   } catch (err) {
+     return next(err);
+   }
+ }
 
 
 

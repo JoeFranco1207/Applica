@@ -497,7 +497,22 @@ export const recordViewService = async (userId, postId) => {
     }
   }
 
-  return post;
+  // Enrich with fresh user data before returning
+  const postObj = post.toObject();
+  try {
+    const user = await User.findById(post.author);
+    if (user) {
+      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
+      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+    }
+  } catch (err) {
+    console.log('Error enriching post with user data in recordViewService:', err);
+  }
+
+  return postObj;
 };
 
 // Share functionality
@@ -530,7 +545,22 @@ export const sharePostService = async (userId, postId) => {
     }
   }
 
-  return post;
+  // Enrich with fresh user data before returning
+  const postObj = post.toObject();
+  try {
+    const user = await User.findById(post.author);
+    if (user) {
+      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
+      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+    }
+  } catch (err) {
+    console.log('Error enriching post with user data in sharePostService:', err);
+  }
+
+  return postObj;
 };
 
 // Repost functionality
@@ -565,7 +595,22 @@ export const repostService = async (userId, postId) => {
     });
   }
 
-  return post;
+  // Enrich with fresh user data before returning
+  const postObj = post.toObject();
+  try {
+    const user = await User.findById(post.author);
+    if (user) {
+      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
+      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+    }
+  } catch (err) {
+    console.log('Error enriching post with user data in repostService:', err);
+  }
+
+  return postObj;
 };
 
 export const removeRepostService = async (userId, postId) => {
@@ -577,6 +622,22 @@ export const removeRepostService = async (userId, postId) => {
 
   post.reposts.splice(repostIndex, 1);
   await post.save();
-  return post;
+
+  // Enrich with fresh user data before returning
+  const postObj = post.toObject();
+  try {
+    const user = await User.findById(post.author);
+    if (user) {
+      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
+      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      postObj.authorRole = user.role;
+      postObj.authorEmail = user.email;
+      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+    }
+  } catch (err) {
+    console.log('Error enriching post with user data in removeRepostService:', err);
+  }
+
+  return postObj;
 };
 

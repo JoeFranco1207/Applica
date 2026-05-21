@@ -4,19 +4,40 @@ import User from '../Model/UserSchema.js';
 import AppError from '../Middleware/AppError.js';
 
 export const protection = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization || req.headers.Authorization;
 
   try {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return next(new AppError("Unauthorized", 401));
+    if (!authHeader || typeof authHeader !== 'string') {
+      return next(new AppError("Unauthorized: missing authorization header", 401));
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
-    const user = await User.findById(decoded.id);
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : authHeader.trim();
+
+    if (!token) {
+      return next(new AppError("Unauthorized: missing token", 401));
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return next(new AppError("Session expired. Please log in again.", 401));
+      }
+      return next(new AppError("Unauthorized: invalid token", 401));
+    }
+
+    const user = await User.findById(decoded.id).select('+activeSessionToken');
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401));
+      return next(new AppError("Unauthorized: user not found", 401));
+    }
+
+    const storedToken = user.activeSessionToken?.trim();
+    if (storedToken && storedToken !== token) {
+      return next(new AppError("Unauthorized: session no longer active. Please log in again.", 401));
     }
 
     req.user = {
@@ -28,7 +49,7 @@ export const protection = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.log(err);
+    console.log('Protection middleware error:', err);
     next(new AppError("Unauthorized", 401));
   }
 };

@@ -1,4 +1,5 @@
 import { useState, useContext, useEffect } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
@@ -129,12 +130,29 @@ export default function Navbar() {
     : "U";
   const profileImage = user?.profilePicture || user?.companyLogo || null;
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setMenuOpen(false);
-    navigate("/auth");
-    window.location.reload();
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        await axios.post(
+          "http://localhost:8000/api/auth/logout",
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.log("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setMenuOpen(false);
+      navigate("/auth");
+      window.location.reload();
+    }
   };
 
   return (

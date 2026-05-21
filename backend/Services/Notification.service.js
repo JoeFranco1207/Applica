@@ -8,26 +8,34 @@ import { sendNotificationToUser } from '../server.js';
 export const createNotificationService = async (notificationData) => {
   const { type, recipient, actor, message, postId, jobId, commentId, replyId } = notificationData;
 
-  if (!recipient || !actor) {
-    throw new AppError('Recipient and actor are required', 400);
+  if (!recipient) {
+    throw new AppError('Recipient is required', 400);
   }
 
-  // Don't notify user about their own actions
-  if (recipient.toString() === actor.toString()) {
-    return null;
-  }
+  let actorName = 'Applica';
+  let actorAvatar = '';
+  let actorId = actor || null;
 
-  const actorUser = await User.findById(actor);
-  if (!actorUser) {
-    throw new AppError('Actor user not found', 404);
+  if (actor) {
+    if (recipient.toString() === actor.toString()) {
+      return null;
+    }
+
+    const actorUser = await User.findById(actor);
+    if (!actorUser) {
+      throw new AppError('Actor user not found', 404);
+    }
+
+    actorName = `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() || actorUser.email;
+    actorAvatar = actorUser.role === 'employer' ? actorUser.companyLogo : actorUser.profilePicture;
   }
 
   const notification = await Notification.create({
     type,
     recipient,
-    actor,
-    actorName: `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() || actorUser.email,
-    actorAvatar: actorUser.role === 'employer' ? actorUser.companyLogo : actorUser.profilePicture,
+    actor: actorId,
+    actorName,
+    actorAvatar,
     message,
     postId,
     commentId,
@@ -41,7 +49,7 @@ export const createNotificationService = async (notificationData) => {
     sendNotificationToUser(recipient, {
       _id: notification._id,
       type,
-      actor,
+      actor: actorId,
       actorName: notification.actorName,
       actorAvatar: notification.actorAvatar,
       message,
@@ -49,6 +57,38 @@ export const createNotificationService = async (notificationData) => {
       commentId,
       replyId,
       jobId,
+      createdAt: notification.createdAt,
+    });
+  } catch (err) {
+    console.error('Error sending real-time notification:', err);
+  }
+
+  return notification;
+};
+
+export const createSystemNotificationService = async (recipient, message, type = 'status') => {
+  if (!recipient) {
+    throw new AppError('Recipient is required', 400);
+  }
+
+  const notification = await Notification.create({
+    type,
+    recipient,
+    actor: null,
+    actorName: 'Applica',
+    actorAvatar: '',
+    message,
+    read: false,
+  });
+
+  try {
+    sendNotificationToUser(recipient, {
+      _id: notification._id,
+      type,
+      actor: null,
+      actorName: notification.actorName,
+      actorAvatar: notification.actorAvatar,
+      message,
       createdAt: notification.createdAt,
     });
   } catch (err) {

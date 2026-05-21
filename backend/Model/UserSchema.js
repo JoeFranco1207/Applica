@@ -50,6 +50,19 @@ const userSchema = new mongoose.Schema({
       type: Date,
       select: false,
     },
+    activeSessionToken: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    activeSessionDevice: {
+      type: String,
+      default: "",
+    },
+    activeSessionExpires: {
+      type: Date,
+      default: null,
+    },
 
     forgotPasswordCode: {
       type: Number,

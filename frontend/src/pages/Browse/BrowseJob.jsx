@@ -1418,7 +1418,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                         color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
                       }}
                       onClick={() => togglePostLike(post._id)}
-                      title="Gusto ang post na ito"
+                      title={t('browse.likePostTitle')}
                     >
                       <HeartIcon 
                         filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
@@ -1428,7 +1428,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     </button>
                     <button
                       style={styles.engagementButton}
-                      title="Tingnan ang post at magkomento"
+                      title={t('browse.commentPostTitle')}
                       onClick={() => openPostModal(post)}
                     >
                       <CommentIcon size={16} />
@@ -1436,7 +1436,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     </button>
                     <button 
                       style={styles.engagementButton} 
-                      title="I-repost ang post na ito"
+                      title={t('browse.repostPostTitle')}
                       onClick={() => handleRepost(post._id)}
                     >
                       <RepostIcon size={16} />
@@ -1444,7 +1444,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     </button>
                     <button 
                       style={styles.engagementButton} 
-                      title="Ibahagi ang post na ito"
+                      title={t('browse.sharePostTitle')}
                       onClick={() => handleSharePost(post._id)}
                     >
                       <ShareIcon size={16} />
@@ -1534,9 +1534,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               )}
 
               <div style={styles.postStatsRow}>
-                <span style={styles.postStatItem}> {post.applicants} aplikante</span>
-                <span style={styles.postStatItem}> {post.views} tingin</span>
-                <span style={styles.postStatItem}> {post.likes} gusto</span>
+                  <span style={styles.postStatItem}> {post.applicants} {t('browse.applicants')}</span>
+                  <span style={styles.postStatItem}> {post.views} {t('browse.views')}</span>
+                  <span style={styles.postStatItem}> {post.likes} {t('browse.likes')}</span>
               </div>
 
               <div style={styles.postActionRow}>
@@ -1556,7 +1556,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   }}
                   onClick={() => handleToggleLike(post.id)}
                   disabled={jobActionLoading}
-                  title={post.userLiked ? 'Hindi na gusto ang post na ito' : 'Gusto ang post na ito'}
+                  title={t('browse.likePostTitle')}
                 >
                   <HeartIcon filled={post.userLiked} size={16} />
                   <span>{post.likes}</span>

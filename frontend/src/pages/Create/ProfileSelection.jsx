@@ -152,6 +152,13 @@ const ProfileSelection = () => {
 
       if (!roleResponse.ok) {
         const message = await roleResponse.text();
+        if (roleResponse.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setProfileError("Session expired or invalid. Please log in again.");
+          navigate('/auth');
+          return;
+        }
         setProfileError(message || "Failed to select role.");
         return;
       }

@@ -1,11 +1,13 @@
 import express from 'express';
-import { Register, Login, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, deleteUser } from '../Controller/UserController.js';
+import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, deleteUser } from '../Controller/UserController.js';
 import { jobseekerProfile } from '../Controller/JobSeekerProfileController.js';
 import { protection } from '../Controller/ProtectionController.js';
 const router = express.Router();
 
+
 router.post('/register', Register);
 router.post('/login', Login);
+router.post('/logout', protection, Logout);
 router.post('/sendVerificationCode', sendVerificationCode);
 router.put('/verifyCode', verifyCode);
 router.put('/select-role', protection, chooseRole);

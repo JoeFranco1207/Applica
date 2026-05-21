@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
 import { useTranslate } from '../hooks/useTranslate';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -18,9 +19,11 @@ const PostCard = ({ post, onUpdate }) => {
   const [isReposted, setIsReposted] = useState(false);
   const [currentPost, setCurrentPost] = useState(post);
   const [authorAvatarError, setAuthorAvatarError] = useState(false);
+  const profileUpdateTimeoutRef = useRef(null);
 
   const userId = localStorage.getItem('userId');
   const token = localStorage.getItem('token');
+  const { translate } = useLanguage();
 
   const formatRelativeTime = (dateInput) => {
     if (!dateInput) return '';
@@ -58,37 +61,57 @@ const PostCard = ({ post, onUpdate }) => {
     setIsReposted(!!hasReposted);
   }, [post, userId]);
 
-  // Listen for profile updates and update this card if the author changed their avatar/name
+  // Listen for profile updates and refresh this post's display data
   useEffect(() => {
-    const handler = (e) => {
+    const handler = async (e) => {
       const updatedUser = e?.detail;
       if (!updatedUser || !currentPost) return;
-      try {
-        const authorId = typeof currentPost.author === 'object' ? (currentPost.author._id || currentPost.author) : currentPost.author;
-        const updatedUserId = updatedUser._id || updatedUser.id;
-        if (authorId && updatedUserId && authorId.toString() === updatedUserId.toString()) {
+      
+      const updatedUserId = updatedUser._id || updatedUser.id;
+      if (!updatedUserId) return;
+
+      const postAuthorId = typeof currentPost.author === 'object' 
+        ? (currentPost.author._id || currentPost.author) 
+        : currentPost.author;
+      
+      if (!postAuthorId || postAuthorId.toString() !== updatedUserId.toString()) {
+        return;
+      }
+
+      // Clear any pending timeout to debounce rapid profile updates
+      if (profileUpdateTimeoutRef.current) {
+        clearTimeout(profileUpdateTimeoutRef.current);
+      }
+
+      // Debounce: wait 300ms before fetching to batch rapid updates
+      profileUpdateTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await axios.get(`http://localhost:8000/api/posts/${currentPost._id}?t=${Date.now()}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const updatedData = response.data.data || {};
+          const merged = { ...currentPost, ...updatedData };
+          setCurrentPost(merged);
+          if (onUpdate) onUpdate(merged);
+        } catch (error) {
+          // Fallback: use the event detail to update immediately
           setCurrentPost((prev) => ({
             ...prev,
             authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || prev.authorAvatar,
             authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || prev.authorName,
           }));
-          // notify parent
-          if (onUpdate) {
-            onUpdate({
-              ...currentPost,
-              authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo,
-              authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email,
-            });
-          }
         }
-      } catch (err) {
-        // ignore
-      }
+      }, 300);
     };
 
     window.addEventListener('app:profileUpdated', handler);
-    return () => window.removeEventListener('app:profileUpdated', handler);
-  }, [currentPost, onUpdate]);
+    return () => {
+      window.removeEventListener('app:profileUpdated', handler);
+      if (profileUpdateTimeoutRef.current) {
+        clearTimeout(profileUpdateTimeoutRef.current);
+      }
+    };
+  }, [currentPost, token, onUpdate]);
 
   if (!post || !post._id) return null;
 
@@ -362,11 +385,11 @@ const PostCard = ({ post, onUpdate }) => {
 
       {/* Post Stats */}
       <div className="post-stats">
-        <span>{currentPost.likes?.length || 0} Gusto</span>
-        <span>{currentPost.comments?.length || 0} Komento</span>
-        <span>{currentPost.views?.length || 0} Tingin</span>
-        <span>{currentPost.shares?.length || 0} Ibinahagi</span>
-        <span>{currentPost.reposts?.length || 0} I-repost</span>
+        <span>{currentPost.likes?.length || 0} {translate('browse.likes')}</span>
+        <span>{currentPost.comments?.length || 0} {translate('browse.comments')}</span>
+        <span>{currentPost.views?.length || 0} {translate('browse.views')}</span>
+        <span>{currentPost.shares?.length || 0} {translate('browse.shares')}</span>
+        <span>{currentPost.reposts?.length || 0} {translate('browse.reposts')}</span>
       </div>
 
       {/* Post Actions */}
@@ -374,35 +397,35 @@ const PostCard = ({ post, onUpdate }) => {
         <button
           className={`action-btn ${isLiked ? 'liked' : ''}`}
           onClick={handleLike}
-          title="Gusto"
+          title={translate('browse.likePostTitle')}
         >
           ❤️ {currentPost.likes?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={() => setShowCommentModal(true)}
-          title="Magkomento"
+          title={translate('browse.commentPostTitle')}
         >
           💬 {currentPost.comments?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={handleView}
-          title="Tingnan"
+          title={translate('browse.viewPostTitle')}
         >
           👁️ {currentPost.views?.length || 0}
         </button>
         <button
           className="action-btn"
           onClick={handleShare}
-          title="Ibahagi"
+          title={translate('browse.sharePostTitle')}
         >
           🔗 {currentPost.shares?.length || 0}
         </button>
         <button
           className={`action-btn ${isReposted ? 'reposted' : ''}`}
           onClick={handleRepost}
-          title="I-repost"
+          title={translate('browse.repostPostTitle')}
         >
           🔄 {currentPost.reposts?.length || 0}
         </button>

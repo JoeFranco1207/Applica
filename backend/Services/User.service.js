@@ -9,7 +9,8 @@ import AppSuccessful from '../Middleware/AppSuccessful.js'
 import { doHash, doHashValidation  } from '../validator/Hashing.js';
 import jwt from 'jsonwebtoken';
 import { signupValidation, phoneNumberValidation } from '../validator/Validator.js';
-import {sendVerificationEmail, sendForgotPasswordEmail} from '../Services/NodeMailer.js';
+import {sendVerificationEmail, sendForgotPasswordEmail, sendLoginNotificationEmail} from '../Services/NodeMailer.js';
+import { createSystemNotificationService } from './Notification.service.js';
 
 
 export const registerService = async (data) => { 
@@ -144,8 +145,8 @@ export const sendVerificationCodeService = async(email) =>{
   };
 };
 
-export const loginService = async(email, password) => {
-      const existingUser = await User.findOne({email}).select('+password');
+export const loginService = async(email, password, deviceInfo) => {
+      const existingUser = await User.findOne({email}).select('+password +activeSessionToken');
         if(!existingUser){
             throw new AppError("Invalid Email or Password", 400)
         }
@@ -154,20 +155,61 @@ export const loginService = async(email, password) => {
         if(!isPasswordValid){
             throw new AppError("Invalid Email or Password", 400)
         }
+
+        const safeUser = existingUser.toObject();
+        delete safeUser.password;
+
+        if (!existingUser.isVerified) {
+            return { user: safeUser };
+        }
+
+        const now = Date.now();
+        const activeToken = existingUser.activeSessionToken;
+        const activeExpires = existingUser.activeSessionExpires?.getTime?.() ?? existingUser.activeSessionExpires;
+        const hasActiveSession = activeToken && (!activeExpires || activeExpires > now);
+
+        if (hasActiveSession) {
+            await sendLoginNotificationEmail(
+              existingUser.email,
+              deviceInfo,
+              existingUser.activeSessionDevice
+            );
+
+            await createSystemNotificationService(
+              existingUser._id,
+              `A login attempt was made while your Applica account was already active on another session. If this wasn't you, please secure your account immediately.`,
+              'status'
+            );
+
+            return {
+              user: safeUser,
+              alreadyLoggedIn: true,
+              currentDevice: existingUser.activeSessionDevice || 'Unknown device',
+            };
+        }
+
+        if (activeToken && activeExpires && activeExpires <= now) {
+            existingUser.activeSessionToken = null;
+            existingUser.activeSessionDevice = "";
+            existingUser.activeSessionExpires = null;
+        }
+
         const token = jwt.sign({
             email: existingUser.email,
-            id: existingUser._id, 
-            verified: existingUser.verified
-            
-        },process.env.TOKEN_SECRET, {
+            id: existingUser._id,
+            verified: existingUser.isVerified
+        }, process.env.TOKEN_SECRET, {
             expiresIn: "8h"
         });
-        const user = existingUser.toObject();
-        delete user.password;
-        return {token, user};
+
+        existingUser.activeSessionToken = token;
+        existingUser.activeSessionDevice = deviceInfo || "Unknown device";
+        existingUser.activeSessionExpires = new Date(now + 8 * 60 * 60 * 1000);
+        await existingUser.save();
+
+        return { token, user: safeUser };
     
 }
-
 
 export const chooseRoleService = async(userId, role) => {
 

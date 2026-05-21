@@ -53,4 +53,24 @@ export const sendApplicantStatusEmail = async (to, status, jobTitle, employerNam
     return true;
 };
 
-export default {sendVerificationEmail, sendForgotPasswordEmail, sendApplicantStatusEmail};
+export const sendLoginNotificationEmail = async (to, deviceInfo, currentDevice) => {
+    const subject = 'New login attempt detected';
+    const html = `
+      <p>Hi there,</p>
+      <p>We detected a login attempt to your Applica account.</p>
+      <p><strong>Attempted device:</strong> ${deviceInfo || 'Unknown device'}</p>
+      ${currentDevice ? `<p><strong>Current logged-in device:</strong> ${currentDevice}</p>` : ''}
+      <p>If this was not you, please secure your account immediately.</p>
+      <p>Thank you,<br/>Applica Security Team</p>
+    `;
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to,
+        subject,
+        html,
+    });
+    return true;
+};
+
+export default {sendVerificationEmail, sendForgotPasswordEmail, sendApplicantStatusEmail, sendLoginNotificationEmail};

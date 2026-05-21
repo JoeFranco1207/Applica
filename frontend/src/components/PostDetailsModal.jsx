@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostDetailsModal.css';
 import { useTranslate } from '../hooks/useTranslate';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -101,9 +102,11 @@ const PostDetailsModal = ({
   const [isLiked, setIsLiked] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [viewRecorded, setViewRecorded] = useState(false);
+  const profileUpdateTimeoutRef = useRef(null);
 
   const token = localStorage.getItem('token');
   const navigate = useNavigate();
+  const { translate } = useLanguage();
   const { translated: translatedContent, loading: translatingContent } = useTranslate(currentPost?.content || '');
 
   useEffect(() => {
@@ -146,7 +149,7 @@ const PostDetailsModal = ({
 
     const fetchFreshPost = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/posts/${post._id}`, {
+        const response = await axios.get(`http://localhost:8000/api/posts/${post._id}?t=${Date.now()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         const updatedData = response.data.data || {};
@@ -159,7 +162,7 @@ const PostDetailsModal = ({
     };
 
     fetchFreshPost();
-  }, [isOpen, post?._id, token, onUpdate]);
+  }, [isOpen, post?._id, token, onUpdate, post]);
 
   useEffect(() => {
     if (!isOpen || !currentPost || viewRecorded) return;
@@ -187,49 +190,50 @@ const PostDetailsModal = ({
     recordView();
   }, [isOpen, currentPost, viewRecorded, onUpdate, token]);
 
-  // Listen for profile updates so we can refresh author/avatar shown in this modal
+  // Listen for profile updates and fetch fresh post data to ensure consistency
   useEffect(() => {
-    const handler = (e) => {
+    const handler = async (e) => {
       const updatedUser = e?.detail;
       if (!updatedUser || !currentPost) return;
 
       const updatedUserId = updatedUser._id || updatedUser.id;
       if (!updatedUserId) return;
 
-      const updateAuthorFields = (item) => {
-        if (!item || !item.author) return item;
-        const itemAuthorId = getUserId(item.author);
-        if (!itemAuthorId || itemAuthorId.toString() !== updatedUserId.toString()) return item;
-
-        return {
-          ...item,
-          authorAvatar: updatedUser.profilePicture || updatedUser.companyLogo || item.authorAvatar,
-          authorName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || updatedUser.email || item.authorName,
-          authorRole: item.authorRole || updatedUser.role || item.authorRole,
-          authorEmail: item.authorEmail || updatedUser.email,
-          authorCompanyName: item.authorCompanyName || updatedUser.companyName,
-        };
-      };
-
-      try {
-        const authoredPost = updateAuthorFields(currentPost);
-        const comments = (currentPost.comments || []).map((comment) => {
-          const updatedComment = updateAuthorFields(comment);
-          const replies = (comment.replies || []).map((reply) => updateAuthorFields(reply));
-          return { ...updatedComment, replies };
-        });
-
-        const updated = { ...authoredPost, comments };
-        setCurrentPost(updated);
-        if (onUpdate) onUpdate(updated);
-      } catch (err) {
-        // ignore
+      const postAuthorId = getUserId(currentPost.author);
+      // Only refresh if the updated user is the post author
+      if (!postAuthorId || postAuthorId.toString() !== updatedUserId.toString()) {
+        return;
       }
+
+      // Clear any pending timeout to debounce rapid profile updates
+      if (profileUpdateTimeoutRef.current) {
+        clearTimeout(profileUpdateTimeoutRef.current);
+      }
+
+      // Debounce: wait 300ms before fetching to batch rapid updates
+      profileUpdateTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await axios.get(`http://localhost:8000/api/posts/${currentPost._id}?t=${Date.now()}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const updatedData = response.data.data || {};
+          const merged = mergePostData(currentPost, updatedData);
+          setCurrentPost(merged);
+          if (onUpdate) onUpdate(merged);
+        } catch (error) {
+          console.error('Error refreshing post after profile update:', error.response?.data || error.message);
+        }
+      }, 300);
     };
 
     window.addEventListener('app:profileUpdated', handler);
-    return () => window.removeEventListener('app:profileUpdated', handler);
-  }, [currentPost, onUpdate]);
+    return () => {
+      window.removeEventListener('app:profileUpdated', handler);
+      if (profileUpdateTimeoutRef.current) {
+        clearTimeout(profileUpdateTimeoutRef.current);
+      }
+    };
+  }, [currentPost, token, onUpdate]);
 
   if (!isOpen || !currentPost) return null;
 
@@ -538,7 +542,7 @@ const PostDetailsModal = ({
             type="button"
             className={`action-icon-btn ${isLiked ? 'liked' : ''}`}
             onClick={handleLike}
-            title="Gusto"
+            title={translate('browse.likePostTitle')}
           >
             <HeartIcon filled={isLiked} />
             <span>{currentPost.likes?.length || 0}</span>
@@ -548,7 +552,7 @@ const PostDetailsModal = ({
             type="button"
             className="action-icon-btn"
             onClick={handleCommentButton}
-            title="Magkomento"
+            title={translate('browse.commentPostTitle')}
           >
             <ChatBubbleIcon />
             <span>{currentPost.comments?.length || 0}</span>
@@ -574,7 +578,7 @@ const PostDetailsModal = ({
                 console.error('Repost error', err);
               }
             }}
-            title="I-repost"
+            title={translate('browse.repostPostTitle')}
           >
             <RepostIcon />
             <span>{currentPost.reposts?.length || 0}</span>
@@ -600,7 +604,7 @@ const PostDetailsModal = ({
                 console.error('Share error', err);
               }
             }}
-            title="Ibahagi"
+            title={translate('browse.sharePostTitle')}
           >
             <ShareIcon />
             <span>{currentPost.shares?.length || 0}</span>
@@ -609,7 +613,7 @@ const PostDetailsModal = ({
 
         <div className={`comments-container ${commentsExpanded ? 'expanded' : ''}`}>
           <div className="comments-top-bar">
-            <span className="comments-sort-label">Pinakamakabuluhan</span>
+            <span className="comments-sort-label">{translate('browse.mostRelevant')}</span>
             <span className="comments-sort-icon">▾</span>
           </div>
 

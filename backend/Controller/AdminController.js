@@ -1,6 +1,7 @@
 import { createAdmin, LoginAdmin, acceptEmployer, deleteEmployer, rejectEmployer, getAllEmployers, getPendingEmployers } from "../Services/ManageEmployer.service.js";
+import User from '../Model/UserSchema.js';
+import AppError from '../Middleware/AppError.js';
 import AppSuccessful from "../Middleware/AppSuccessful.js";
-import AppError from "../Middleware/AppError.js";   
 
 
 
@@ -16,6 +17,46 @@ export const registerAdmin = async (req, res, next) => {
   } catch (error) {
     next(error);
   } 
+};
+
+export const getUserSessionsController = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('sessions firstName lastName email');
+    if (!user) return next(new AppError('User not found', 404));
+    return res.json(new AppSuccessful('User sessions fetched', 200, { user: { _id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email }, sessions: user.sessions || [] }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const revokeUserSessionController = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const sessionId = req.params.sessionId;
+    if (!userId || !sessionId) return next(new AppError('Missing parameters', 400));
+
+    const user = await User.findById(userId).select('sessions');
+    if (!user) return next(new AppError('User not found', 404));
+
+    const session = user.sessions.id(sessionId);
+    if (!session) return next(new AppError('Session not found', 404));
+
+    // remove the session
+    session.remove();
+    // if activeSessionToken matches removed token, clear activeSessionToken
+    if (user.activeSessionToken === session.token) {
+      user.activeSessionToken = null;
+      user.activeSessionDevice = "";
+      user.activeSessionExpires = null;
+    }
+
+    await user.save();
+
+    return res.json(new AppSuccessful('Session revoked', 200, null));
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const loginAdmin = async (req, res, next) => {

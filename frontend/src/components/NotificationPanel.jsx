@@ -87,7 +87,11 @@ export default function NotificationPanel({ onClose }) {
     // If it points to a user profile
     if (n.actorId) {
       onClose?.();
-      navigate(`/profile/${n.actorId}`);
+      if (n.type === 'connection') {
+        navigate(`/profile/${n.actorId}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`);
+      } else {
+        navigate(`/profile/${n.actorId}`);
+      }
       return;
     }
   };
@@ -111,10 +115,10 @@ export default function NotificationPanel({ onClose }) {
                 <Avatar
                   src={getActorPicture(n)}
                   alt={getActorName(n)}
-                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); navigate(`/profile/${aid}`); } }}
+                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
                 />
                 <div className="np-body">
-                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); navigate(`/profile/${aid}`); } }}>{getActorName(n)}</strong> — {n.message}</div>
+                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
                   <div className="np-meta">
                     <span className="np-time">{timeAgo(n.createdAt)}</span>
                     {!n.read && <span className="np-dot" aria-hidden />}
@@ -134,10 +138,10 @@ export default function NotificationPanel({ onClose }) {
                 <Avatar
                   src={getActorPicture(n)}
                   alt={getActorName(n)}
-                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); navigate(`/profile/${aid}`); } }}
+                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
                 />
                 <div className="np-body">
-                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); navigate(`/profile/${aid}`); } }}>{getActorName(n)}</strong> — {n.message}</div>
+                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
                   <div className="np-meta">
                     <span className="np-time">{timeAgo(n.createdAt)}</span>
                     {!n.read && <span className="np-dot" aria-hidden />}

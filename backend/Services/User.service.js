@@ -202,9 +202,21 @@ export const loginService = async(email, password, deviceInfo) => {
             expiresIn: "8h"
         });
 
+        const expiresAt = new Date(now + 8 * 60 * 60 * 1000);
+
         existingUser.activeSessionToken = token;
         existingUser.activeSessionDevice = deviceInfo || "Unknown device";
-        existingUser.activeSessionExpires = new Date(now + 8 * 60 * 60 * 1000);
+        existingUser.activeSessionExpires = expiresAt;
+
+        // Push to sessions array for multi-session support
+        existingUser.sessions = existingUser.sessions || [];
+        existingUser.sessions.push({
+          token,
+          device: deviceInfo || 'Unknown device',
+          createdAt: new Date(now),
+          expires: expiresAt,
+        });
+
         await existingUser.save();
 
         return { token, user: safeUser };

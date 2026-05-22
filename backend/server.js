@@ -14,6 +14,8 @@ import JobsRouter from "./Routes/JobsRouter.js";
 import AdminRouter from "./Routes/AdminRouter.js";
 import PostRouter from './Routes/PostRouter.js';
 import NotificationRouter from './Routes/NotificationRouter.js';
+import ChatRouter from './Routes/ChatRouter.js';
+import { registerSocketUser, unregisterSocketById, setIo } from './Services/SocketIO.service.js';
 
 dotenv.config();
 const app = express();
@@ -48,7 +50,7 @@ app.use("/api/jobseeker", JobseekerRouter);
 app.use("/api/employer", EmployerRouter);
 app.use('/api/posts', PostRouter);
 app.use('/api/notifications', NotificationRouter);
-
+app.use('/api/chat', ChatRouter);
 
 // Debug endpoint to verify the server is reachable and receives POSTs
 app.post('/api/debug/post-test', (req, res) => {
@@ -85,8 +87,7 @@ export const io = new Server(httpServer, {
   },
 });
 
-// Map to store user socket connections
-const userSockets = new Map();
+setIo(io);
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
@@ -94,7 +95,7 @@ io.on('connection', (socket) => {
 
   // Register user when they connect
   socket.on('register', (userId) => {
-    userSockets.set(userId, socket.id);
+    registerSocketUser(userId, socket.id);
     console.log(`User ${userId} registered with socket ${socket.id}`);
   });
 
@@ -104,25 +105,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    // Find and remove user from map
-    for (const [userId, socketId] of userSockets.entries()) {
-      if (socketId === socket.id) {
-        userSockets.delete(userId);
-        console.log(`User ${userId} disconnected`);
-        break;
-      }
-    }
+    unregisterSocketById(socket.id);
+    console.log(`Socket ${socket.id} disconnected`);
   });
 });
 
-// Export function to emit notifications to specific user
-export const sendNotificationToUser = (userId, notification) => {
-  const socketId = userSockets.get(userId.toString());
-  if (socketId) {
-    io.to(socketId).emit('notification', notification);
-    console.log(`Notification sent to user ${userId}`);
-  }
-};
+export { sendNotificationToUser, sendChatMessageToUser } from './Services/SocketIO.service.js';
 
 httpServer.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

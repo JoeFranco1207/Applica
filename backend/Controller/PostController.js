@@ -16,7 +16,7 @@ import {
   repostService,
   removeRepostService,
 } from '../Services/Post.service.js';
-import { sendNotificationToUser } from '../server.js';
+import { sendNotificationToUser } from '../Services/SocketIO.service.js';
 
 export const createPostController = async (req, res, next) => {
   try {

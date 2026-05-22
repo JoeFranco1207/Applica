@@ -33,14 +33,29 @@ export default function Landing() {
   const userName = userData?.name || "User";
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
-    setUserMenuOpen(false);
-
-    navigate("/");
-
-    window.location.reload();
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          await fetch('http://localhost:8000/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          });
+        }
+      } catch (err) {
+        console.error('Logout failed', err);
+      } finally {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUserMenuOpen(false);
+        navigate("/");
+        window.location.reload();
+      }
+    })();
   };
 
   return (

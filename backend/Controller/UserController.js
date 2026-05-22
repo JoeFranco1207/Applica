@@ -102,21 +102,60 @@ export const Register = async(req,res,next)=>{
 
     //Logging Out
  export const Logout = async(req, res, next)=>{
-   try {
-     await User.findByIdAndUpdate(req.user.id, {
-       activeSessionToken: null,
-       activeSessionDevice: "",
-       activeSessionExpires: null,
-     });
+  try {
+    let userId = req.user?.id;
 
-     return res.clearCookie('Authorization', {
-       httpOnly: true,
-       secure: process.env.NODE_ENV === 'production',
-       sameSite: 'Strict'
-     }).json({success:true, message: "User logged out successfully"});
-   } catch (err) {
-     return next(err);
-   }
+    if (!userId) {
+      // Try to extract token from Authorization header or cookie
+      const authHeader = req.headers.authorization || req.headers.Authorization || (req.cookies && req.cookies.Authorization);
+      let token = null;
+      if (authHeader) {
+        token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+      }
+
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+          userId = decoded?.id || decoded?._id || null;
+        } catch (e) {
+          // invalid token — still attempt to find user by matching activeSessionToken to raw token
+          const userByToken = await User.findOne({ activeSessionToken: token });
+          userId = userByToken?._id || null;
+        }
+      }
+    }
+
+    const authHeader = req.headers.authorization || req.headers.Authorization || (req.cookies && req.cookies.Authorization);
+    let token = null;
+    if (authHeader) {
+      token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+    }
+
+    if (userId) {
+      if (token) {
+        // remove the session entry matching the token
+        await User.findByIdAndUpdate(userId, {
+          $pull: { sessions: { token } },
+          $set: { activeSessionToken: null, activeSessionDevice: "", activeSessionExpires: null }
+        });
+      } else {
+        // no token; clear active session fields
+        await User.findByIdAndUpdate(userId, {
+          activeSessionToken: null,
+          activeSessionDevice: "",
+          activeSessionExpires: null,
+        });
+      }
+    }
+
+    return res.clearCookie('Authorization', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict'
+    }).json({success:true, message: "User logged out successfully"});
+  } catch (err) {
+    return next(err);
+  }
  }
 
 

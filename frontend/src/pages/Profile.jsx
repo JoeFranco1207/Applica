@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
 import PostDetailsModal from "../components/PostDetailsModal";
@@ -164,6 +164,7 @@ export default function Profile() {
 
   const navigate = useNavigate();
   const { id: profileId } = useParams();
+  const location = useLocation();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const storedUser = localStorage.getItem("user");
   const [authUser, setAuthUser] = useState(storedUser ? JSON.parse(storedUser) : null);
@@ -172,6 +173,27 @@ export default function Profile() {
   const [followingIds, setFollowingIds] = useState(() => authUser?.following || []);
   const [blockedIds, setBlockedIds] = useState(() => authUser?.blockedUsers || []);
   const [reportedIds, setReportedIds] = useState(() => authUser?.reportedUsers || []);
+
+  useEffect(() => {
+    const refreshAuthUserProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token || !currentUserId) return;
+      try {
+        const response = await axios.get('http://localhost:8000/api/auth/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const latestUser = response.data?.data;
+        if (latestUser && latestUser._id) {
+          setAuthUser(latestUser);
+          localStorage.setItem('user', JSON.stringify(latestUser));
+        }
+      } catch (err) {
+        console.error('Failed to refresh auth user profile:', err);
+      }
+    };
+
+    refreshAuthUserProfile();
+  }, [currentUserId]);
 
   useEffect(() => {
     setFollowingIds(authUser?.following || []);
@@ -293,11 +315,26 @@ export default function Profile() {
   }, [user, profileId]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUserMenuOpen(false);
-    navigate("/");
-    window.location.reload();
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (token) {
+          await axios.post(
+            'http://localhost:8000/api/auth/logout',
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
+      } catch (err) {
+        console.error('Logout failed:', err);
+      } finally {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUserMenuOpen(false);
+        navigate("/");
+        window.location.reload();
+      }
+    })();
   };
 
   const saveAuthUser = (updatedUser) => {
@@ -310,6 +347,27 @@ export default function Profile() {
   const isFollowingProfile = profileUserId ? followingIds.includes(profileUserId) : false;
   const isBlockedProfile = profileUserId ? blockedIds.includes(profileUserId) : false;
   const hasReportedProfile = profileUserId ? reportedIds.includes(profileUserId) : false;
+  const [requestSent, setRequestSent] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [connectionModalType, setConnectionModalType] = useState('');
+  const [connectionModalMessage, setConnectionModalMessage] = useState('');
+  const [connectionModalLoading, setConnectionModalLoading] = useState(false);
+
+  const searchParams = new URLSearchParams(location.search);
+  const connectionRequest = searchParams.get('connectionRequest') === 'true';
+  const connectionNotificationId = searchParams.get('notificationId');
+
+  const isConnectedProfile = !!profileUserId && !!authUser?.connections && authUser.connections.some(
+    (connection) => connection === profileUserId || connection?._id === profileUserId
+  );
+
+  useEffect(() => {
+    if (connectionRequest && !isOwnProfile && connectionNotificationId && !isConnectedProfile) {
+      setShowConnectionModal(true);
+      setConnectionModalType('incoming');
+      setConnectionModalMessage('This user sent you a connection request.');
+    }
+  }, [connectionRequest, connectionNotificationId, isOwnProfile, isConnectedProfile]);
 
   const handleToggleFollow = () => {
     if (!authUser || !profileUserId || isOwnProfile) return;
@@ -327,6 +385,60 @@ export default function Profile() {
       ...authUser,
       following: nextFollowing,
     });
+  };
+
+  const handleSendConnectionRequest = async () => {
+    if (!authUser || !profileUserId || isOwnProfile || isConnectedProfile) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      await axios.post('http://localhost:8000/api/notifications/connect', { recipient: profileUserId }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRequestSent(true);
+      setConnectionModalType('requestSent');
+      setConnectionModalMessage('Connection request sent. The user will be notified and can accept it to connect with you.');
+      setShowConnectionModal(true);
+    } catch (err) {
+      console.error('Failed to send connection request', err);
+      setConnectionModalType('error');
+      setConnectionModalMessage('Could not send connection request. Please try again later.');
+      setShowConnectionModal(true);
+    }
+  };
+
+  const handleRemoveConnection = async () => {
+    if (!authUser || !profileUserId || isOwnProfile || !isConnectedProfile) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      await axios.delete(`http://localhost:8000/api/chat/connections/${encodeURIComponent(profileUserId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const nextConnections = Array.isArray(authUser.connections) ? authUser.connections.filter(
+        (connection) => connection !== profileUserId && connection?._id !== profileUserId
+      ) : [];
+      const updatedUser = { ...authUser, connections: nextConnections };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setAuthUser(updatedUser);
+      setRequestSent(false);
+      setConnectionModalType('requestCancelled');
+      setConnectionModalMessage('Connection removed. You can send a new request if needed.');
+      setShowConnectionModal(true);
+    } catch (err) {
+      console.error('Failed to remove connection', err);
+      setConnectionModalType('error');
+      setConnectionModalMessage('Could not remove connection. Please try again later.');
+      setShowConnectionModal(true);
+    }
   };
 
   const handleReportUser = () => {
@@ -989,6 +1101,36 @@ export default function Profile() {
             {!isOwnProfile ? (
               <>
                 <div style={styles.profileActionRow}>
+                  {isConnectedProfile ? (
+                    <>
+                      <button
+                        style={styles.followButton}
+                        onClick={() => navigate(`/chat?user=${profileUserId}`)}
+                        aria-label="Message connected user"
+                        title="Message"
+                      >
+                        Message
+                      </button>
+                      <button
+                        style={styles.deleteJobButton}
+                        onClick={handleRemoveConnection}
+                        aria-label="Remove connection"
+                        title="Remove connection"
+                      >
+                        Remove Connection
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      style={styles.followButton}
+                      onClick={handleSendConnectionRequest}
+                      aria-label={requestSent ? "Request sent" : "Connect"}
+                      title={requestSent ? "Request sent" : "Connect"}
+                      disabled={requestSent}
+                    >
+                      {requestSent ? 'Requested' : 'Connect'}
+                    </button>
+                  )}
                   <button
                     style={isFollowingProfile ? styles.followingButton : styles.followButton}
                     onClick={handleToggleFollow}
@@ -1063,6 +1205,102 @@ export default function Profile() {
                   {user ? `${user.firstName} ${user.lastName}` : "Not provided"}
                 </p>
               </div>
+              {showConnectionModal && (
+                <div style={styles.connectionModalBackdrop}>
+                  <div style={styles.connectionModal}>
+                    <h3 style={styles.connectionModalTitle}>
+                      {connectionModalType === 'incoming' && 'Connection Request'}
+                      {connectionModalType === 'requestSent' && 'Request Sent'}
+                      {connectionModalType === 'connected' && 'Connected'}
+                      {connectionModalType === 'requestCancelled' && 'Request Removed'}
+                      {connectionModalType === 'error' && 'Connection Error'}
+                    </h3>
+                    <p style={styles.connectionModalMessage}>{connectionModalMessage}</p>
+
+                    {connectionModalType === 'incoming' && (
+                      <div style={styles.connectionModalActions}>
+                        <button
+                          style={styles.interactionButton}
+                          disabled={connectionModalLoading}
+                          onClick={async () => {
+                            const token = localStorage.getItem('token');
+                            if (!token) { navigate('/auth'); return; }
+                            setConnectionModalLoading(true);
+                            try {
+                              await axios.post(`http://localhost:8000/api/notifications/connect/${encodeURIComponent(connectionNotificationId)}/accept`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                              setConnectionModalType('connected');
+                              setConnectionModalMessage('Connection accepted. You are now connected.');
+                              setRequestSent(false);
+                              if (authUser) {
+                                const nextConnections = Array.isArray(authUser.connections) ? authUser.connections : [];
+                                if (!nextConnections.some((id) => id === profileUserId || id?._id === profileUserId)) {
+                                  const updatedUser = { ...authUser, connections: [...nextConnections, profileUserId] };
+                                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                                  setAuthUser(updatedUser);
+                                }
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              setConnectionModalType('error');
+                              setConnectionModalMessage('Could not accept connection. Please try again.');
+                            } finally {
+                              setConnectionModalLoading(false);
+                            }
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          style={styles.deleteJobButton}
+                          disabled={connectionModalLoading}
+                          onClick={async () => {
+                            const token = localStorage.getItem('token');
+                            if (!token) { navigate('/auth'); return; }
+                            setConnectionModalLoading(true);
+                            try {
+                              await axios.delete(`http://localhost:8000/api/notifications/${encodeURIComponent(connectionNotificationId)}`, { headers: { Authorization: `Bearer ${token}` } });
+                              setConnectionModalType('requestCancelled');
+                              setConnectionModalMessage('Connection request removed.');
+                            } catch (err) {
+                              console.error(err);
+                              setConnectionModalType('error');
+                              setConnectionModalMessage('Could not remove request. Please try again.');
+                            } finally {
+                              setConnectionModalLoading(false);
+                            }
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+
+                    {connectionModalType === 'requestSent' && (
+                      <div style={styles.connectionModalActions}>
+                        <button style={styles.interactionButton} onClick={() => setShowConnectionModal(false)}>
+                          Close
+                        </button>
+                      </div>
+                    )}
+
+                    {connectionModalType === 'connected' && (
+                      <div style={styles.connectionModalActions}>
+                        <button style={styles.interactionButton} onClick={() => setShowConnectionModal(false)}>
+                          Close
+                        </button>
+                      </div>
+                    )}
+
+                    {['requestCancelled', 'error'].includes(connectionModalType) && (
+                      <div style={styles.connectionModalActions}>
+                        <button style={styles.interactionButton} onClick={() => setShowConnectionModal(false)}>
+                          Close
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div style={styles.detailItem}>
                 <label style={{
@@ -2169,6 +2407,63 @@ const styles = {
     fontWeight: "700",
   },
 
+  connectedButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px 16px",
+    minWidth: "120px",
+    minHeight: "44px",
+    borderRadius: "999px",
+    border: "1px solid rgba(16,185,129,0.35)",
+    background: "rgba(16,185,129,0.18)",
+    color: "#ffffff",
+    cursor: "default",
+    fontWeight: "700",
+  },
+
+  connectionModalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: "20px",
+  },
+
+  connectionModal: {
+    width: "100%",
+    maxWidth: "520px",
+    borderRadius: "20px",
+    backgroundColor: "#0f172a",
+    color: "#f8fafc",
+    padding: "28px",
+    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.55)",
+    textAlign: "center",
+  },
+
+  connectionModalTitle: {
+    fontSize: "22px",
+    fontWeight: "800",
+    marginBottom: "18px",
+  },
+
+  connectionModalMessage: {
+    fontSize: "15px",
+    lineHeight: 1.7,
+    color: "#cbd5e1",
+    marginBottom: "24px",
+  },
+
+  connectionModalActions: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
   followingButton: {
     display: "inline-flex",
     alignItems: "center",
@@ -2468,6 +2763,48 @@ const styles = {
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "14px",
+  },
+
+  connectionModalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: "20px",
+  },
+
+  connectionModal: {
+    width: "100%",
+    maxWidth: "520px",
+    borderRadius: "20px",
+    backgroundColor: "#0f172a",
+    color: "#f8fafc",
+    padding: "28px",
+    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.55)",
+    textAlign: "center",
+  },
+
+  connectionModalTitle: {
+    fontSize: "22px",
+    fontWeight: "800",
+    marginBottom: "18px",
+  },
+
+  connectionModalMessage: {
+    fontSize: "15px",
+    lineHeight: 1.7,
+    color: "#cbd5e1",
+    marginBottom: "24px",
+  },
+
+  connectionModalActions: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "12px",
+    flexWrap: "wrap",
   },
 
   jobStatsRow: {

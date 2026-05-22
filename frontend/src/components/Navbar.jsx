@@ -83,6 +83,24 @@ const HeartIcon = ({ size = 16 }) => (
   </svg>
 );
 
+const ChatIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M8 10h8" />
+    <path d="M8 14h5" />
+  </svg>
+);
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -189,6 +207,14 @@ export default function Navbar() {
           <ThemeSwitch isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
           {token ? (
             <>
+              <button
+                type="button"
+                style={{ ...styles.notificationButton, cursor: 'pointer' }}
+                title="Messages"
+                onClick={() => navigate('/chat')}
+              >
+                <ChatIcon size={20} />
+              </button>
               <div style={styles.notificationMenu}>
                 <button
                   type="button"

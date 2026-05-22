@@ -5,6 +5,8 @@ import {
   getUnreadCountController,
   markAsReadController,
   deleteNotificationController,
+  createConnectController,
+  acceptConnectionController,
 } from '../Controller/NotificationController.js';
 
 const router = express.Router();
@@ -15,6 +17,8 @@ router.use(protection);
 router.get('/unread/count', getUnreadCountController);
 router.get('/', getNotificationsController);
 router.patch('/:notificationId/read', markAsReadController);
+router.post('/connect', createConnectController);
+router.post('/connect/:notificationId/accept', acceptConnectionController);
 router.delete('/:notificationId', deleteNotificationController);
 
 export default router;

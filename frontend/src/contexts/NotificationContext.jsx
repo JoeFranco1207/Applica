@@ -18,7 +18,7 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
 
-  const relevantNotificationTypes = ['like', 'share', 'repost', 'comment', 'reply', 'apply', 'status'];
+  const relevantNotificationTypes = ['like', 'share', 'repost', 'comment', 'reply', 'apply', 'status', 'connection'];
 
   const isRelevantNotification = (notification) => {
     if (!notification || !notification.type) return false;
@@ -35,7 +35,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
     try {
       const response = await fetch(
-        'http://localhost:8000/api/notifications/unread/count?types=like,share,repost,comment,reply,apply,status',
+        'http://localhost:8000/api/notifications/unread/count?types=like,share,repost,comment,reply,apply,status,connection',
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -56,7 +56,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
     try {
       const response = await fetch(
-        'http://localhost:8000/api/notifications?types=like,share,repost,comment,reply,apply,status',
+        'http://localhost:8000/api/notifications?types=like,share,repost,comment,reply,apply,status,connection',
         {
           headers: {
             Authorization: `Bearer ${token}`,

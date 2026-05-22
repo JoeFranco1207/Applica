@@ -29,19 +29,28 @@ export const protection = async (req, res, next) => {
       return next(new AppError("Unauthorized: invalid token", 401));
     }
 
-    const user = await User.findById(decoded.id).select('+activeSessionToken');
+    const user = await User.findById(decoded.id).select('+activeSessionToken sessions');
 
     if (!user) {
       return next(new AppError("Unauthorized: user not found", 401));
     }
 
     const storedToken = user.activeSessionToken?.trim();
+    // If activeSessionToken exists and differs, reject
     if (storedToken && storedToken !== token) {
       return next(new AppError("Unauthorized: session no longer active. Please log in again.", 401));
     }
 
+    // Otherwise, check sessions array for a matching non-expired token
+    if (user.sessions && user.sessions.length > 0) {
+      const match = user.sessions.find((s) => s.token === token && (!s.expires || s.expires.getTime() > Date.now()));
+      if (!match && !storedToken) {
+        return next(new AppError("Unauthorized: session no longer active. Please log in again.", 401));
+      }
+    }
+
     req.user = {
-      id: user._id,
+      id: user._id.toString(),
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,

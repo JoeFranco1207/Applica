@@ -7,7 +7,8 @@ const router = express.Router();
 
 router.post('/register', Register);
 router.post('/login', Login);
-router.post('/logout', protection, Logout);
+// Allow logout without protection so we can clear server-side session even if token mismatches
+router.post('/logout', Logout);
 router.post('/sendVerificationCode', sendVerificationCode);
 router.put('/verifyCode', verifyCode);
 router.put('/select-role', protection, chooseRole);

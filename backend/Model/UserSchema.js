@@ -63,6 +63,20 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: null,
     },
+    sessions: [
+      {
+        token: { type: String },
+        device: { type: String, default: '' },
+        createdAt: { type: Date, default: Date.now },
+        expires: { type: Date },
+      },
+    ],
+    connections: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
 
     forgotPasswordCode: {
       type: Number,

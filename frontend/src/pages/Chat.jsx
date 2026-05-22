@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 export default function Chat() {
-  const { socket } = useNotification();
+  const { socket, isConnected } = useNotification();
   const location = useLocation();
   const requestedChatUserId = useMemo(() => new URLSearchParams(location.search).get('user'), [location.search]);
   const [connections, setConnections] = useState([]);
@@ -18,6 +18,20 @@ export default function Chat() {
   const [pendingUnsendMessageId, setPendingUnsendMessageId] = useState(null);
   const [loadingConnections, setLoadingConnections] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isLocalStreamActive, setIsLocalStreamActive] = useState(false);
+  const [isRemoteStreamActive, setIsRemoteStreamActive] = useState(false);
+  const [callState, setCallState] = useState('idle');
+  const [callMode, setCallMode] = useState('audio');
+  const [incomingCallData, setIncomingCallData] = useState(null);
+  const [activeCallUser, setActiveCallUser] = useState(null);
+  const [callStartTime, setCallStartTime] = useState(null);
+  const [queuedCall, setQueuedCall] = useState(null);
+
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
 
   const token = localStorage.getItem('token');
   const fileInputRef = useRef(null);
@@ -103,6 +117,25 @@ export default function Chat() {
         stroke={filled ? '#ef4444' : 'currentColor'}
         strokeWidth="1.5"
       />
+    </svg>
+  );
+
+  const PhoneIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.2.48 2.5.74 3.83.74a1 1 0 011 1v3.5a1 1 0 01-1 1A17.93 17.93 0 013 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.33.26 2.63.74 3.83a1 1 0 01-.21 1.11l-2.4 2.35z" />
+    </svg>
+  );
+
+  const VideoIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17 10.5V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3.5l4 4v-11l-4 4z" />
+    </svg>
+  );
+
+  const ClipIcon = ({ size = 18 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+      <path d="M21.44 11.05L12.37 20.12a5 5 0 01-7.07 0 5 5 0 010-7.07l8.49-8.49a3.75 3.75 0 015.3 0 3.75 3.75 0 010 5.3L10.5 18.39a2.25 2.25 0 01-3.18 0 2.25 2.25 0 010-3.18l7.18-7.18" />
+      <path d="M8.25 10.5l6.75 6.75" />
     </svg>
   );
 
@@ -269,6 +302,421 @@ export default function Chat() {
     };
   }, [socket, selectedUser]);
 
+  useEffect(() => {
+    if (!queuedCall || !socket || !isConnected) return;
+    if (callState !== 'calling') return;
+    if (!queuedCall.targetUser) return;
+    if (peerConnectionRef.current) return;
+
+    const resumeCall = async () => {
+      try {
+        await prepareCallConnection(queuedCall.mode, true, queuedCall.targetUser);
+        setQueuedCall(null);
+        setChatError(null);
+      } catch (err) {
+        console.error('Unable to resume queued call', err);
+        setChatError('Unable to start the call after connecting.');
+        cleanupCall();
+      }
+    };
+
+    resumeCall();
+  }, [queuedCall, socket, isConnected, callState]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStreamRef.current || null;
+    }
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current || null;
+    }
+  }, [isRemoteStreamActive, isLocalStreamActive]);
+
+  const formatDuration = (milliseconds) => {
+    if (!milliseconds || milliseconds < 1000) return '00:00';
+    const totalSeconds = Math.round(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const buildCallSummaryText = ({ endedByLabel, mode, durationMs, note }) => {
+    const typeLabel = mode === 'video' ? 'Video' : 'Audio';
+    let summaryText = `${endedByLabel} ended the ${typeLabel.toLowerCase()} call.`;
+    if (durationMs != null) {
+      summaryText += ` Duration: ${formatDuration(durationMs)}.`;
+    }
+    if (note) {
+      summaryText += ` ${note}`;
+    }
+    return summaryText;
+  };
+
+  const getSystemMessageText = (message) => {
+    if (message?.callInfo) {
+      const endedByLabel = message.callInfo.endedById === currentUser?._id ? 'You' : message.callInfo.endedBy || message.sender?.firstName || 'Caller';
+      return buildCallSummaryText({
+        endedByLabel,
+        mode: message.callInfo.mode,
+        durationMs: message.callInfo.durationMs,
+        note: message.callInfo.note,
+      });
+    }
+    return message.text || '';
+  };
+
+  const sendCallSummaryMessage = async ({ recipientId, endedById, endedByName, mode, durationMs, note }) => {
+    if (!recipientId) return null;
+    const endedByLabel = endedById === currentUser?._id ? 'You' : endedByName || 'Caller';
+    const summaryText = buildCallSummaryText({ endedByLabel, mode, durationMs, note });
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/chat/${recipientId}/messages`,
+        {
+          text: summaryText,
+          system: true,
+          callInfo: {
+            mode,
+            durationMs,
+            endedById,
+            endedBy: endedByName,
+            note,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const sentMessage = response.data?.data?.message;
+      if (sentMessage) {
+        setMessages((prev) => [...prev, normalizeMessage(sentMessage)]);
+      }
+      return sentMessage;
+    } catch (err) {
+      console.error('Failed to send call summary message', err);
+      return null;
+    }
+  };
+
+  const appendCallSummary = ({ endedBy, mode, durationMs, note }) => {
+    const summaryText = buildCallSummaryText({ endedBy, mode, durationMs, note });
+    setMessages((prev) => [
+      ...prev,
+      {
+        _id: `call-summary-${Date.now()}`,
+        text: summaryText,
+        system: true,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  };
+
+  const cleanupCall = () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+      remoteStreamRef.current = null;
+    }
+
+    setIsLocalStreamActive(false);
+    setIsRemoteStreamActive(false);
+    setCallStartTime(null);
+    setCallState('idle');
+    setIncomingCallData(null);
+    setActiveCallUser(null);
+    setQueuedCall(null);
+  };
+
+  const createPeerConnection = (targetUserId) => {
+    if (!socket) {
+      throw new Error('Socket connection is not ready.');
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+
+    pc.ontrack = (event) => {
+      const remoteStream = event.streams?.[0];
+      if (remoteStream) {
+        remoteStreamRef.current = remoteStream;
+        setIsRemoteStreamActive(true);
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && targetUserId) {
+        socket.emit('call:signal', {
+          to: targetUserId,
+          type: 'ice-candidate',
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+        cleanupCall();
+      }
+    };
+
+    return pc;
+  };
+
+  const prepareCallConnection = async (mode, isCaller, targetUser) => {
+    const targetUserId = targetUser?._id || targetUser;
+    if (!targetUserId) {
+      throw new Error('Call target user is missing.');
+    }
+
+    const constraints = {
+      audio: true,
+      video: mode === 'video',
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStreamRef.current = stream;
+    setIsLocalStreamActive(true);
+
+    const pc = createPeerConnection(targetUserId);
+    peerConnectionRef.current = pc;
+
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+    if (isCaller) {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('call:request', {
+        to: targetUserId,
+        mode,
+        fromName: currentUser?.firstName || currentUser?.email || 'Unknown',
+        fromAvatar: getAvatarUrl(currentUser),
+        offer: {
+          type: 'offer',
+          sdp: offer.sdp,
+        },
+      });
+    }
+
+    return pc;
+  };
+
+  const startCall = async (mode) => {
+    if (!selectedUser) {
+      setChatError('Select a connected user to start a call.');
+      return;
+    }
+    setChatError(null);
+    setCallMode(mode);
+    setActiveCallUser(selectedUser);
+    setCallState('calling');
+
+    if (!socket || !isConnected) {
+      setChatError('Connecting to call server... starting the call once ready.');
+      setQueuedCall({ mode, targetUser: selectedUser });
+      return;
+    }
+
+    try {
+      await prepareCallConnection(mode, true, selectedUser);
+    } catch (err) {
+      console.error('Unable to start call', err);
+      setChatError('Unable to start call. Please allow microphone access.');
+      cleanupCall();
+    }
+  };
+
+  const acceptIncomingCall = async () => {
+    if (!incomingCallData) return;
+
+    setCallMode(incomingCallData.mode || 'audio');
+    setActiveCallUser({
+      _id: incomingCallData.from,
+      firstName: incomingCallData.fromName || 'Caller',
+      profilePicture: incomingCallData.fromAvatar,
+    });
+    setCallState('connected');
+
+    try {
+      await prepareCallConnection(incomingCallData.mode || 'audio', false, incomingCallData.from);
+      const pc = peerConnectionRef.current;
+      if (pc && incomingCallData.offer) {
+        await pc.setRemoteDescription({ type: 'offer', sdp: incomingCallData.offer.sdp });
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        setCallStartTime(Date.now());
+        socket.emit('call:signal', {
+          to: incomingCallData.from,
+          type: 'answer',
+          sdp: answer.sdp,
+          mode: incomingCallData.mode,
+          fromName: currentUser?.firstName || currentUser?.email || 'Caller',
+        });
+      }
+      setIncomingCallData(null);
+    } catch (err) {
+      console.error('Unable to accept call', err);
+      setChatError('Unable to accept call.');
+      cleanupCall();
+    }
+  };
+
+  const rejectIncomingCall = async () => {
+    if (incomingCallData?.from) {
+      socket.emit('call:reject', {
+        to: incomingCallData.from,
+        mode: incomingCallData.mode,
+        fromName: currentUser?.firstName || currentUser?.email || 'Caller',
+      });
+      await sendCallSummaryMessage({
+        recipientId: incomingCallData.from,
+        endedById: currentUser?._id,
+        endedByName: currentUser?.firstName || currentUser?.email || 'Caller',
+        mode: incomingCallData.mode || callMode,
+        durationMs: 0,
+        note: 'Call declined.',
+      });
+    }
+    cleanupCall();
+  };
+
+  const hangUpCall = async () => {
+    const durationMs = callStartTime ? Date.now() - callStartTime : 0;
+    if (activeCallUser?._id) {
+      await sendCallSummaryMessage({
+        recipientId: activeCallUser._id,
+        endedById: currentUser?._id,
+        endedByName: currentUser?.firstName || currentUser?.email || 'Caller',
+        mode: callMode,
+        durationMs,
+      });
+      socket.emit('call:end', {
+        to: activeCallUser._id,
+        mode: callMode,
+        fromName: currentUser?.firstName || currentUser?.email || 'Caller',
+      });
+    }
+    cleanupCall();
+  };
+
+  const handleRemoteSignal = async (payload) => {
+    if (!payload || !peerConnectionRef.current) return;
+
+    if (payload.type === 'ice-candidate' && payload.candidate) {
+      try {
+        await peerConnectionRef.current.addIceCandidate(payload.candidate);
+      } catch (err) {
+        console.warn('Failed to add remote ICE candidate', err);
+      }
+      return;
+    }
+
+    if (payload.type === 'answer' && payload.sdp) {
+      try {
+        await peerConnectionRef.current.setRemoteDescription({ type: 'answer', sdp: payload.sdp });
+        setCallState('connected');
+        if (!callStartTime) {
+          setCallStartTime(Date.now());
+        }
+      } catch (err) {
+        console.error('Failed to set remote answer', err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCallRequest = (payload) => {
+      if (!payload?.from || payload.from === currentUser?._id) return;
+      if (callState !== 'idle') {
+        socket.emit('call:reject', {
+          to: payload.from,
+        });
+        return;
+      }
+
+      setIncomingCallData({
+        from: payload.from,
+        fromName: payload.fromName,
+        fromAvatar: payload.fromAvatar,
+        mode: payload.mode,
+        offer: payload.offer,
+      });
+      setActiveCallUser({
+        _id: payload.from,
+        firstName: payload.fromName || 'Caller',
+        profilePicture: payload.fromAvatar,
+      });
+      setCallMode(payload.mode || 'audio');
+      setCallState('incoming');
+    };
+
+    const handleCallSignalEvent = async (payload) => {
+      await handleRemoteSignal(payload);
+    };
+
+    const handleCallEnded = () => {
+      if (callState !== 'idle') {
+        setChatError('Call ended.');
+      }
+      cleanupCall();
+    };
+
+    const handleCallRejected = () => {
+      if (callState === 'calling') {
+        setChatError('Call rejected.');
+      }
+      cleanupCall();
+    };
+
+    socket.on('call:request', handleCallRequest);
+    socket.on('call:signal', handleCallSignalEvent);
+    socket.on('call:end', handleCallEnded);
+    socket.on('call:reject', handleCallRejected);
+
+    return () => {
+      socket.off('call:request', handleCallRequest);
+      socket.off('call:signal', handleCallSignalEvent);
+      socket.off('call:end', handleCallEnded);
+      socket.off('call:reject', handleCallRejected);
+    };
+  }, [socket, callState, currentUser]);
+
+  useEffect(() => {
+    if (!queuedCall || !socket || !isConnected) return;
+    if (callState !== 'calling') return;
+    if (peerConnectionRef.current) return;
+
+    const resumeQueuedCall = async () => {
+      try {
+        await prepareCallConnection(queuedCall.mode, true, queuedCall.targetUser);
+        setQueuedCall(null);
+        setChatError(null);
+      } catch (err) {
+        console.error('Unable to resume queued call', err);
+        setChatError('Unable to start the call after connecting.');
+        cleanupCall();
+      }
+    };
+
+    resumeQueuedCall();
+  }, [queuedCall, socket, isConnected, callState]);
+
   const sendMessage = async () => {
     if (!selectedUser || (!messageText.trim() && !selectedFile)) return;
     setChatError(null);
@@ -393,7 +841,26 @@ export default function Chat() {
                   <div style={chatStyles.chatSubtitle}>{selectedUser.role}</div>
                 </div>
               </div>
+              <div style={chatStyles.callActions}>
+                <button
+                  type="button"
+                  style={chatStyles.callIconButton}
+                  onClick={() => startCall('audio')}
+                  title="Audio call"
+                >
+                  <PhoneIcon size={18} />
+                </button>
+                <button
+                  type="button"
+                  style={chatStyles.callIconButton}
+                  onClick={() => startCall('video')}
+                  title="Video call"
+                >
+                  <VideoIcon size={18} />
+                </button>
+              </div>
             </div>
+
 
             <div style={chatStyles.messagesContainer}>
               {loadingMessages ? (
@@ -409,6 +876,17 @@ export default function Chat() {
                   const attachmentUrl = getAttachmentUrl(message.attachment?.fileUrl);
                   const messageAvatar = getMessageAvatarUrl(message);
                   const ownAvatar = getAvatarUrl(currentUser);
+                  const isSystem = Boolean(message.system);
+                  if (isSystem) {
+                    return (
+                      <div
+                        key={message._id || `${message.createdAt}-${message.text}`}
+                        style={chatStyles.systemMessageRow}
+                      >
+                        <div style={chatStyles.systemMessageBubble}>{getSystemMessageText(message)}</div>
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={message._id || `${message.createdAt}-${message.text}`}
@@ -509,7 +987,7 @@ export default function Chat() {
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Attach file"
               >
-                📎
+                <ClipIcon size={18} />
               </button>
               <input
                 type="text"
@@ -545,6 +1023,68 @@ export default function Chat() {
           <div style={chatStyles.emptyState}>Select a connected user to start chatting.</div>
         )}
       </div>
+      {(callState !== 'idle' || incomingCallData) ? (
+        <div style={chatStyles.callOverlay}>
+          <div style={chatStyles.callModal}>
+            <div style={chatStyles.callModalHeader}>
+              <div>
+                <div style={chatStyles.callModalTitle}>
+                  {callState === 'incoming'
+                    ? `Incoming ${incomingCallData?.mode === 'video' ? 'Video' : 'Audio'} call`
+                    : callState === 'calling'
+                    ? `Calling ${activeCallUser?.firstName || 'User'}...`
+                    : 'In call'}
+                </div>
+                <div style={chatStyles.callModalStatus}>
+                  {callState === 'incoming'
+                    ? 'Accept to answer or reject to decline.'
+                    : callState === 'calling'
+                    ? 'Connecting to the other person…'
+                    : `${callMode === 'video' ? 'Video call' : 'Audio call'} connected`}
+                </div>
+              </div>
+            </div>
+            <div style={chatStyles.callModalGrid}>
+              <div style={chatStyles.callModalLargeVideo}>
+                {callState === 'connected' ? (
+                  <video ref={remoteVideoRef} autoPlay playsInline style={chatStyles.callModalRemoteVideo} />
+                ) : (
+                  <div style={chatStyles.callModalPlaceholder}>
+                    {callState === 'incoming'
+                      ? incomingCallData?.fromName || 'Caller'
+                      : activeCallUser?.firstName || 'User'}
+                  </div>
+                )}
+              </div>
+              <div style={chatStyles.callModalLocalVideo}>
+                {isLocalStreamActive ? (
+                  <video ref={localVideoRef} autoPlay muted playsInline style={chatStyles.callModalLocalVideoMini} />
+                ) : (
+                  <div style={chatStyles.callModalPlaceholderSmall}>
+                    {currentUser?.firstName ? `You (${currentUser.firstName})` : 'You'}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={chatStyles.callModalControls}>
+              {callState === 'incoming' ? (
+                <>
+                  <button type="button" style={chatStyles.callConfirmButton} onClick={acceptIncomingCall}>
+                    Accept
+                  </button>
+                  <button type="button" style={chatStyles.callDeclineButton} onClick={rejectIncomingCall}>
+                    Decline
+                  </button>
+                </>
+              ) : (
+                <button type="button" style={chatStyles.callModalHangupButton} onClick={hangUpCall}>
+                  End call
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showUnsendModal ? (
         <div style={chatStyles.modalOverlay} onClick={closeUnsendModal}>
           <div style={chatStyles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -680,6 +1220,271 @@ const chatStyles = {
     color: 'var(--text-muted)',
     fontSize: 13,
     marginTop: 2,
+  },
+  callActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  },
+  callIconButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface)',
+    color: 'inherit',
+    cursor: 'pointer',
+    fontSize: 18,
+  },
+  callPanel: {
+    padding: '14px 16px',
+    borderBottom: '1px solid var(--border)',
+    backgroundColor: 'rgba(59, 130, 246, 0.06)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  callInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  callDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    color: 'var(--text-h)',
+  },
+  callControls: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  callConfirmButton: {
+    borderRadius: 999,
+    border: 'none',
+    backgroundColor: '#10b981',
+    color: '#fff',
+    padding: '10px 16px',
+    cursor: 'pointer',
+  },
+  callDeclineButton: {
+    borderRadius: 999,
+    border: 'none',
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    padding: '10px 16px',
+    cursor: 'pointer',
+  },
+  callEndButton: {
+    borderRadius: 999,
+    border: 'none',
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    padding: '10px 14px',
+    cursor: 'pointer',
+  },
+  callVideoContainer: {
+    display: 'grid',
+    gap: 12,
+    alignItems: 'center',
+    gridTemplateColumns: '1fr auto',
+    minHeight: 180,
+  },
+  callVideo: {
+    width: '100%',
+    borderRadius: 14,
+    backgroundColor: '#000',
+    minHeight: 180,
+  },
+  callMiniVideo: {
+    width: 160,
+    aspectRatio: '16/9',
+    borderRadius: 14,
+    backgroundColor: '#000',
+    border: '1px solid rgba(255,255,255,0.14)',
+  },
+  systemMessageRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  systemMessageBubble: {
+    maxWidth: '72%',
+    padding: '10px 14px',
+    borderRadius: 18,
+    backgroundColor: 'rgba(148, 163, 184, 0.14)',
+    color: 'var(--text-muted)',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  incomingCallOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    display: 'grid',
+    placeItems: 'center',
+    zIndex: 1100,
+    padding: 24,
+  },
+  incomingCallModal: {
+    width: 'min(520px, 100%)',
+    borderRadius: 20,
+    backgroundColor: 'var(--surface-strong)',
+    boxShadow: '0 32px 80px rgba(15, 23, 42, 0.32)',
+    padding: 28,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+  },
+  incomingCallHeader: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  incomingCallTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+  },
+  incomingCallCaller: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+  },
+  incomingCallAvatar: {
+    width: 58,
+    height: 58,
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '1px solid var(--border)',
+  },
+  incomingCallAvatarPlaceholder: {
+    width: 58,
+    height: 58,
+    borderRadius: '50%',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: 20,
+    fontWeight: 700,
+    backgroundColor: 'var(--border)',
+    color: 'var(--text-h)',
+  },
+  incomingCallName: {
+    fontWeight: 700,
+    fontSize: 16,
+  },
+  incomingCallSubtitle: {
+    color: 'var(--text-muted)',
+    fontSize: 14,
+  },
+  incomingCallActions: {
+    display: 'flex',
+    gap: 12,
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+  },
+  callOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.96))',
+    display: 'grid',
+    placeItems: 'center',
+    zIndex: 1200,
+    padding: 20,
+  },
+  callModal: {
+    width: 'min(980px, 100%)',
+    borderRadius: 24,
+    backgroundColor: '#0f172a',
+    border: '1px solid rgba(148, 163, 184, 0.14)',
+    boxShadow: '0 40px 90px rgba(15, 23, 42, 0.52)',
+    overflow: 'hidden',
+    color: '#fff',
+  },
+  callModalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 24,
+    padding: '24px',
+    borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
+  },
+  callModalTitle: {
+    fontSize: 20,
+    fontWeight: 800,
+  },
+  callModalStatus: {
+    marginTop: 6,
+    color: 'rgba(148, 163, 184, 1)',
+    fontSize: 14,
+  },
+  callModalGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1.7fr 0.8fr',
+    gap: 20,
+    padding: '24px',
+  },
+  callModalLargeVideo: {
+    position: 'relative',
+    minHeight: 360,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    display: 'grid',
+    placeItems: 'center',
+  },
+  callModalRemoteVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    backgroundColor: '#000',
+  },
+  callModalLocalVideo: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#020617',
+    minHeight: 220,
+    display: 'grid',
+    placeItems: 'center',
+  },
+  callModalLocalVideoMini: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  callModalPlaceholder: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 700,
+    textAlign: 'center',
+    padding: 16,
+  },
+  callModalPlaceholderSmall: {
+    color: 'rgba(148, 163, 184, 1)',
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 16,
+  },
+  callModalControls: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 16,
+    padding: '0 24px 24px',
+    flexWrap: 'wrap',
+  },
+  callModalHangupButton: {
+    borderRadius: 999,
+    border: 'none',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '12px 28px',
+    cursor: 'pointer',
+    fontWeight: 700,
   },
   debug: {
     marginTop: 8,

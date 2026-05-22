@@ -31,6 +31,21 @@ const messageSchema = new mongoose.Schema(
       fileUrl: String,
       mimeType: String,
     },
+    system: {
+      type: Boolean,
+      default: false,
+    },
+    callInfo: {
+      mode: {
+        type: String,
+        enum: ['audio', 'video'],
+        default: 'audio',
+      },
+      durationMs: Number,
+      endedById: String,
+      endedBy: String,
+      note: String,
+    },
   },
   {
     timestamps: true,

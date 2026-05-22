@@ -68,8 +68,13 @@ export const createMessageController = async (req, res, next) => {
   try {
     const senderId = req.user.id;
     const recipientId = req.params.otherId;
-    const { text = '', linkUrl = '' } = req.body;
+    const { text = '', linkUrl = '', system = false, callInfo } = req.body;
     const attachmentFile = req.file;
+
+    let parsedCallInfo;
+    if (callInfo) {
+      parsedCallInfo = typeof callInfo === 'string' ? JSON.parse(callInfo) : callInfo;
+    }
 
     if (!recipientId) {
       return next(new AppError('Recipient ID is required', 400));
@@ -79,7 +84,7 @@ export const createMessageController = async (req, res, next) => {
       return next(new AppError('Recipient ID is invalid', 400));
     }
 
-    if (!text.trim() && !linkUrl.trim() && !attachmentFile) {
+    if (!text.trim() && !linkUrl.trim() && !attachmentFile && !system) {
       return next(new AppError('Please provide a message, a link, or an attachment', 400));
     }
 
@@ -112,6 +117,8 @@ export const createMessageController = async (req, res, next) => {
       text: text.trim(),
       linkUrl: linkUrl.trim() || undefined,
       attachment,
+      system: String(system) === 'true' || system === true,
+      callInfo: parsedCallInfo,
     });
 
     await message.populate('sender', 'firstName lastName role profilePicture companyLogo');
@@ -141,6 +148,8 @@ export const createMessageController = async (req, res, next) => {
         text: populatedMessage.text,
         linkUrl: populatedMessage.linkUrl,
         attachment: populatedMessage.attachment,
+        system: populatedMessage.system,
+        callInfo: populatedMessage.callInfo,
         createdAt: populatedMessage.createdAt,
       });
     } catch (socketErr) {

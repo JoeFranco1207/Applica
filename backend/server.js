@@ -15,7 +15,7 @@ import AdminRouter from "./Routes/AdminRouter.js";
 import PostRouter from './Routes/PostRouter.js';
 import NotificationRouter from './Routes/NotificationRouter.js';
 import ChatRouter from './Routes/ChatRouter.js';
-import { registerSocketUser, unregisterSocketById, setIo } from './Services/SocketIO.service.js';
+import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo } from './Services/SocketIO.service.js';
 
 dotenv.config();
 const app = express();
@@ -95,13 +95,59 @@ io.on('connection', (socket) => {
 
   // Register user when they connect
   socket.on('register', (userId) => {
-    registerSocketUser(userId, socket.id);
-    console.log(`User ${userId} registered with socket ${socket.id}`);
+    if (!userId) return;
+    socket.userId = String(userId);
+    registerSocketUser(socket.userId, socket.id);
+    console.log(`User ${socket.userId} registered with socket ${socket.id}`);
   });
 
   // Listen for notifications
   socket.on('notification', (data) => {
     console.log('Notification received:', data);
+  });
+
+  socket.on('call:request', (data) => {
+    if (!data?.to) return;
+    const targetSocketId = getSocketIdByUser(data.to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:request', {
+        ...data,
+        from: socket.userId,
+      });
+    }
+  });
+
+  socket.on('call:signal', (data) => {
+    if (!data?.to) return;
+    const targetSocketId = getSocketIdByUser(data.to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:signal', {
+        ...data,
+        from: socket.userId,
+      });
+    }
+  });
+
+  socket.on('call:end', (data) => {
+    if (!data?.to) return;
+    const targetSocketId = getSocketIdByUser(data.to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:end', {
+        ...data,
+        from: socket.userId,
+      });
+    }
+  });
+
+  socket.on('call:reject', (data) => {
+    if (!data?.to) return;
+    const targetSocketId = getSocketIdByUser(data.to);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('call:reject', {
+        ...data,
+        from: socket.userId,
+      });
+    }
   });
 
   socket.on('disconnect', () => {

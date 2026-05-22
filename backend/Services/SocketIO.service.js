@@ -46,6 +46,11 @@ export const sendChatMessageDeletedToUser = (userId, payload) => {
   }
 };
 
+export const getSocketIdByUser = (userId) => {
+  if (!userId) return null;
+  return userSockets.get(userId.toString()) || null;
+};
+
 export const broadcastPostUpdate = (postData) => {
   if (!ioRef || !postData) return;
   ioRef.emit('post:updated', postData);

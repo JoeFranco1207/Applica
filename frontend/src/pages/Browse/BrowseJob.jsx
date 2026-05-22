@@ -335,8 +335,12 @@ export default function BrowseJob() {
   const token = localStorage.getItem("token");
   const storedUser = localStorage.getItem("user");
   const currentUser = storedUser ? JSON.parse(storedUser) : null;
-  const currentUserId = currentUser?.id || currentUser?._id || null;
-  const isEmployer = currentUser?.role === 'employer';
+  const [serverUser, setServerUser] = useState(null);
+  const effectiveUser = serverUser || currentUser;
+  const currentUserId = effectiveUser?.id || effectiveUser?._id || null;
+  const currentRole = effectiveUser?.role;
+  const isEmployer = currentRole === 'employer';
+  const isJobseeker = currentRole === 'jobseeker';
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [locationFilter, setLocationFilter] = useState("All");
@@ -374,6 +378,52 @@ export default function BrowseJob() {
   const [applyJobInfo, setApplyJobInfo] = useState(null);
   const [applyError, setApplyError] = useState("");
   const [userLikes, setUserLikes] = useState(new Set());
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const refreshAuthenticatedUser = async () => {
+    if (!token) return null;
+    try {
+      setProfileLoading(true);
+      const response = await axios.get("http://localhost:8000/api/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const freshUser = response.data?.data;
+      if (freshUser) {
+        setServerUser(freshUser);
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        return freshUser;
+      }
+    } catch (err) {
+      console.warn("Could not refresh authenticated user profile", err?.response?.data || err.message);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/auth");
+      }
+    } finally {
+      setProfileLoading(false);
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    if (serverUser) return;
+
+    let isCanceled = false;
+    const refreshProfile = async () => {
+      const freshUser = await refreshAuthenticatedUser();
+      if (isCanceled || !freshUser) return;
+    };
+
+    refreshProfile();
+    return () => {
+      isCanceled = true;
+    };
+  }, [token, serverUser]);
 
   // Listen for profile updates and update displayed social posts and job employer avatars/names
   useEffect(() => {
@@ -452,15 +502,23 @@ export default function BrowseJob() {
   const { translated: translatedModalDescription, loading: translatingModalDescription } = useTranslate(modalJob?.description || '');
   const { translated: translatedApplyTitle, loading: translatingApplyTitle } = useTranslate(applyJobInfo?.title || '');
 
-  const openApplyModal = (job) => {
+  const openApplyModal = async (job) => {
     if (!token) {
       navigate("/auth");
       return;
     }
-    if (isEmployer) {
-      alert(t('browse.employerCannotApply'));
+
+    const freshUser = await refreshAuthenticatedUser();
+    const activeUser = freshUser || effectiveUser;
+    const activeRole = activeUser?.role;
+
+    if (activeRole !== 'jobseeker') {
+      alert(activeRole === 'employer'
+        ? t('browse.employerCannotApply')
+        : 'Please switch to a jobseeker account to apply.');
       return;
     }
+
     setApplyJobInfo(job);
     setApplyError("");
     setShowApplyModal(true);
@@ -474,6 +532,17 @@ export default function BrowseJob() {
 
   const confirmApply = async () => {
     if (!applyJobInfo) return;
+
+    const freshUser = await refreshAuthenticatedUser();
+    const activeUser = freshUser || effectiveUser;
+    const activeRole = activeUser?.role;
+
+    if (activeRole !== 'jobseeker') {
+      setApplyError(activeRole === 'employer'
+        ? t('browse.employerCannotApply')
+        : 'Please switch to a jobseeker account to apply.');
+      return;
+    }
 
     const jobId = applyJobInfo._id || applyJobInfo.id;
     if (!jobId) {
@@ -506,15 +575,23 @@ export default function BrowseJob() {
       alert(`${t('browse.applicationSuccess')}: ${applyJobInfo.title}`);
     } catch (error) {
       console.error("Apply error", error);
-      const backendMessage = error.response?.data?.message?.toString() || "";
-      const isResumeError = /resume/i.test(backendMessage);
-      setApplyError(
-        backendMessage
-          ? isResumeError
-            ? t('browse.applyErrorResume')
-            : backendMessage
-          : t('browse.applyErrorSubmit')
-      );
+      if (error.response?.status === 403) {
+        setApplyError(
+          currentRole === 'employer'
+            ? t('browse.employerCannotApply')
+            : 'Only jobseeker accounts can apply for jobs. Please verify your profile or select the jobseeker role.'
+        );
+      } else {
+        const backendMessage = error.response?.data?.message?.toString() || "";
+        const isResumeError = /resume/i.test(backendMessage);
+        setApplyError(
+          backendMessage
+            ? isResumeError
+              ? t('browse.applyErrorResume')
+              : backendMessage
+            : t('browse.applyErrorSubmit')
+        );
+      }
     } finally {
       setJobActionLoading(false);
     }
@@ -603,6 +680,12 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       navigate("/auth");
       return;
     }
+    if (!isJobseeker) {
+      alert(currentUser?.role === 'employer'
+        ? t('browse.employerCannotApply')
+        : 'Only jobseekers can like jobs.');
+      return;
+    }
 
     try {
       setJobActionLoading(true);
@@ -625,7 +708,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       }
     } catch (error) {
       console.error("Like error", error);
-      alert("Hindi ma-update ang like ngayon.");
+      if (error.response?.status === 403) {
+        alert(currentRole === 'employer'
+          ? t('browse.employerCannotApply')
+          : 'Only jobseeker accounts may like jobs.');
+      } else {
+        alert("Hindi ma-update ang like ngayon.");
+      }
     } finally {
       setJobActionLoading(false);
     }
@@ -1724,26 +1813,25 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
             <div style={styles.modalActions}>
               <button
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  ...styles.actionButton,
-                }}
+                style={!isJobseeker ? { display: 'flex', alignItems: 'center', gap: '6px', ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : { display: 'flex', alignItems: 'center', gap: '6px', ...styles.actionButton }}
                 onClick={() => handleToggleLike(modalJob._id)}
-                disabled={jobActionLoading}
-                title={t('browse.likeJobTitle')}
+                disabled={jobActionLoading || !isJobseeker}
+                title={!isJobseeker ? 'Only jobseekers can like jobs' : t('browse.likeJobTitle')}
               >
                 <HeartIcon filled={modalJob.likes?.some((id) => id.toString() === currentUserId?.toString())} size={16} />
                 <span>{modalJob.likes?.length || 0}</span>
               </button>
               <button
-                style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
+                style={!isJobseeker ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
                 onClick={() => openApplyModal(modalJob)}
-                disabled={jobActionLoading || isEmployer}
-                title={isEmployer ? t('browse.applyButtonTitleEmployer') : t('browse.applyNow')}
+                disabled={jobActionLoading || !isJobseeker}
+                title={!isJobseeker
+                  ? currentUser?.role === 'employer'
+                    ? t('browse.applyButtonTitleEmployer')
+                    : 'Switch to a jobseeker account to apply.'
+                  : t('browse.applyNow')}
               >
-                {isEmployer ? t('browse.applyButtonTitleEmployer') : t('browse.applyNow')}
+                {!isJobseeker ? t('browse.applyButtonTitleEmployer') : t('browse.applyNow')}
               </button>
               <button style={styles.actionButton} onClick={() => { navigator.share ? navigator.share({ title: modalJob.title, text: modalJob.description }) : alert(modalJob.title + '\n' + modalJob.description); }}>
                 {t('browse.share')}

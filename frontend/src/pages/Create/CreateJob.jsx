@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -68,6 +68,8 @@ const CreateJob = () => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   const showMessage = (text, type) => {
     setMessage(text);
@@ -77,6 +79,55 @@ const CreateJob = () => {
       setMessageType("");
     }, 3000);
   };
+
+  const refreshAuthenticatedUser = async (token) => {
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const response = await axios.get("http://localhost:8000/api/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const freshUser = response.data?.data;
+      if (freshUser) {
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        setUserRole(freshUser.role);
+      }
+      return freshUser;
+    } catch (error) {
+      const status = error.response?.status;
+      if (status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        showMessage("Session expired. Please log in again.", "error");
+        navigate("/auth");
+      } else if (status === 403) {
+        showMessage("You are not authorized to create jobs.", "error");
+      } else {
+        showMessage("Unable to verify your employer status.", "error");
+      }
+      return null;
+    } finally {
+      setAuthChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    const initialize = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        showMessage("Please login to post jobs.", "error");
+        navigate("/auth");
+        return;
+      }
+      await refreshAuthenticatedUser(token);
+    };
+    initialize();
+  }, [navigate]);
 
   const autoBulletText = (value) => {
     return value
@@ -139,6 +190,8 @@ const CreateJob = () => {
     }
   };
 
+  const isEmployer = !authChecking && userRole === "employer";
+
   const handleMediaUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -184,6 +237,17 @@ const CreateJob = () => {
 
       if (!token) {
         showMessage("Please login first", "error");
+        setLoading(false);
+        return;
+      }
+
+      const freshUser = await refreshAuthenticatedUser(token);
+      if (!freshUser) {
+        setLoading(false);
+        return;
+      }
+      if (freshUser.role !== "employer") {
+        showMessage("Only employer accounts can create jobs.", "error");
         setLoading(false);
         return;
       }
@@ -267,6 +331,20 @@ const CreateJob = () => {
               }}
             >
               {message}
+            </div>
+          )}
+
+          {!authChecking && !isEmployer && (
+            <div
+              style={{
+                ...styles.messageBox,
+                backgroundColor: "rgba(255, 246, 230, 0.9)",
+                borderColor: "#f59e0b",
+                color: "#92400e",
+                marginBottom: 16,
+              }}
+            >
+              You must be signed in as an employer to post a job.
             </div>
           )}
 
@@ -424,7 +502,7 @@ const CreateJob = () => {
               <button
                 type="submit"
                 style={styles.primaryBtn}
-                disabled={loading}
+                disabled={loading || !isEmployer}
               >
                 <CheckIcon size={18} />
                 <span>{loading ? "Posting..." : "Post Job"}</span>

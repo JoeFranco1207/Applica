@@ -209,11 +209,26 @@ const ProfileSelection = () => {
         return;
       }
 
-      const storedUser = safeGetStoredUser();
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ ...storedUser, role: selectedRole })
-      );
+      try {
+        const refreshResponse = await fetch("http://localhost:8000/api/auth/profile", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          if (refreshData?.data) {
+            localStorage.setItem("user", JSON.stringify(refreshData.data));
+          }
+        } else {
+          const errorText = await refreshResponse.text();
+          console.warn("Unable to refresh authenticated user after profile save:", errorText);
+        }
+      } catch (e) {
+        console.warn("Error refreshing user after profile save:", e);
+      }
 
       setShowProfileModal(false);
       navigate("/profile");

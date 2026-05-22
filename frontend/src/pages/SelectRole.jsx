@@ -22,7 +22,7 @@ export default function SelectRole() {
       setError('');
 
       const res = await axios.put(
-        'http://localhost:8000/api/user/select-role',
+        'http://localhost:8000/api/auth/select-role',
         { role },
         {
           headers: { Authorization: `Bearer ${token}` },

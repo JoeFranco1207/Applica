@@ -29,7 +29,8 @@ export const protection = async (req, res, next) => {
       return next(new AppError("Unauthorized: invalid token", 401));
     }
 
-    const user = await User.findById(decoded.id).select('+activeSessionToken sessions');
+    // include activeSessionToken (select:false) and sessions, and explicitly include role/email/isVerified
+    const user = await User.findById(decoded.id).select('+activeSessionToken sessions role email isVerified');
 
     if (!user) {
       return next(new AppError("Unauthorized: user not found", 401));
@@ -49,10 +50,15 @@ export const protection = async (req, res, next) => {
       }
     }
 
+    // Debug: log the decoded id and stored role to help diagnose forbidden responses
+    console.log('Protection: decoded user id=', decoded.id, 'stored role=', user.role);
+
+    const normalizedRole = (user.role || "").toString().trim().toLowerCase();
+
     req.user = {
       id: user._id.toString(),
       email: user.email,
-      role: user.role,
+      role: normalizedRole,
       isVerified: user.isVerified,
     };
 
@@ -85,8 +91,14 @@ export const restrictTo = (...roles) => {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Forbidden: Not allowed" });
+    const normalizedUserRole = (req.user.role || "").toString().trim().toLowerCase();
+    const normalizedRoles = roles.map((role) => role.toString().trim().toLowerCase());
+
+    // Debug: log restrictTo comparison details
+    console.log('restrictTo: allowed=', normalizedRoles, 'userRole=', normalizedUserRole);
+
+    if (!normalizedRoles.includes(normalizedUserRole)) {
+      return res.status(403).json({ message: `Forbidden: Not allowed (${normalizedUserRole})` });
     }
 
     next();

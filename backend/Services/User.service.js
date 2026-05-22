@@ -224,10 +224,9 @@ export const loginService = async(email, password, deviceInfo) => {
 }
 
 export const chooseRoleService = async(userId, role) => {
+  const normalizedRole = (role || "").toString().trim().toLowerCase();
 
-  console.log("Incoming role:", role);
-
-  if (!['jobseeker', 'employer'].includes(role)) {
+  if (!['jobseeker', 'employer'].includes(normalizedRole)) {
     throw new AppError("Invalid role selection", 400);
   }
 
@@ -242,8 +241,8 @@ export const chooseRoleService = async(userId, role) => {
     throw new AppError("Role already selected", 400);
   }
 
-  user.role = role;
-  user.__t = role;
+  user.role = normalizedRole;
+  user.__t = normalizedRole;
 
   await user.save();
 

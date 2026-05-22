@@ -16,7 +16,7 @@ import {
   repostService,
   removeRepostService,
 } from '../Services/Post.service.js';
-import { sendNotificationToUser } from '../Services/SocketIO.service.js';
+import { sendNotificationToUser, broadcastPostUpdate } from '../Services/SocketIO.service.js';
 
 export const createPostController = async (req, res, next) => {
   try {
@@ -145,6 +145,9 @@ export const togglePostLikeController = async (req, res, next) => {
       message: `Someone reacted to your post`,
       timestamp: new Date(),
     });
+
+    // Broadcast updated post counts to all connected clients
+    broadcastPostUpdate(post);
     
     return res.status(200).json(new AppSuccessful('Post like toggled', 200, post));
   } catch (err) {
@@ -168,6 +171,8 @@ export const addCommentController = async (req, res, next) => {
       message: `Someone commented on your post`,
       timestamp: new Date(),
     });
+
+    broadcastPostUpdate(post);
     
     return res.status(201).json(new AppSuccessful('Comment added', 201, post));
   } catch (err) {
@@ -217,6 +222,8 @@ export const addReplyController = async (req, res, next) => {
       message: `Someone replied to a comment on your post`,
       timestamp: new Date(),
     });
+
+    broadcastPostUpdate(post);
     
     return res.status(201).json(new AppSuccessful('Reply added', 201, post));
   } catch (err) {
@@ -239,6 +246,8 @@ export const recordViewController = async (req, res, next) => {
       message: `Someone viewed your post`,
       timestamp: new Date(),
     });
+
+    broadcastPostUpdate(post);
     
     return res.status(200).json(new AppSuccessful('View recorded', 200, post));
   } catch (err) {
@@ -261,6 +270,8 @@ export const sharePostController = async (req, res, next) => {
       message: `Someone shared your post`,
       timestamp: new Date(),
     });
+
+    broadcastPostUpdate(post);
     
     return res.status(200).json(new AppSuccessful('Post shared', 200, post));
   } catch (err) {
@@ -283,6 +294,8 @@ export const repostController = async (req, res, next) => {
       message: `Someone reposted your post`,
       timestamp: new Date(),
     });
+
+    broadcastPostUpdate(post);
     
     return res.status(200).json(new AppSuccessful('Post reposted', 200, post));
   } catch (err) {
@@ -295,6 +308,8 @@ export const removeRepostController = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const post = await removeRepostService(userId, req.params.id);
+
+    broadcastPostUpdate(post);
     
     return res.status(200).json(new AppSuccessful('Repost removed', 200, post));
   } catch (err) {

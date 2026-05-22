@@ -45,3 +45,9 @@ export const sendChatMessageDeletedToUser = (userId, payload) => {
     console.log(`Chat delete event sent to user ${userId}`);
   }
 };
+
+export const broadcastPostUpdate = (postData) => {
+  if (!ioRef || !postData) return;
+  ioRef.emit('post:updated', postData);
+  console.log(`Broadcasted post update for post ${postData._id || postData.id}`);
+};

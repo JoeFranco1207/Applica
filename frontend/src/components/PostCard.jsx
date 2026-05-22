@@ -4,6 +4,7 @@ import axios from 'axios';
 import './PostCard.css';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -60,6 +61,42 @@ const PostCard = ({ post, onUpdate }) => {
     });
     setIsReposted(!!hasReposted);
   }, [post, userId]);
+
+  const { socket } = useNotification();
+
+  useEffect(() => {
+    if (!socket || !currentPost?._id) return;
+
+    const handlePostUpdated = (updatedPost) => {
+      if (!updatedPost || updatedPost._id !== currentPost._id) return;
+
+      const mergedPost = {
+        ...currentPost,
+        ...updatedPost,
+      };
+
+      setCurrentPost(mergedPost);
+      if (onUpdate) onUpdate(mergedPost);
+
+      const normalizedUserId = userId?.toString();
+      const hasLiked = updatedPost.likes?.some((id) => {
+        const likeId = typeof id === 'object' ? id._id || id : id;
+        return likeId.toString() === normalizedUserId;
+      });
+      setIsLiked(!!hasLiked);
+
+      const hasReposted = updatedPost.reposts?.some((r) => {
+        const repostUserId = typeof r === 'object' ? (r.userId?._id || r.userId || r) : r;
+        return repostUserId.toString() === normalizedUserId;
+      });
+      setIsReposted(!!hasReposted);
+    };
+
+    socket.on('post:updated', handlePostUpdated);
+    return () => {
+      socket.off('post:updated', handlePostUpdated);
+    };
+  }, [socket, currentPost?._id, currentPost, onUpdate, userId]);
 
   // Listen for profile updates and refresh this post's display data
   useEffect(() => {

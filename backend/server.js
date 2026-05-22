@@ -15,7 +15,7 @@ import AdminRouter from "./Routes/AdminRouter.js";
 import PostRouter from './Routes/PostRouter.js';
 import NotificationRouter from './Routes/NotificationRouter.js';
 import ChatRouter from './Routes/ChatRouter.js';
-import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo } from './Services/SocketIO.service.js';
+import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
 
 dotenv.config();
 const app = express();
@@ -104,6 +104,18 @@ io.on('connection', (socket) => {
   // Listen for notifications
   socket.on('notification', (data) => {
     console.log('Notification received:', data);
+  });
+
+  // Listen for presence change requests from clients
+  socket.on('presence:set', (data) => {
+    try {
+      const mode = data?.mode;
+      const userId = socket.userId || data?.userId;
+      if (!userId || !mode) return;
+      setUserPresence(userId, mode);
+    } catch (err) {
+      console.error('Error handling presence:set', err);
+    }
   });
 
   socket.on('call:request', (data) => {

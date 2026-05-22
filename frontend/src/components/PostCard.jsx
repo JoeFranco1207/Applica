@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
+import { useState } from 'react';
+import LikesList from './LikesList';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -42,6 +44,24 @@ const PostCard = ({ post, onUpdate }) => {
     if (month < 12) return `${month}buwan`;
     const year = Math.floor(month / 12);
     return `${year}taon`;
+  };
+
+  const formatLastActive = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    const diff = Date.now() - d.getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} min ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} hr${hr>1?'s':''} ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day} day${day>1?'s':''} ago`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month} mo ago`;
+    const year = Math.floor(month / 12);
+    return `${year} yr${year>1?'s':''} ago`;
   };
 
   // Update state when post changes
@@ -97,6 +117,23 @@ const PostCard = ({ post, onUpdate }) => {
       socket.off('post:updated', handlePostUpdated);
     };
   }, [socket, currentPost?._id, currentPost, onUpdate, userId]);
+
+  // Listen for presence updates from server (dispatched by NotificationContext)
+  useEffect(() => {
+    const handler = (e) => {
+      const payload = e?.detail;
+      if (!payload || !currentPost) return;
+      const pid = (typeof currentPost.author === 'object' ? (currentPost.author._id || currentPost.author) : currentPost.author)?.toString();
+      const uid = (payload.userId || payload.userID || payload.user)?.toString();
+      if (!pid || !uid) return;
+      if (pid === uid) {
+        const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+        setCurrentPost((prev) => ({ ...prev, authorIsOnline: mode === 'online', authorLastActive: payload.lastActive || null, authorPresenceMode: mode }));
+      }
+    };
+    window.addEventListener('app:userPresenceUpdated', handler);
+    return () => window.removeEventListener('app:userPresenceUpdated', handler);
+  }, [currentPost]);
 
   // Listen for profile updates and refresh this post's display data
   useEffect(() => {
@@ -337,36 +374,48 @@ const PostCard = ({ post, onUpdate }) => {
 
 
   const { translated: translatedContent, loading: translating, translateNow } = useTranslate(currentPost.content || '');
+  const [showLikesModal, setShowLikesModal] = useState(false);
+
+  const openLikesModal = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setShowLikesModal(true);
+  };
 
   return (
     <div className="post-card">
       {/* Post Header */}
       <div className="post-header">
         <div className="author-info">
-          {(currentPost.authorAvatar && !authorAvatarError) ? (
-            <img
-              src={currentPost.authorAvatar}
-              alt={currentPost.authorName}
-              className="author-avatar"
-              style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
-              onClick={() => {
-                const authorId = getUserId(currentPost.author);
-                if (authorId) navigate(`/profile/${authorId}`);
-              }}
-              onError={() => setAuthorAvatarError(true)}
-            />
-          ) : (
-            <div
-              className="author-avatar placeholder"
-              style={{ cursor: currentPost.author ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => {
-                const authorId = getUserId(currentPost.author);
-                if (authorId) navigate(`/profile/${authorId}`);
-              }}
-            >
-              {(currentPost.authorName && currentPost.authorName.charAt(0)) || 'U'}
-            </div>
-          )}
+          <div className="avatar-wrapper" style={{ position: 'relative' }}>
+            {(currentPost.authorAvatar && !authorAvatarError) ? (
+              <img
+                src={currentPost.authorAvatar}
+                alt={currentPost.authorName}
+                className="author-avatar"
+                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+                onClick={() => {
+                  const authorId = getUserId(currentPost.author);
+                  if (authorId) navigate(`/profile/${authorId}`);
+                }}
+                onError={() => setAuthorAvatarError(true)}
+              />
+            ) : (
+              <div
+                className="author-avatar placeholder"
+                style={{ cursor: currentPost.author ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => {
+                  const authorId = getUserId(currentPost.author);
+                  if (authorId) navigate(`/profile/${authorId}`);
+                }}
+              >
+                {(currentPost.authorName && currentPost.authorName.charAt(0)) || 'U'}
+              </div>
+            )}
+
+            {currentPost.authorPresenceMode ? (
+              <span className={`presence-dot presence-${currentPost.authorPresenceMode}`} title={currentPost.authorPresenceMode}></span>
+            ) : null}
+          </div>
           <div className="author-details">
             <h3
               className="author-name"
@@ -388,6 +437,9 @@ const PostCard = ({ post, onUpdate }) => {
                   <span className="author-email">{currentPost.authorEmail}</span>
                 )}
                 <span className="post-time">{formatRelativeTime(currentPost.createdAt)}</span>
+                {currentPost.authorPresenceMode !== 'online' && currentPost.authorLastActive && (
+                  <span className="last-active">{formatLastActive(currentPost.authorLastActive)}</span>
+                )}
               </div>
             </div>
           </div>
@@ -422,7 +474,7 @@ const PostCard = ({ post, onUpdate }) => {
 
       {/* Post Stats */}
       <div className="post-stats">
-        <span>{currentPost.likes?.length || 0} {translate('browse.likes')}</span>
+        <span onClick={openLikesModal} style={{ cursor: 'pointer' }} title="View likers">{currentPost.likes?.length || 0} {translate('browse.likes')}</span>
         <span>{currentPost.comments?.length || 0} {translate('browse.comments')}</span>
         <span>{currentPost.views?.length || 0} {translate('browse.views')}</span>
         <span>{currentPost.shares?.length || 0} {translate('browse.shares')}</span>
@@ -632,5 +684,9 @@ const PostCard = ({ post, onUpdate }) => {
     </div>
   );
 };
+
+      {showLikesModal && (
+        <LikesList postId={currentPost._id} onClose={() => setShowLikesModal(false)} />
+      )}
 
 export default PostCard;

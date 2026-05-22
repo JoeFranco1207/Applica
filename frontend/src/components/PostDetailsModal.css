@@ -135,6 +135,21 @@
   border: 1px solid var(--border);
 }
 
+.presence-dot {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.03);
+}
+
+.presence-online { background: #34d399; }
+.presence-offline { background: #95a5a6; }
+.presence-dnd { background: #ef4444; }
+
 .post-author-info {
   display: flex;
   flex-direction: column;

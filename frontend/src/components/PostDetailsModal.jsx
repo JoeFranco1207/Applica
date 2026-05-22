@@ -235,6 +235,53 @@ const PostDetailsModal = ({
     };
   }, [currentPost, token, onUpdate]);
 
+  // Listen for presence updates and update current post / comment authors
+  useEffect(() => {
+    const handler = (e) => {
+      const payload = e?.detail;
+      if (!payload || !currentPost) return;
+      const uid = (payload.userId || payload.userID || payload.user)?.toString();
+
+      // Update post author
+      const postAuthorId = typeof currentPost.author === 'object' ? (currentPost.author._id || currentPost.author) : currentPost.author;
+      if (postAuthorId && postAuthorId.toString() === uid) {
+        const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+        setCurrentPost((prev) => ({ ...prev, authorIsOnline: mode === 'online', authorLastActive: payload.lastActive || null, authorPresenceMode: mode }));
+        return;
+      }
+
+      // Update comments and replies
+      setCurrentPost((prev) => {
+        if (!prev) return prev;
+        const clone = { ...prev };
+        if (Array.isArray(clone.comments)) {
+            clone.comments = clone.comments.map((c) => {
+            const cid = typeof c.author === 'object' ? (c.author._id || c.author) : c.author;
+            if (cid && cid.toString() === uid) {
+              const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+              return { ...c, authorIsOnline: mode === 'online', authorLastActive: payload.lastActive || null, authorPresenceMode: mode };
+            }
+            if (Array.isArray(c.replies)) {
+              c.replies = c.replies.map((r) => {
+                const rid = typeof r.author === 'object' ? (r.author._id || r.author) : r.author;
+                if (rid && rid.toString() === uid) {
+                  const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+                  return { ...r, authorIsOnline: mode === 'online', authorLastActive: payload.lastActive || null, authorPresenceMode: mode };
+                }
+                return r;
+              });
+            }
+            return c;
+          });
+        }
+        return clone;
+      });
+    };
+
+    window.addEventListener('app:userPresenceUpdated', handler);
+    return () => window.removeEventListener('app:userPresenceUpdated', handler);
+  }, [currentPost]);
+
   if (!isOpen || !currentPost) return null;
 
   const handleLike = async () => {
@@ -350,6 +397,24 @@ const PostDetailsModal = ({
     return `${year}yr`;
   };
 
+  const formatLastActive = (dateValue) => {
+    if (!dateValue) return '';
+    const date = new Date(dateValue);
+    const diff = Date.now() - date.getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} min ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} hr${hr>1?'s':''} ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day} day${day>1?'s':''} ago`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month} mo ago`;
+    const year = Math.floor(month / 12);
+    return `${year} yr${year>1?'s':''} ago`;
+  };
+
   const submitComment = async () => {
     if (!commentText.trim()) {
       setError('Pakiusap magsulat ng komento');
@@ -460,22 +525,28 @@ const PostDetailsModal = ({
 
         <div className="post-author-bar">
           <div className="post-author-section">
-            {currentPost.authorAvatar ? (
-              <img 
-                src={currentPost.authorAvatar} 
-                alt={currentPost.authorName} 
-                className="post-author-avatar"
-                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
-                onClick={() => {
-                  const authorId = getUserId(currentPost.author);
-                  if (authorId) navigate(`/profile/${authorId}`);
-                }}
-              />
-            ) : (
-              <div className="post-author-avatar placeholder-avatar">
-                {currentPost.authorName?.charAt(0) || 'U'}
-              </div>
-            )}
+            <div className="avatar-wrapper" style={{ position: 'relative' }}>
+              {currentPost.authorAvatar ? (
+                <img 
+                  src={currentPost.authorAvatar} 
+                  alt={currentPost.authorName} 
+                  className="post-author-avatar"
+                  style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    const authorId = getUserId(currentPost.author);
+                    if (authorId) navigate(`/profile/${authorId}`);
+                  }}
+                />
+              ) : (
+                <div className="post-author-avatar placeholder-avatar">
+                  {currentPost.authorName?.charAt(0) || 'U'}
+                </div>
+              )}
+
+              {currentPost.authorPresenceMode ? (
+                <span className={`presence-dot presence-${currentPost.authorPresenceMode}`} title={currentPost.authorPresenceMode}></span>
+              ) : null}
+            </div>
 
             <div className="post-author-info">
               <div className="post-author-name-row">
@@ -502,6 +573,9 @@ const PostDetailsModal = ({
                   </a>
                 )}
                 <span className="post-author-timestamp">{formatRelativeTime(currentPost.createdAt)}</span>
+                {currentPost.authorPresenceMode !== 'online' && currentPost.authorLastActive && (
+                  <span className="last-active">{formatLastActive(currentPost.authorLastActive)}</span>
+                )}
               </div>
             </div>
           </div>
@@ -630,16 +704,22 @@ const PostDetailsModal = ({
                   <div key={comment._id} id={`comment-${comment._id}`} className="comment-item">
                     <div className="comment-header">
                       {comment.authorAvatar && (
-                        <img 
-                          src={comment.authorAvatar} 
-                          alt={comment.authorName} 
-                          className="comment-avatar"
-                          style={{ cursor: comment.author ? 'pointer' : 'default' }}
-                          onClick={() => {
-                            const authorId = getUserId(comment.author);
-                            if (authorId) navigate(`/profile/${authorId}`);
-                          }}
-                        />
+                        <div className="avatar-wrapper" style={{ position: 'relative' }}>
+                          <img 
+                            src={comment.authorAvatar} 
+                            alt={comment.authorName} 
+                            className="comment-avatar"
+                            style={{ cursor: comment.author ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              const authorId = getUserId(comment.author);
+                              if (authorId) navigate(`/profile/${authorId}`);
+                            }}
+                          />
+
+                          {comment.authorPresenceMode ? (
+                            <span className={`presence-dot presence-${comment.authorPresenceMode}`} title={comment.authorPresenceMode}></span>
+                          ) : null}
+                        </div>
                       )}
                       <div className="comment-author-info">
                         <div className="comment-author-top">
@@ -661,6 +741,9 @@ const PostDetailsModal = ({
                           <span className="comment-timestamp">
                             {formatRelativeTime(comment.createdAt)}
                           </span>
+                          {comment.authorPresenceMode !== 'online' && comment.authorLastActive && (
+                            <span className="last-active">{formatLastActive(comment.authorLastActive)}</span>
+                          )}
                         </div>
                       </div>
                       {canDeleteComment && (
@@ -751,16 +834,22 @@ const PostDetailsModal = ({
                               <div key={reply._id} className="reply-item">
                                 <div className="reply-header">
                                   {reply.authorAvatar && (
-                                    <img 
-                                      src={reply.authorAvatar} 
-                                      alt={reply.authorName} 
-                                      className="reply-avatar" 
-                                      style={{ cursor: reply.author ? 'pointer' : 'default' }}
-                                      onClick={() => {
-                                        const authorId = getUserId(reply.author);
-                                        if (authorId) navigate(`/profile/${authorId}`);
-                                      }}
-                                    />
+                                    <div className="avatar-wrapper" style={{ position: 'relative' }}>
+                                      <img 
+                                        src={reply.authorAvatar} 
+                                        alt={reply.authorName} 
+                                        className="reply-avatar" 
+                                        style={{ cursor: reply.author ? 'pointer' : 'default' }}
+                                        onClick={() => {
+                                          const authorId = getUserId(reply.author);
+                                          if (authorId) navigate(`/profile/${authorId}`);
+                                        }}
+                                      />
+
+                                      {reply.authorPresenceMode ? (
+                                        <span className={`presence-dot presence-${reply.authorPresenceMode}`} title={reply.authorPresenceMode}></span>
+                                      ) : null}
+                                    </div>
                                   )}
                                   <div className="reply-author-info">
                                     <div className="reply-author-top">

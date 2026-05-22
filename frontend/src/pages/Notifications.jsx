@@ -97,6 +97,25 @@ const Notifications = () => {
     fetchNotifications();
   }, []);
 
+  // Update notifications when presence updates arrive
+  useEffect(() => {
+    const handler = (e) => {
+      const payload = e?.detail;
+      if (!payload) return;
+      const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+      setNotifications((prev) => prev.map((n) => {
+        const actorId = n.actor?._id || n.actorId || n.actor?.id || n.actor;
+        if (!actorId) return n;
+        if (actorId.toString() === (payload.userId || payload.user || '').toString()) {
+          return { ...n, actorIsOnline: mode === 'online', actorLastActive: payload.lastActive || null, actorPresenceMode: mode };
+        }
+        return n;
+      }));
+    };
+    window.addEventListener('app:userPresenceUpdated', handler);
+    return () => window.removeEventListener('app:userPresenceUpdated', handler);
+  }, []);
+
   const handleMarkAsRead = async (notificationId) => {
     try {
       await axios.patch(
@@ -251,12 +270,17 @@ const Notifications = () => {
               <div className="notification-body">
                 <div className="notification-author">
                   {(notification.actorAvatar || notification.actor?.profilePicture) && (
-                    <img
-                      src={notification.actorAvatar || notification.actor?.profilePicture}
-                      alt={notification.actorName || (notification.actor && (notification.actor.firstName || notification.actor.name)) || 'User'}
-                      className="notification-avatar"
-                      onClick={(e) => { e.stopPropagation(); const aid = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor; if (aid) navigate(`/profile/${aid}`); }}
-                    />
+                    <div className="avatar-wrapper" style={{ position: 'relative' }}>
+                      <img
+                        src={notification.actorAvatar || notification.actor?.profilePicture}
+                        alt={notification.actorName || (notification.actor && (notification.actor.firstName || notification.actor.name)) || 'User'}
+                        className="notification-avatar"
+                        onClick={(e) => { e.stopPropagation(); const aid = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor; if (aid) navigate(`/profile/${aid}`); }}
+                      />
+                      {notification.actorPresenceMode ? (
+                        <span className={`presence-dot presence-${notification.actorPresenceMode}`} title={notification.actorPresenceMode}></span>
+                      ) : null}
+                    </div>
                   )}
                   <div className="notification-info">
                     <h3 className="notification-title">
@@ -265,6 +289,9 @@ const Notifications = () => {
                     <span className="notification-time">
                       {new Date(notification.createdAt).toLocaleString()}
                     </span>
+                    {notification.actorPresenceMode !== 'online' && notification.actorLastActive && (
+                      <span className="last-active">{new Date(notification.actorLastActive).toLocaleString()}</span>
+                    )}
                   </div>
                 </div>
                 {notification.message && (

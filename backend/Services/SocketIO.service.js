@@ -1,3 +1,5 @@
+import User from '../Model/UserSchema.js';
+
 let ioRef = null;
 const userSockets = new Map();
 
@@ -5,17 +7,53 @@ export const setIo = (io) => {
   ioRef = io;
 };
 
-export const registerSocketUser = (userId, socketId) => {
+export const registerSocketUser = async (userId, socketId) => {
   if (!userId) return;
   userSockets.set(userId.toString(), socketId);
+  try {
+    // respect existing presenceMode (e.g., dnd) when setting online
+    const user = await User.findById(userId).select('presenceMode');
+    const presenceMode = (user && user.presenceMode === 'dnd') ? 'dnd' : 'online';
+    await User.findByIdAndUpdate(userId, { isOnline: true, presenceMode }, { new: true });
+    if (ioRef) {
+      ioRef.emit('user:presence', { userId, isOnline: true, lastActive: null, presenceMode });
+    }
+  } catch (err) {
+    console.error('Error setting user online:', err.message || err);
+  }
 };
 
-export const unregisterSocketById = (socketId) => {
+export const unregisterSocketById = async (socketId) => {
   for (const [userId, storedSocketId] of userSockets.entries()) {
     if (storedSocketId === socketId) {
       userSockets.delete(userId);
+      try {
+        const lastActive = new Date();
+        // on disconnect set to offline
+        await User.findByIdAndUpdate(userId, { isOnline: false, lastActive, presenceMode: 'offline' }, { new: true });
+        if (ioRef) {
+          ioRef.emit('user:presence', { userId, isOnline: false, lastActive, presenceMode: 'offline' });
+        }
+      } catch (err) {
+        console.error('Error setting user offline:', err.message || err);
+      }
       break;
     }
+  }
+};
+
+export const setUserPresence = async (userId, mode) => {
+  if (!userId || !mode) return;
+  if (!['online', 'offline', 'dnd'].includes(mode)) return;
+  try {
+    const update = { presenceMode: mode, isOnline: mode === 'online' };
+    if (mode === 'offline') update.lastActive = new Date();
+    await User.findByIdAndUpdate(userId, update, { new: true });
+    if (ioRef) {
+      ioRef.emit('user:presence', { userId, isOnline: update.isOnline, lastActive: update.lastActive || null, presenceMode: mode });
+    }
+  } catch (err) {
+    console.error('Error updating user presence mode:', err.message || err);
   }
 };
 

@@ -77,7 +77,21 @@ const userSchema = new mongoose.Schema({
         ref: 'User',
       },
     ],
-
+    
+    // Presence information
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastActive: {
+      type: Date,
+      default: null,
+    },
+    presenceMode: {
+      type: String,
+      enum: ['online', 'offline', 'dnd'],
+      default: 'offline',
+    },
     forgotPasswordCode: {
       type: Number,
       select: false,

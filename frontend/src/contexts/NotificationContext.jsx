@@ -134,6 +134,17 @@ export const NotificationProvider = ({ children }) => {
         ]);
       });
 
+      // Listen for user presence updates and broadcast as a DOM event
+      newSocket.on('user:presence', (payload) => {
+        try {
+          console.log('Received user presence update:', payload);
+          const ev = new CustomEvent('app:userPresenceUpdated', { detail: payload });
+          window.dispatchEvent(ev);
+        } catch (err) {
+          console.error('Error handling user presence update:', err);
+        }
+      });
+
       newSocket.on('disconnect', () => {
         console.log('Disconnected from notifications server');
         setIsConnected(false);
@@ -155,6 +166,20 @@ export const NotificationProvider = ({ children }) => {
       };
     }
   }, []);
+
+  const setPresence = (mode) => {
+    if (!socket) return;
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = storedUser?._id || storedUser?.id || null;
+      socket.emit('presence:set', { userId, mode });
+      // optimistic update: broadcast locally so UI updates immediately
+      const evt = new CustomEvent('app:userPresenceUpdated', { detail: { userId, isOnline: mode === 'online', lastActive: mode === 'offline' ? new Date() : null, presenceMode: mode } });
+      window.dispatchEvent(evt);
+    } catch (err) {
+      console.error('Failed to set presence:', err);
+    }
+  };
 
   const removeNotification = (notificationId) => {
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
@@ -202,6 +227,7 @@ export const NotificationProvider = ({ children }) => {
     clearNotifications,
     markAsRead,
     isConnected,
+    setPresence,
   };
 
   return (

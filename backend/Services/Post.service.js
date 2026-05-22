@@ -98,6 +98,9 @@ export const getAllPostsService = async (options = {}) => {
         postObj.authorRole = u.role || postObj.authorRole;
         postObj.authorEmail = u.email || postObj.authorEmail;
         postObj.authorCompanyName = u.role === 'employer' ? u.companyName : postObj.authorCompanyName;
+        postObj.authorIsOnline = !!u.isOnline;
+        postObj.authorLastActive = u.lastActive || null;
+        postObj.authorPresenceMode = u.presenceMode || (u.isOnline ? 'online' : 'offline');
       }
       return postObj;
     });
@@ -146,6 +149,9 @@ export const getPostByIdService = async (postId) => {
       postObj.authorRole = user.role;
       postObj.authorEmail = user.email;
       postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+        postObj.authorIsOnline = !!user.isOnline;
+        postObj.authorLastActive = user.lastActive || null;
+        postObj.authorPresenceMode = user.presenceMode || (user.isOnline ? 'online' : 'offline');
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -158,6 +164,9 @@ export const getPostByIdService = async (postId) => {
         if (cu) {
           c.authorName = `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email || c.authorName;
           c.authorAvatar = (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || c.authorAvatar || null;
+          c.authorIsOnline = !!cu.isOnline;
+          c.authorLastActive = cu.lastActive || null;
+          c.authorPresenceMode = cu.presenceMode || (cu.isOnline ? 'online' : 'offline');
         }
       } catch (err) {
         /* ignore */
@@ -170,6 +179,9 @@ export const getPostByIdService = async (postId) => {
             if (ru) {
               r.authorName = `${ru.firstName || ''} ${ru.lastName || ''}`.trim() || ru.email || r.authorName;
               r.authorAvatar = (ru.role === 'employer' ? ru.companyLogo : ru.profilePicture) || r.authorAvatar || null;
+              r.authorIsOnline = !!ru.isOnline;
+              r.authorLastActive = ru.lastActive || null;
+              r.authorPresenceMode = ru.presenceMode || (ru.isOnline ? 'online' : 'offline');
             }
           } catch (err) {
             /* ignore */

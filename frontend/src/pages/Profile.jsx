@@ -4,6 +4,8 @@ import { ThemeContext } from "../contexts/ThemeContext";
 import ThemeSwitch from "../components/ThemeSwitch";
 import PostDetailsModal from "../components/PostDetailsModal";
 import axios from "axios";
+import PresenceAvatar from '../components/PresenceAvatar';
+import { useNotification } from '../contexts/NotificationContext';
 
 const HeartIcon = ({ filled = false, size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,6 +168,7 @@ export default function Profile() {
   const { id: profileId } = useParams();
   const location = useLocation();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const { setPresence } = useNotification();
   const storedUser = localStorage.getItem("user");
   const [authUser, setAuthUser] = useState(storedUser ? JSON.parse(storedUser) : null);
   const currentUserId = authUser?.id || authUser?._id || null;
@@ -1054,21 +1057,16 @@ export default function Profile() {
                     ? "rgba(255,255,255,0.2)"
                     : "rgba(255,255,255,0.3)",
                 }}>
-                  {(user?.profilePicture || user?.companyLogo) ? (
-                    <img
-                      src={user.profilePicture || user.companyLogo}
-                      alt="Profile"
-                      style={styles.profileHeaderImage}
-                    />
-                  ) : (
-                    (user?.role === "employer"
-                      ? user?.companyName?.charAt(0)
-                      : user?.firstName?.charAt(0))
-                      ? (user?.role === "employer"
-                        ? user.companyName.charAt(0).toUpperCase()
-                        : user.firstName.charAt(0).toUpperCase())
-                      : "U"
-                  )}
+                  <PresenceAvatar
+                    src={user?.profilePicture || user?.companyLogo}
+                    alt={(user?.firstName || user?.companyName || user?.email) || 'User'}
+                    size={360}
+                    userId={user?._id || user?.id}
+                    initialIsOnline={!!user?.isOnline}
+                    initialLastActive={user?.lastActive || null}
+                    initialPresenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
+                    showLastActive={false}
+                  />
                 </div>
               </div>
             </div>
@@ -1096,6 +1094,13 @@ export default function Profile() {
               }}>
                 {user?.role === "employer" ? "Employer" : user?.role === "jobseeker" ? "Job Seeker" : "User"}
               </p>
+              {isOwnProfile && (
+                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                  <button onClick={() => setPresence('online')} style={{ background: '#34d399', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Online</button>
+                  <button onClick={() => setPresence('offline')} style={{ background: '#95a5a6', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Offline</button>
+                  <button onClick={() => setPresence('dnd')} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Do Not Disturb</button>
+                </div>
+              )}
             </div>
 
             {!isOwnProfile ? (

@@ -1,14 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import './PresenceAvatar.css';
 
-export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, showLastActive = true, initialPresenceMode = 'offline', presenceMode: propPresenceMode, onClick, className = '', style = {} }) {
+const normalizeId = (id) => {
+  if (id === null || id === undefined) return null;
+  if (typeof id === 'object') return normalizeId(id._id || id.id || id.userId || id.userID || id.uid);
+  return id?.toString?.() || null;
+};
+
+const getPayloadUserId = (payload) => {
+  if (!payload) return null;
+  const candidate = payload.userId || payload.userID || payload.user || payload.id || payload.uid || payload.actorId || payload.senderId;
+  return normalizeId(candidate);
+};
+
+const getStoredCurrentUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+const isRecentlyActive = (timestamp) => {
+  if (!timestamp) return false;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+  return Date.now() - date.getTime() <= ONLINE_THRESHOLD_MS;
+};
+
+export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, lastActive = null, showLastActive = true, initialPresenceMode = 'offline', presenceMode: propPresenceMode, onClick, className = '', style = {} }) {
   const getInitialMode = () => {
     const fallback = initialIsOnline ? 'online' : 'offline';
-    return propPresenceMode ?? initialPresenceMode ?? fallback;
+    const storedUser = getStoredCurrentUser();
+    const storedUserId = normalizeId(storedUser?._id || storedUser?.id);
+    const currentUserMatches = storedUserId && normalizeId(userId) === storedUserId;
+    const storedPresence = currentUserMatches ? (storedUser?.presenceMode || (storedUser?.isOnline ? 'online' : undefined)) : undefined;
+    return propPresenceMode ?? initialPresenceMode ?? storedPresence ?? fallback;
   };
 
   const [presenceMode, setPresenceMode] = useState(getInitialMode());
-  const [lastActive, setLastActive] = useState(initialLastActive);
+  const [lastActiveState, setLastActiveState] = useState(lastActive ?? initialLastActive);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -20,19 +54,20 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
   }, [propPresenceMode, initialPresenceMode, initialIsOnline]);
 
   useEffect(() => {
-    setLastActive(initialLastActive);
-  }, [initialLastActive]);
+    setLastActiveState(lastActive ?? initialLastActive);
+  }, [lastActive, initialLastActive]);
 
   useEffect(() => {
+    const normalizedUserId = normalizeId(userId);
     const handler = (e) => {
       const payload = e?.detail;
       if (!payload) return;
-      const uid = (payload.userId || payload.user || payload.userID || payload.id || '').toString();
-      if (!uid || !userId) return;
-      if (uid === userId.toString()) {
-        const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+      const uid = getPayloadUserId(payload);
+      if (!uid || !normalizedUserId) return;
+      if (uid === normalizedUserId) {
+        const mode = payload.presenceMode ?? (payload.isOnline ? 'online' : 'offline');
         setPresenceMode(mode);
-        setLastActive(payload.lastActive || null);
+        setLastActiveState(payload.lastActive || null);
       }
     };
 
@@ -56,6 +91,13 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
     return `${day} day${day>1?'s':''} ago`;
   };
 
+  const displayPresenceMode = (() => {
+    if (presenceMode === 'dnd' || presenceMode === 'away' || presenceMode === 'busy') return presenceMode;
+    if (presenceMode === 'online') return 'online';
+    if (isRecentlyActive(lastActiveState)) return 'online';
+    return presenceMode ?? 'offline';
+  })();
+
   const sizeStyle = { width: size, height: size, fontSize: Math.max(12, Math.floor(size / 3)) };
 
   return (
@@ -72,12 +114,12 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
         <div className="presence-avatar-placeholder" style={{ ...sizeStyle }}>{initials}</div>
       )}
 
-      {presenceMode ? (
-        <span className={`presence-dot presence-${presenceMode}`} title={presenceMode} />
+      {displayPresenceMode ? (
+        <span className={`presence-dot presence-${displayPresenceMode}`} title={displayPresenceMode} />
       ) : null}
 
-      {presenceMode !== 'online' && showLastActive && lastActive ? (
-        <div className="presence-last-active">{lastActiveText(lastActive)}</div>
+      {displayPresenceMode !== 'online' && showLastActive && lastActiveState ? (
+        <div className="presence-last-active">{lastActiveText(lastActiveState)}</div>
       ) : null}
     </div>
   );

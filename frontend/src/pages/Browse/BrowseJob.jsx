@@ -1303,8 +1303,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     src={effectiveUser?.profilePicture || effectiveUser?.companyLogo}
                     alt={effectiveUser?.firstName || effectiveUser?.email || 'User'}
                     userId={effectiveUser?._id || effectiveUser?.id}
-                    initialPresenceMode={effectiveUser?.presenceMode || (effectiveUser?.isOnline ? 'online' : 'offline')}
+                    presenceMode={effectiveUser?.presenceMode || (effectiveUser?.isOnline ? 'online' : 'offline')}
                     initialIsOnline={!!effectiveUser?.isOnline}
+                    lastActive={effectiveUser?.lastActive}
                     size={48}
                     style={{ width: '100%', height: '100%' }}
                     showLastActive={false}
@@ -1411,8 +1412,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                         src={post.authorAvatar}
                         alt={post.authorName || 'User'}
                         userId={getUserId(post.author)}
-                        initialPresenceMode={post.authorPresenceMode || post.author?.presenceMode || (post.author?.isOnline ? 'online' : undefined)}
+                        presenceMode={post.authorPresenceMode || post.author?.presenceMode || (post.author?.isOnline ? 'online' : undefined)}
                         initialIsOnline={sameId(getUserId(post.author), currentUserId) ? !!effectiveUser?.isOnline : !!post.author?.isOnline}
+                        lastActive={post.authorLastActive || post.author?.lastActive}
                         size={48}
                         style={{ width: '100%', height: '100%' }}
                         showLastActive={false}
@@ -1551,8 +1553,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     src={post.employerAvatar}
                     alt={post.employerName || post.company || 'Employer'}
                     userId={post.createdById || getUserId(post.createdBy)}
-                    initialPresenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : undefined)}
+                    presenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : undefined)}
                     initialIsOnline={sameId(post.createdById || getUserId(post.createdBy), currentUserId) ? !!effectiveUser?.isOnline : !!post.createdBy?.isOnline}
+                    lastActive={post.authorLastActive || post.createdBy?.lastActive}
                     size={48}
                     style={{ width: '100%', height: '100%' }}
                     showLastActive={false}
@@ -1746,8 +1749,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   src={modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? modalJob.createdBy.companyLogo : modalJob.createdBy?.profilePicture}
                   alt={modalJob.createdBy?.companyName || modalJob.createdBy?.firstName || 'Employer'}
                   userId={modalJob.createdBy?._id || modalJob.createdBy?.id}
-                  initialPresenceMode={modalJob.createdBy?.presenceMode || (modalJob.createdBy?.isOnline ? 'online' : undefined)}
+                  presenceMode={modalJob.createdBy?.presenceMode || (modalJob.createdBy?.isOnline ? 'online' : undefined)}
                   initialIsOnline={sameId(getUserId(modalJob.createdBy), currentUserId) ? !!effectiveUser?.isOnline : !!modalJob.createdBy?.isOnline}
+                  lastActive={modalJob.createdBy?.lastActive}
                   size={44}
                   style={{ width: '100%', height: '100%' }}
                   showLastActive={false}

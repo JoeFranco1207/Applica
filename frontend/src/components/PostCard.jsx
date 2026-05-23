@@ -393,8 +393,9 @@ const PostCard = ({ post, onUpdate }) => {
               userId={getUserId(currentPost.author)}
               src={currentPost.authorAvatar}
               alt={currentPost.authorName || 'User'}
-              initialPresenceMode={currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined)}
-              initialIsOnline={currentPost.authorIsOnline || currentPost.author?.isOnline}
+              presenceMode={authorPresenceMode}
+              initialIsOnline={!!(currentPost.authorIsOnline || currentPost.author?.isOnline)}
+              lastActive={authorLastActive}
               size={48}
               style={{ width: '100%', height: '100%', cursor: currentPost.author ? 'pointer' : 'default' }}
               showLastActive={false}

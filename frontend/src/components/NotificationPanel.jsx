@@ -19,8 +19,8 @@ const Avatar = ({ src, alt, size = 40, userId, presenceMode, lastActive, onClick
       src={src}
       alt={alt || 'avatar'}
       userId={userId}
-      initialPresenceMode={presenceMode}
-      initialLastActive={lastActive}
+      presenceMode={presenceMode}
+      lastActive={lastActive}
       size={size}
       showLastActive={false}
     />

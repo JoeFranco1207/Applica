@@ -1098,8 +1098,8 @@ export default function Profile() {
                     size={120}
                     userId={user?._id || user?.id}
                     initialIsOnline={!!user?.isOnline}
-                    initialLastActive={user?.lastActive || null}
-                    initialPresenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
+                    lastActive={user?.lastActive || null}
+                    presenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
                     showLastActive={false}
                   />
                 </div>
@@ -1699,7 +1699,7 @@ export default function Profile() {
                                           userId={likerInfo._id}
                                           src={likerInfo.profilePicture}
                                           size={34}
-                                          initialPresenceMode={likerInfo.presenceMode || (likerInfo.isOnline ? 'online' : 'offline')}
+                                          presenceMode={likerInfo.presenceMode || (likerInfo.isOnline ? 'online' : 'offline')}
                                           lastActive={likerInfo.lastActive}
                                         />
                                         <div>
@@ -2148,8 +2148,9 @@ export default function Profile() {
                           src={post.authorAvatar}
                           alt={post.authorName || user?.firstName || 'User'}
                           size={48}
-                          initialPresenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : undefined)}
+                          presenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : undefined)}
                           initialIsOnline={post.authorIsOnline || post.author?.isOnline || (getUserId(post.author) === currentUserId ? user?.isOnline : false)}
+                          lastActive={post.authorLastActive || post.author?.lastActive}
                           style={{ width: '100%', height: '100%' }}
                         />
                       </div>

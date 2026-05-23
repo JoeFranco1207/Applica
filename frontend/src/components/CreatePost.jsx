@@ -85,7 +85,7 @@ const CreatePost = ({ onPostCreated }) => {
           src={user.profilePicture || user.companyLogo}
           alt={user.firstName || user.email || 'User'}
           userId={user._id}
-          initialPresenceMode={user.presenceMode || (user.isOnline ? 'online' : 'offline')}
+          presenceMode={user.presenceMode || (user.isOnline ? 'online' : 'offline')}
           size={56}
           className="create-post-avatar"
           showLastActive={false}

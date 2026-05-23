@@ -248,7 +248,7 @@ export default function Navbar() {
                     src={profileImage}
                     alt={fullName || 'Profile'}
                     userId={user?._id || user?.id}
-                    initialPresenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
+                    presenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
                     size={36}
                     style={styles.profilePicture}
                     showLastActive={false}

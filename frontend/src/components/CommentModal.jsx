@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import PresenceAvatar from './PresenceAvatar';
 import './CommentModal.css';
 
 const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAvatar }) => {
@@ -83,6 +84,8 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
     }
   };
 
+  const postAuthorId = post?.author && (typeof post.author === 'object' ? post.author._id || post.author.id : post.author);
+
   return (
     <div className="comment-modal-backdrop" onClick={handleBackdropClick}>
       <div className="comment-modal">
@@ -99,9 +102,15 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
         {/* Original Post Preview */}
         <div className="original-post">
           <div className="post-preview-header">
-            {post?.authorAvatar && (
-              <img src={post.authorAvatar} alt={post.authorName || 'Author'} className="post-preview-avatar" />
-            )}
+            <PresenceAvatar
+              src={post.authorAvatar}
+              alt={post.authorName || 'Author'}
+              userId={postAuthorId}
+              initialPresenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : 'offline')}
+              size={48}
+              className="post-preview-avatar"
+              showLastActive={false}
+            />
             <div className="post-preview-info">
               <h4 className="post-preview-author">{post?.authorName || 'Anonymous na User'}</h4>
               <span className="post-preview-role">{post?.authorRole || 'Gumagamit'}</span>

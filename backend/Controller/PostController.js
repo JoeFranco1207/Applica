@@ -3,6 +3,7 @@ import {
   createPostService,
   getAllPostsService,
   getPostByIdService,
+  getLikersForPostService,
   updatePostService,
   deletePostService,
   getPostsByAuthorService,
@@ -71,6 +72,16 @@ export const getPostController = async (req, res, next) => {
   try {
     const post = await getPostByIdService(req.params.id);
     return res.status(200).json(new AppSuccessful('Post fetched', 200, post));
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
+export const getPostLikersController = async (req, res, next) => {
+  try {
+    const likers = await getLikersForPostService(req.params.id);
+    return res.status(200).json(new AppSuccessful('Post likers fetched', 200, likers));
   } catch (err) {
     console.log(err);
     next(err);

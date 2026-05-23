@@ -5,6 +5,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import "./BrowseJob.css";
 import { useTranslate } from "../../hooks/useTranslate";
 import PostDetailsModal from "../../components/PostDetailsModal";
+import PresenceAvatar from "../../components/PresenceAvatar";
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -1293,11 +1294,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
             <div style={styles.postComposerCard}>
               <div style={styles.composerTop}>
                 <div style={styles.composerAvatar}>
-                  {currentUser?.profilePicture || currentUser?.companyLogo ? (
-                    <img src={currentUser.profilePicture || currentUser.companyLogo} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  ) : (
-                    currentUser?.firstName?.charAt(0) || "U"
-                  )}
+                  <PresenceAvatar
+                    src={currentUser?.profilePicture || currentUser?.companyLogo}
+                    alt={currentUser?.firstName || currentUser?.email || 'User'}
+                    userId={currentUser?._id || currentUser?.id}
+                    initialPresenceMode={currentUser?.presenceMode || (currentUser?.isOnline ? 'online' : 'offline')}
+                    size={48}
+                    style={{ width: '100%', height: '100%' }}
+                    showLastActive={false}
+                  />
                 </div>
                 <textarea
                   value={newPostContent}
@@ -1396,11 +1401,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                         if (authorId) navigate(`/profile/${authorId}`);
                       }}
                     >
-                      {post.authorAvatar ? (
-                        <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                      ) : (
-                        post.authorName?.charAt(0) || "U"
-                      )}
+                      <PresenceAvatar
+                        src={post.authorAvatar}
+                        alt={post.authorName || 'User'}
+                        userId={getUserId(post.author)}
+                        initialPresenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : 'offline')}
+                        size={48}
+                        style={{ width: '100%', height: '100%' }}
+                        showLastActive={false}
+                      />
                     </div>
                     <div style={styles.postHeading}>
                       <div style={styles.postCompanyRow}>
@@ -1531,11 +1540,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     if (post.createdById) navigate(`/profile/${post.createdById}`);
                   }}
                 >
-                  {post.employerAvatar ? (
-                    <img src={post.employerAvatar} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  ) : (
-                    post.employerName?.charAt(0) || post.company.charAt(0)
-                  )}
+                  <PresenceAvatar
+                    src={post.employerAvatar}
+                    alt={post.employerName || post.company || 'Employer'}
+                    userId={post.createdById}
+                    initialPresenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : 'offline')}
+                    size={48}
+                    style={{ width: '100%', height: '100%' }}
+                    showLastActive={false}
+                  />
                 </div>
                 <div style={styles.postHeading}>
                   <div style={styles.postCompanyRow}>
@@ -1721,13 +1734,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: modalJob.createdBy?._id ? 'pointer' : 'default' }}
                 onClick={() => { const authorId = getUserId(modalJob.createdBy); if (authorId) navigate(`/profile/${authorId}`); }}
               >
-                {modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? (
-                  <img src={modalJob.createdBy.companyLogo} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : modalJob.createdBy?.profilePicture ? (
-                  <img src={modalJob.createdBy.profilePicture} alt="employer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', background: 'var(--primary)', color: '#fff', fontWeight: 800 }}>{(modalJob.createdBy?.firstName?.charAt(0) || modalJob.companyName?.charAt(0) || 'E')}</div>
-                )}
+                <PresenceAvatar
+                  src={modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? modalJob.createdBy.companyLogo : modalJob.createdBy?.profilePicture}
+                  alt={modalJob.createdBy?.companyName || modalJob.createdBy?.firstName || 'Employer'}
+                  userId={modalJob.createdBy?._id || modalJob.createdBy?.id}
+                  initialPresenceMode={modalJob.createdBy?.presenceMode || (modalJob.createdBy?.isOnline ? 'online' : 'offline')}
+                  size={44}
+                  style={{ width: '100%', height: '100%' }}
+                  showLastActive={false}
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 4 }}>

@@ -1,15 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import './PresenceAvatar.css';
 
-export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, showLastActive = true, initialPresenceMode = 'offline' }) {
-  const [presenceMode, setPresenceMode] = useState(initialPresenceMode || (initialIsOnline ? 'online' : 'offline'));
+export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, showLastActive = true, initialPresenceMode = 'offline', presenceMode: propPresenceMode, onClick, className = '', style = {} }) {
+  const getInitialMode = () => {
+    const fallback = initialIsOnline ? 'online' : 'offline';
+    return propPresenceMode ?? initialPresenceMode ?? fallback;
+  };
+
+  const [presenceMode, setPresenceMode] = useState(getInitialMode());
   const [lastActive, setLastActive] = useState(initialLastActive);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [src]);
+
+  useEffect(() => {
+    setPresenceMode(getInitialMode());
+  }, [propPresenceMode, initialPresenceMode, initialIsOnline]);
+
+  useEffect(() => {
+    setLastActive(initialLastActive);
+  }, [initialLastActive]);
 
   useEffect(() => {
     const handler = (e) => {
       const payload = e?.detail;
       if (!payload) return;
-      const uid = (payload.userId || payload.user || payload.userID || '').toString();
+      const uid = (payload.userId || payload.user || payload.userID || payload.id || '').toString();
       if (!uid || !userId) return;
       if (uid === userId.toString()) {
         const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
@@ -41,9 +59,15 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
   const sizeStyle = { width: size, height: size, fontSize: Math.max(12, Math.floor(size / 3)) };
 
   return (
-    <div className="presence-avatar" style={{ ...sizeStyle }}>
-      {src ? (
-        <img src={src} alt={alt || 'User'} className="presence-avatar-img" style={{ ...sizeStyle }} />
+    <div className={`presence-avatar ${className}`} style={{ ...sizeStyle, ...style }} onClick={onClick}>
+      {src && !imageError ? (
+        <img
+          src={src}
+          alt={alt || 'User'}
+          className="presence-avatar-img"
+          style={{ ...sizeStyle }}
+          onError={() => setImageError(true)}
+        />
       ) : (
         <div className="presence-avatar-placeholder" style={{ ...sizeStyle }}>{initials}</div>
       )}

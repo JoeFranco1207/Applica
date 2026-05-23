@@ -194,6 +194,34 @@ export const getPostByIdService = async (postId) => {
   return postObj;
 };
 
+export const getLikersForPostService = async (postId) => {
+  const post = await Post.findById(postId);
+  if (!post) throw new AppError('Post not found', 404);
+
+  const likerIds = Array.isArray(post.likes)
+    ? post.likes.map((id) => typeof id === 'object' ? (id._id || id) : id)
+    : [];
+
+  if (likerIds.length === 0) return [];
+
+  const likers = await User.find({ _id: { $in: likerIds } })
+    .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+    .lean();
+
+  return likers.map((u) => ({
+    _id: u._id,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    email: u.email,
+    role: u.role,
+    profilePicture: u.role === 'employer' ? u.companyLogo : u.profilePicture,
+    companyName: u.companyName,
+    isOnline: !!u.isOnline,
+    presenceMode: u.presenceMode || (u.isOnline ? 'online' : 'offline'),
+    lastActive: u.lastActive || null,
+  }));
+};
+
 export const togglePostLikeService = async (userId, postId) => {
   const post = await Post.findById(postId);
   if (!post) throw new AppError('Post not found', 404);

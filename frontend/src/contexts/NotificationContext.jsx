@@ -111,6 +111,18 @@ export const NotificationProvider = ({ children }) => {
         // Register user with socket server
         newSocket.emit('register', userId);
         console.log('Registered user:', userId);
+
+        // Optimistically mark the current user online unless they are in DND.
+        const initialPresenceMode = storedUser?.presenceMode === 'dnd' ? 'dnd' : 'online';
+        const selfPresenceEvent = new CustomEvent('app:userPresenceUpdated', {
+          detail: {
+            userId,
+            isOnline: initialPresenceMode === 'online',
+            lastActive: null,
+            presenceMode: initialPresenceMode,
+          },
+        });
+        window.dispatchEvent(selfPresenceEvent);
       });
 
       newSocket.on('notification', (notification) => {

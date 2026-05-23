@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
-import { useState } from 'react';
 import LikesList from './LikesList';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -374,6 +373,8 @@ const PostCard = ({ post, onUpdate }) => {
 
 
   const { translated: translatedContent, loading: translating, translateNow } = useTranslate(currentPost.content || '');
+  const authorPresenceMode = currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined);
+  const authorLastActive = currentPost.authorLastActive || currentPost.author?.lastActive;
   const [showLikesModal, setShowLikesModal] = useState(false);
 
   const openLikesModal = (e) => {
@@ -412,8 +413,8 @@ const PostCard = ({ post, onUpdate }) => {
               </div>
             )}
 
-            {currentPost.authorPresenceMode ? (
-              <span className={`presence-dot presence-${currentPost.authorPresenceMode}`} title={currentPost.authorPresenceMode}></span>
+            {authorPresenceMode ? (
+              <span className={`presence-dot presence-${authorPresenceMode}`} title={authorPresenceMode}></span>
             ) : null}
           </div>
           <div className="author-details">
@@ -437,8 +438,8 @@ const PostCard = ({ post, onUpdate }) => {
                   <span className="author-email">{currentPost.authorEmail}</span>
                 )}
                 <span className="post-time">{formatRelativeTime(currentPost.createdAt)}</span>
-                {currentPost.authorPresenceMode !== 'online' && currentPost.authorLastActive && (
-                  <span className="last-active">{formatLastActive(currentPost.authorLastActive)}</span>
+                {authorPresenceMode !== 'online' && authorLastActive && (
+                  <span className="last-active">{formatLastActive(authorLastActive)}</span>
                 )}
               </div>
             </div>
@@ -488,7 +489,7 @@ const PostCard = ({ post, onUpdate }) => {
           onClick={handleLike}
           title={translate('browse.likePostTitle')}
         >
-          ❤️ {currentPost.likes?.length || 0}
+          ❤️ <span onClick={(e) => { e.stopPropagation(); openLikesModal(e); }} style={{ cursor: 'pointer' }}>{currentPost.likes?.length || 0}</span>
         </button>
         <button
           className="action-btn"

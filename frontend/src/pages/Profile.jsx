@@ -249,6 +249,36 @@ export default function Profile() {
     fetchUserProfile();
   }, [navigate, profileId]);
 
+  useEffect(() => {
+    if (!isOwnProfile || !currentUserId) return;
+
+    const handlePresenceUpdate = (e) => {
+      const payload = e?.detail;
+      if (!payload) return;
+      const updatedUserId = (payload.userId || payload.user || payload.userID || '').toString();
+      if (updatedUserId !== currentUserId?.toString()) return;
+
+      const mode = payload.presenceMode || (payload.isOnline ? 'online' : 'offline');
+      const lastActive = payload.lastActive || null;
+
+      setUser((prev) => prev ? {
+        ...prev,
+        presenceMode: mode,
+        isOnline: mode === 'online',
+        lastActive,
+      } : prev);
+      setAuthUser((prev) => prev ? {
+        ...prev,
+        presenceMode: mode,
+        isOnline: mode === 'online',
+        lastActive,
+      } : prev);
+    };
+
+    window.addEventListener('app:userPresenceUpdated', handlePresenceUpdate);
+    return () => window.removeEventListener('app:userPresenceUpdated', handlePresenceUpdate);
+  }, [currentUserId, isOwnProfile]);
+
   const openJobModal = (job) => {
     setModalJob(job);
     setShowJobModal(true);
@@ -1095,10 +1125,14 @@ export default function Profile() {
                 {user?.role === "employer" ? "Employer" : user?.role === "jobseeker" ? "Job Seeker" : "User"}
               </p>
               {isOwnProfile && (
-                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                  <button onClick={() => setPresence('online')} style={{ background: '#34d399', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Online</button>
-                  <button onClick={() => setPresence('offline')} style={{ background: '#95a5a6', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Offline</button>
-                  <button onClick={() => setPresence('dnd')} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}>Do Not Disturb</button>
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ color: '#d1d5db', fontSize: 14 }}>Online status is automatic while Applica is open.</span>
+                  <button
+                    onClick={() => setPresence(user?.presenceMode === 'dnd' ? 'online' : 'dnd')}
+                    style={{ background: user?.presenceMode === 'dnd' ? '#f59e0b' : '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 8 }}
+                  >
+                    {user?.presenceMode === 'dnd' ? 'Turn Off DND' : 'Do Not Disturb'}
+                  </button>
                 </div>
               )}
             </div>
@@ -1652,11 +1686,28 @@ export default function Profile() {
                               <div style={styles.interactionGroup}>
                                 <p style={styles.interactionLabel}>Liked by</p>
                                 {job.likes?.length ? (
-                                  job.likes.map((liker) => (
-                                    <p key={liker._id} style={styles.interactionText}>
-                                      {liker.firstName} {liker.lastName} • {liker.email}
-                                    </p>
-                                  ))
+                                  job.likes.map((liker) => {
+                                    const likerInfo = typeof liker === 'object' ? liker : { _id: liker };
+                                    return (
+                                      <div key={likerInfo._id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                        <PresenceAvatar
+                                          userId={likerInfo._id}
+                                          src={likerInfo.profilePicture}
+                                          size={34}
+                                          initialPresenceMode={likerInfo.presenceMode || (likerInfo.isOnline ? 'online' : 'offline')}
+                                          lastActive={likerInfo.lastActive}
+                                        />
+                                        <div>
+                                          <p style={styles.interactionText}>
+                                            {likerInfo.firstName ? `${likerInfo.firstName} ${likerInfo.lastName}` : 'Unknown user'}
+                                          </p>
+                                          <p style={{ ...styles.interactionText, marginTop: 0, fontSize: 12, opacity: 0.8 }}>
+                                            {likerInfo.email || 'Profile liked'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
                                 ) : (
                                   <p style={styles.interactionText}>No likes yet.</p>
                                 )}

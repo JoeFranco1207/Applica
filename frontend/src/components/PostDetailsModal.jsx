@@ -4,6 +4,7 @@ import axios from 'axios';
 import './PostDetailsModal.css';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
+import LikesList from './LikesList';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -101,6 +102,7 @@ const PostDetailsModal = ({
   const [currentPost, setCurrentPost] = useState(post);
   const [isLiked, setIsLiked] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
   const [viewRecorded, setViewRecorded] = useState(false);
   const profileUpdateTimeoutRef = useRef(null);
 
@@ -415,6 +417,13 @@ const PostDetailsModal = ({
     return `${year} yr${year>1?'s':''} ago`;
   };
 
+  const openLikesModal = (e) => {
+    if (e?.stopPropagation) {
+      e.stopPropagation();
+    }
+    setShowLikesModal(true);
+  };
+
   const submitComment = async () => {
     if (!commentText.trim()) {
       setError('Pakiusap magsulat ng komento');
@@ -505,6 +514,9 @@ const PostDetailsModal = ({
     }
   };
 
+  const authorPresenceMode = currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined);
+  const authorLastActive = currentPost.authorLastActive || currentPost.author?.lastActive;
+
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       onClose();
@@ -543,8 +555,8 @@ const PostDetailsModal = ({
                 </div>
               )}
 
-              {currentPost.authorPresenceMode ? (
-                <span className={`presence-dot presence-${currentPost.authorPresenceMode}`} title={currentPost.authorPresenceMode}></span>
+              {authorPresenceMode ? (
+                <span className={`presence-dot presence-${authorPresenceMode}`} title={authorPresenceMode}></span>
               ) : null}
             </div>
 
@@ -573,8 +585,8 @@ const PostDetailsModal = ({
                   </a>
                 )}
                 <span className="post-author-timestamp">{formatRelativeTime(currentPost.createdAt)}</span>
-                {currentPost.authorPresenceMode !== 'online' && currentPost.authorLastActive && (
-                  <span className="last-active">{formatLastActive(currentPost.authorLastActive)}</span>
+                {authorPresenceMode !== 'online' && authorLastActive && (
+                  <span className="last-active">{formatLastActive(authorLastActive)}</span>
                 )}
               </div>
             </div>
@@ -619,7 +631,7 @@ const PostDetailsModal = ({
             title={translate('browse.likePostTitle')}
           >
             <HeartIcon filled={isLiked} />
-            <span>{currentPost.likes?.length || 0}</span>
+            <span onClick={openLikesModal} style={{ cursor: 'pointer' }}>{currentPost.likes?.length || 0}</span>
           </button>
 
           <button
@@ -918,6 +930,10 @@ const PostDetailsModal = ({
             <SendIcon />
           </button>
         </div>
+
+        {showLikesModal && (
+          <LikesList postId={currentPost._id} onClose={() => setShowLikesModal(false)} />
+        )}
       </div>
     </div>
   );

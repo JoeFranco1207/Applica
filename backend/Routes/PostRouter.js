@@ -4,6 +4,7 @@ import {
 	createPostController,
 	getPostsController,
 	getPostController,
+	getPostLikersController,
 	updatePostController,
 	deletePostController,
 	getPostsByAuthorController,
@@ -33,6 +34,7 @@ router.post('/:id/view', protection, recordViewController);
 router.post('/:id/share', protection, sharePostController);
 router.post('/:id/repost', protection, repostController);
 router.delete('/:id/repost', protection, removeRepostController);
+router.get('/:id/likers', protection, getPostLikersController);
 router.get('/:id', protection, getPostController);
 router.patch('/:id', protection, updatePostController);
 router.delete('/:id', protection, deletePostController);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../contexts/NotificationContext';
+import PresenceAvatar from './PresenceAvatar';
 import './NotificationPanel.css';
 
 const timeAgo = (date) => {
@@ -12,9 +13,17 @@ const timeAgo = (date) => {
   return `${Math.floor(diff / 86400)}d`;
 };
 
-const Avatar = ({ src, alt, size = 40, onClick }) => (
+const Avatar = ({ src, alt, size = 40, userId, presenceMode, lastActive, onClick }) => (
   <div className="np-avatar" style={{ width: size, height: size, cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
-    {src ? <img src={src} alt={alt || 'avatar'} /> : <div className="np-initials">{(alt || 'U').slice(0,2)}</div>}
+    <PresenceAvatar
+      src={src}
+      alt={alt || 'avatar'}
+      userId={userId}
+      initialPresenceMode={presenceMode}
+      initialLastActive={lastActive}
+      size={size}
+      showLastActive={false}
+    />
   </div>
 );
 
@@ -43,6 +52,17 @@ export default function NotificationPanel({ onClose }) {
 
   const getActorPicture = (n) => {
     return n?.actorAvatar || n?.actorPicture || n?.actor?.profilePicture || n?.actor?.avatar || n?.from?.profilePicture || n?.from?.avatar || null;
+  };
+
+  const getActorPresenceMode = (n) => {
+    return n?.actorPresenceMode || n?.actor?.presenceMode || n?.from?.presenceMode ||
+      (n?.actor?.isOnline ? 'online' : n?.actor?.isOnline === false ? 'offline' : undefined) ||
+      (n?.from?.isOnline ? 'online' : n?.from?.isOnline === false ? 'offline' : undefined) ||
+      'offline';
+  };
+
+  const getActorLastActive = (n) => {
+    return n?.actorLastActive || n?.actor?.lastActive || n?.from?.lastActive || null;
   };
 
   const getActorName = (n) => {
@@ -115,6 +135,9 @@ export default function NotificationPanel({ onClose }) {
                 <Avatar
                   src={getActorPicture(n)}
                   alt={getActorName(n)}
+                  userId={getActorId(n)}
+                  presenceMode={getActorPresenceMode(n)}
+                  lastActive={getActorLastActive(n)}
                   onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
                 />
                 <div className="np-body">
@@ -138,6 +161,9 @@ export default function NotificationPanel({ onClose }) {
                 <Avatar
                   src={getActorPicture(n)}
                   alt={getActorName(n)}
+                  userId={getActorId(n)}
+                  presenceMode={getActorPresenceMode(n)}
+                  lastActive={getActorLastActive(n)}
                   onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
                 />
                 <div className="np-body">

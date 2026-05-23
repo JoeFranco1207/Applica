@@ -43,7 +43,7 @@ export default function LikesList({ likerIds = [], postId, onClose }) {
           {!loading && likers.length === 0 && <div className="likes-empty">No likes yet.</div>}
           {!loading && likers.map((u) => (
             <div key={u._id} className="likes-row">
-              <PresenceAvatar userId={u._id} src={u.profilePicture} size={40} initialPresenceMode={u.presenceMode} lastActive={u.lastActive} />
+              <PresenceAvatar userId={u._id} src={u.profilePicture} size={40} initialPresenceMode={u.presenceMode || (u.isOnline ? 'online' : 'offline')} lastActive={u.lastActive} />
               <div className="likes-row-info">
                 <div className="likes-row-name">{u.firstName} {u.lastName}</div>
                 <div className="likes-row-email">{u.email}</div>

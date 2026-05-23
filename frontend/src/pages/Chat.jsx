@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNotification } from '../contexts/NotificationContext';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
+import PresenceAvatar from '../components/PresenceAvatar';
 
 export default function Chat() {
   const { socket, isConnected } = useNotification();
@@ -788,19 +789,15 @@ export default function Chat() {
                 onClick={() => setSelectedUser(connection)}
               >
                 <div style={chatStyles.contactAvatar}>
-                  {connection.profilePicture || connection.companyLogo ? (
-                    <img
-                      src={getAvatarUrl(connection)}
-                      alt="avatar"
-                      style={chatStyles.avatarImage}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = getPlaceholderAvatar(connection, 64);
-                      }}
-                    />
-                  ) : (
-                    <span>{(connection.firstName || connection.email || 'U')[0].toUpperCase()}</span>
-                  )}
+                  <PresenceAvatar
+                    src={getAvatarUrl(connection)}
+                    alt={connection.firstName || connection.companyName || connection.email || 'User'}
+                    userId={connection._id}
+                    initialPresenceMode={connection.presenceMode || (connection.isOnline ? 'online' : 'offline')}
+                    size={44}
+                    style={chatStyles.avatarImage}
+                    showLastActive={false}
+                  />
                 </div>
                 <div>
                   <div style={chatStyles.contactName}>
@@ -820,19 +817,15 @@ export default function Chat() {
             <div style={chatStyles.chatHeader}>
               <div style={chatStyles.chatHeaderProfile}>
                 <div style={chatStyles.chatHeaderAvatar}>
-                  {selectedUser.profilePicture || selectedUser.companyLogo ? (
-                    <img
-                      src={getAvatarUrl(selectedUser)}
-                      alt="avatar"
-                      style={chatStyles.avatarImage}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = getPlaceholderAvatar(selectedUser, 96);
-                      }}
-                    />
-                  ) : (
-                    <span>{getAvatarInitials(selectedUser)}</span>
-                  )}
+                  <PresenceAvatar
+                    src={getAvatarUrl(selectedUser)}
+                    alt={selectedUser.firstName || selectedUser.companyName || selectedUser.email || 'User'}
+                    userId={selectedUser._id}
+                    initialPresenceMode={selectedUser.presenceMode || (selectedUser.isOnline ? 'online' : 'offline')}
+                    size={84}
+                    style={{ ...chatStyles.avatarImage, width: 84, height: 84 }}
+                    showLastActive={false}
+                  />
                 </div>
                 <div>
                   <div style={chatStyles.chatTitle}>
@@ -876,6 +869,12 @@ export default function Chat() {
                   const attachmentUrl = getAttachmentUrl(message.attachment?.fileUrl);
                   const messageAvatar = getMessageAvatarUrl(message);
                   const ownAvatar = getAvatarUrl(currentUser);
+                  const messageSender = message.sender && typeof message.sender === 'object' ? message.sender : null;
+                  const messageSenderId = messageSender?._id || messageSender?.id || null;
+                  const messageSenderPresence = messageSender?.presenceMode || (selectedUser && (message.sender === selectedUser._id || message.sender === selectedUser?.id)
+                    ? (selectedUser.presenceMode || (selectedUser.isOnline ? 'online' : undefined))
+                    : undefined);
+                  const senderAlt = messageSender ? (messageSender.firstName || messageSender.companyName || messageSender.email || 'User') : 'User';
                   const isSystem = Boolean(message.system);
                   if (isSystem) {
                     return (
@@ -894,19 +893,15 @@ export default function Chat() {
                     >
                       {!isOwn ? (
                         <div style={chatStyles.messageAvatarWrapper}>
-                          {messageAvatar ? (
-                            <img
-                              src={messageAvatar}
-                              alt="avatar"
-                              style={chatStyles.messageAvatar}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = getPlaceholderAvatar(message.sender, 36);
-                              }}
-                            />
-                          ) : (
-                            <span>{getAvatarInitials(message.sender)}</span>
-                          )}
+                          <PresenceAvatar
+                            src={messageAvatar}
+                            alt={senderAlt}
+                            userId={messageSenderId}
+                            initialPresenceMode={messageSenderPresence}
+                            size={36}
+                            style={chatStyles.messageAvatar}
+                            showLastActive={false}
+                          />
                         </div>
                       ) : null}
 
@@ -958,19 +953,15 @@ export default function Chat() {
 
                       {isOwn ? (
                         <div style={chatStyles.messageAvatarWrapper}>
-                          {ownAvatar ? (
-                            <img
-                              src={ownAvatar}
-                              alt="avatar"
-                              style={chatStyles.messageAvatar}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = getPlaceholderAvatar(currentUser, 36);
-                              }}
-                            />
-                          ) : (
-                            <span>{getAvatarInitials(currentUser)}</span>
-                          )}
+                          <PresenceAvatar
+                            src={ownAvatar}
+                            alt={currentUser?.firstName || currentUser?.email || 'You'}
+                            userId={currentUser?._id || currentUser?.id}
+                            initialPresenceMode={currentUser?.presenceMode || (currentUser?.isOnline ? 'online' : 'offline')}
+                            size={36}
+                            style={chatStyles.messageAvatar}
+                            showLastActive={false}
+                          />
                         </div>
                       ) : null}
                     </div>

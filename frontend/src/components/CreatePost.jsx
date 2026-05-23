@@ -81,17 +81,15 @@ const CreatePost = ({ onPostCreated }) => {
   return (
     <div className="create-post-card">
       <div className="create-post-header">
-        {user.profilePicture || user.companyLogo ? (
-          <img
-            src={user.profilePicture || user.companyLogo}
-            alt={user.firstName}
-            className="create-post-avatar"
-          />
-        ) : (
-          <div className="create-post-avatar-initials">
-            {user.firstName ? user.firstName[0] : user.email[0]}
-          </div>
-        )}
+        <PresenceAvatar
+          src={user.profilePicture || user.companyLogo}
+          alt={user.firstName || user.email || 'User'}
+          userId={user._id}
+          initialPresenceMode={user.presenceMode || (user.isOnline ? 'online' : 'offline')}
+          size={56}
+          className="create-post-avatar"
+          showLastActive={false}
+        />
         <div>
           <h3 className="create-post-name">
             {user.firstName} {user.lastName}

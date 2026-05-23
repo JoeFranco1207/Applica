@@ -6,6 +6,7 @@ import { ThemeContext } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "./ThemeSwitch";
 import NotificationPanel from "./NotificationPanel";
+import PresenceAvatar from './PresenceAvatar';
 
 const BellIcon = ({ size = 20, count = 0 }) => (
   <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -243,15 +244,15 @@ export default function Navbar() {
                   style={styles.profileButton}
                   onClick={() => setMenuOpen(!menuOpen)}
                 >
-                  {profileImage ? (
-                    <img
-                      src={profileImage}
-                      alt="Profile"
-                      style={styles.profilePicture}
-                    />
-                  ) : (
-                    <span style={styles.profileInitials}>{initials}</span>
-                  )}
+                  <PresenceAvatar
+                    src={profileImage}
+                    alt={fullName || 'Profile'}
+                    userId={user?._id || user?.id}
+                    initialPresenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
+                    size={36}
+                    style={styles.profilePicture}
+                    showLastActive={false}
+                  />
                 </button>
                 {menuOpen && (
                   <div style={{

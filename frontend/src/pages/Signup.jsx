@@ -783,7 +783,7 @@ function Input({
                 : "15px",
             color:
               focusedField === name
-                ? "#2563eb"
+                ? "#1892aa"
                 : "#999",
           }}
         >
@@ -808,7 +808,7 @@ function Input({
             ...styles.input,
             borderColor:
               focusedField === name
-                ? "#2563eb"
+                ? "#1892aa"
                 : "#d0d0d0",
           }}
         />
@@ -844,7 +844,7 @@ function PasswordInput({
               ? "12px"
               : "15px",
             color: value
-              ? "#2563eb"
+              ? "#1892aa"
               : "#999",
           }}
         >
@@ -981,7 +981,7 @@ const styles = {
 
   leftSection: {
     background:
-      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #275791 0%, #275791 100%)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -1093,7 +1093,7 @@ const styles = {
     background: "transparent",
     padding: "0 16px",
     cursor: "pointer",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
   },
 

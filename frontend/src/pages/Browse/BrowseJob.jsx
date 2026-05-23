@@ -12,6 +12,11 @@ const getUserId = (user) => {
   return typeof user === 'object' ? user._id || user.id || null : user;
 };
 
+const sameId = (a, b) => {
+  if (a == null || b == null) return false;
+  return a.toString() === b.toString();
+};
+
 const formatRelativeTimeShort = (dateValue) => {
   if (!dateValue) return '';
   const date = new Date(dateValue);
@@ -1295,10 +1300,11 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               <div style={styles.composerTop}>
                 <div style={styles.composerAvatar}>
                   <PresenceAvatar
-                    src={currentUser?.profilePicture || currentUser?.companyLogo}
-                    alt={currentUser?.firstName || currentUser?.email || 'User'}
-                    userId={currentUser?._id || currentUser?.id}
-                    initialPresenceMode={currentUser?.presenceMode || (currentUser?.isOnline ? 'online' : 'offline')}
+                    src={effectiveUser?.profilePicture || effectiveUser?.companyLogo}
+                    alt={effectiveUser?.firstName || effectiveUser?.email || 'User'}
+                    userId={effectiveUser?._id || effectiveUser?.id}
+                    initialPresenceMode={effectiveUser?.presenceMode || (effectiveUser?.isOnline ? 'online' : 'offline')}
+                    initialIsOnline={!!effectiveUser?.isOnline}
                     size={48}
                     style={{ width: '100%', height: '100%' }}
                     showLastActive={false}
@@ -1405,7 +1411,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                         src={post.authorAvatar}
                         alt={post.authorName || 'User'}
                         userId={getUserId(post.author)}
-                        initialPresenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : 'offline')}
+                        initialPresenceMode={post.authorPresenceMode || post.author?.presenceMode || (post.author?.isOnline ? 'online' : undefined)}
+                        initialIsOnline={sameId(getUserId(post.author), currentUserId) ? !!effectiveUser?.isOnline : !!post.author?.isOnline}
                         size={48}
                         style={{ width: '100%', height: '100%' }}
                         showLastActive={false}
@@ -1428,13 +1435,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                         <span style={styles.postMeta}>{formatDateMonthDay(post.createdAt)}</span>
                       </div>
                       {post.authorEmail && (
-                        <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#10766E', fontSize: '12px', textAlign: 'left' }}>
+                        <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#1892aa', fontSize: '12px', textAlign: 'left' }}>
                           {post.authorEmail}
                         </p>
                       )}
                     </div>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                      {post.author === currentUserId && (
+                      {sameId(post.author, currentUserId) && (
                         <>
                           <button style={styles.actionButton} onClick={() => startEditPost(post)}>I-edit</button>
                           <button style={styles.actionButton} onClick={() => archivePost(post._id)}>I-archive</button>
@@ -1543,8 +1550,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   <PresenceAvatar
                     src={post.employerAvatar}
                     alt={post.employerName || post.company || 'Employer'}
-                    userId={post.createdById}
-                    initialPresenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : 'offline')}
+                    userId={post.createdById || getUserId(post.createdBy)}
+                    initialPresenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : undefined)}
+                    initialIsOnline={sameId(post.createdById || getUserId(post.createdBy), currentUserId) ? !!effectiveUser?.isOnline : !!post.createdBy?.isOnline}
                     size={48}
                     style={{ width: '100%', height: '100%' }}
                     showLastActive={false}
@@ -1738,7 +1746,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   src={modalJob.createdBy?.companyLogo && modalJob.createdBy?.role === 'employer' ? modalJob.createdBy.companyLogo : modalJob.createdBy?.profilePicture}
                   alt={modalJob.createdBy?.companyName || modalJob.createdBy?.firstName || 'Employer'}
                   userId={modalJob.createdBy?._id || modalJob.createdBy?.id}
-                  initialPresenceMode={modalJob.createdBy?.presenceMode || (modalJob.createdBy?.isOnline ? 'online' : 'offline')}
+                  initialPresenceMode={modalJob.createdBy?.presenceMode || (modalJob.createdBy?.isOnline ? 'online' : undefined)}
+                  initialIsOnline={sameId(getUserId(modalJob.createdBy), currentUserId) ? !!effectiveUser?.isOnline : !!modalJob.createdBy?.isOnline}
                   size={44}
                   style={{ width: '100%', height: '100%' }}
                   showLastActive={false}
@@ -1751,7 +1760,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   {modalJob.createdBy?.role && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.03)' }}>{modalJob.createdBy.role}</div>}
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ color: '#10766E', fontSize: 13 }}>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
+                  <div style={{ color: '#1892aa', fontSize: 13 }}>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
                   <div style={{ color: '#94a3b8', fontSize: 12 }}>{formatDateMonthDay(modalJob.createdAt)}</div>
                 </div>
               </div>
@@ -1871,7 +1880,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               <button
                 onClick={handleJobComment}
                 disabled={!commentText.trim()}
-                style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#60a5fa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
+                style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#1892aa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
                 title={t('browse.postAnswerTitle')}
               >
                 ➤
@@ -2900,7 +2909,7 @@ composerTextarea: {
     zIndex: 999,
   },
   notificationToast: {
-    background: "linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%)",
+    background: "linear-gradient(135deg, #1892aa 0%, #1892aa 100%)",
     color: "white",
     padding: "14px 16px",
     borderRadius: "12px",
@@ -2909,3 +2918,4 @@ composerTextarea: {
     border: "1px solid rgba(255,255,255,0.1)",
   },
 };
+

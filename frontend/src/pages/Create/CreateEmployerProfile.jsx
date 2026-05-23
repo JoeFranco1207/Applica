@@ -336,7 +336,7 @@ const CreateEmployerProfile = () => {
                     padding: "8px 12px",
                     borderRadius: 8,
                     border: "none",
-                    background: "#3b82f6",
+                    background: "#275791",
                     color: "#fff",
                     cursor: "pointer",
                     fontSize: 14,
@@ -377,7 +377,7 @@ const CreateEmployerProfile = () => {
                 </span>
               </div>
               <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#3b82f6" }} />
+                <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#275791" }} />
               </div>
             </div>
             {message && (

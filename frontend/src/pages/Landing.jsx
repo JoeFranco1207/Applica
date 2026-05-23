@@ -240,7 +240,7 @@ export default function Landing() {
         ...styles.ctaSection,
         background: isDarkMode 
           ? "linear-gradient(135deg, #0a1a3a 0%, #1a3a5a 100%)"
-          : "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+          : "linear-gradient(135deg, #275791 0%, #275791 100%)",
       }}>
         <div style={styles.ctaContent}>
           <h2 style={styles.ctaTitle}>
@@ -335,7 +335,7 @@ function JobCard({
 
       <p style={{
         ...styles.jobCompany,
-        color: "#2563eb",
+        color: "#1892aa",
       }}>
         {company}
       </p>
@@ -411,7 +411,7 @@ const styles = {
   logoText: {
     fontSize: "24px",
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#1892aa",
   },
 
   navLinks: {
@@ -436,7 +436,7 @@ const styles = {
 
   createButton: {
     background:
-      "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #1892aa 0%, #275791 100%)",
     border: "none",
     borderRadius: "12px",
     padding: "10px 24px",
@@ -447,10 +447,10 @@ const styles = {
 
   loginButton: {
     background: "transparent",
-    border: "2px solid #2563eb",
+    border: "2px solid #1892aa",
     borderRadius: "12px",
     padding: "10px 24px",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -461,7 +461,7 @@ const styles = {
 
   profileButton: {
     background:
-      "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #1892aa 0%, #275791 100%)",
     border: "none",
     borderRadius: "50%",
     width: "44px",
@@ -542,7 +542,7 @@ const styles = {
     border: "none",
     borderRadius: "12px",
     background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
+      "linear-gradient(90deg, #1892aa 0%, #275791 100%)",
     color: "#fff",
     fontWeight: "700",
     cursor: "pointer",
@@ -551,10 +551,10 @@ const styles = {
   secondaryButton: {
     padding: "14px 32px",
     border:
-      "2px solid #2563eb",
+      "2px solid #1892aa",
     borderRadius: "12px",
     background: "transparent",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -666,13 +666,13 @@ const styles = {
   saveButton: {
     background: "none",
     border: "none",
-    color: "#2563eb",
+    color: "#1892aa",
     cursor: "pointer",
     fontWeight: "600",
   },
 
   jobCompany: {
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "600",
   },
 
@@ -695,10 +695,10 @@ const styles = {
     width: "100%",
     padding: "12px",
     border:
-      "2px solid #2563eb",
+      "2px solid #1892aa",
     borderRadius: "10px",
     background: "transparent",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -709,7 +709,7 @@ const styles = {
 
   ctaSection: {
     background:
-      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #275791 0%, #275791 100%)",
     padding: "80px 30px",
     textAlign: "center",
   },
@@ -738,7 +738,7 @@ const styles = {
     border: "none",
     borderRadius: "12px",
     background: "#ffffff",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     cursor: "pointer",
   },
@@ -819,7 +819,7 @@ const styles = {
     width: "72px",
     height: "72px",
     borderRadius: "50%",
-    background: "#2563eb",
+    background: "#1892aa",
     color: "#fff",
     border: "none",
     display: "flex",

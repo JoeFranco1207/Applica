@@ -162,3 +162,4 @@ const CreatePost = ({ onPostCreated }) => {
 };
 
 export default CreatePost;
+

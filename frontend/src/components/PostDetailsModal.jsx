@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostDetailsModal.css';
+import PresenceAvatar from './PresenceAvatar';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
 import LikesList from './LikesList';
@@ -538,26 +539,20 @@ const PostDetailsModal = ({
         <div className="post-author-bar">
           <div className="post-author-section">
             <div className="avatar-wrapper" style={{ position: 'relative' }}>
-              {currentPost.authorAvatar ? (
-                <img 
-                  src={currentPost.authorAvatar} 
-                  alt={currentPost.authorName} 
-                  className="post-author-avatar"
-                  style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
-                  onClick={() => {
-                    const authorId = getUserId(currentPost.author);
-                    if (authorId) navigate(`/profile/${authorId}`);
-                  }}
-                />
-              ) : (
-                <div className="post-author-avatar placeholder-avatar">
-                  {currentPost.authorName?.charAt(0) || 'U'}
-                </div>
-              )}
-
-              {authorPresenceMode ? (
-                <span className={`presence-dot presence-${authorPresenceMode}`} title={authorPresenceMode}></span>
-              ) : null}
+              <PresenceAvatar
+                userId={getUserId(currentPost.author)}
+                src={currentPost.authorAvatar}
+                alt={currentPost.authorName || 'User'}
+                initialPresenceMode={currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined)}
+                initialIsOnline={currentPost.authorIsOnline || currentPost.author?.isOnline}
+                size={56}
+                style={{ width: '100%', height: '100%', cursor: currentPost.author ? 'pointer' : 'default' }}
+                showLastActive={false}
+                onClick={() => {
+                  const authorId = getUserId(currentPost.author);
+                  if (authorId) navigate(`/profile/${authorId}`);
+                }}
+              />
             </div>
 
             <div className="post-author-info">
@@ -940,3 +935,4 @@ const PostDetailsModal = ({
 };
 
 export default PostDetailsModal;
+

@@ -58,3 +58,4 @@ export const useTranslate = (text, opts = {}) => {
 };
 
 export default useTranslate;
+

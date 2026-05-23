@@ -82,3 +82,4 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
     </div>
   );
 }
+

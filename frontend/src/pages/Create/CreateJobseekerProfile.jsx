@@ -431,7 +431,7 @@ const CreateJobseekerProfile = () => {
                       padding: "10px 16px",
                       borderRadius: 10,
                       border: "none",
-                      background: "#3b82f6",
+                      background: "#275791",
                       color: "#fff",
                       cursor: "pointer",
                     }}
@@ -464,7 +464,7 @@ const CreateJobseekerProfile = () => {
               <span style={{ fontSize: 13, color: "#cbd5e1" }}>{computeCompletion(formData)}%</span>
             </div>
             <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", marginTop: 10 }}>
-              <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#3b82f6" }} />
+              <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#275791" }} />
             </div>
           </div>
 
@@ -571,7 +571,7 @@ const CreateJobseekerProfile = () => {
                   padding: "14px",
                   borderRadius: 12,
                   border: "none",
-                  background: "#2563eb",
+                  background: "#1892aa",
                   color: "#fff",
                   cursor: editable ? "pointer" : "not-allowed",
                 }}
@@ -962,7 +962,7 @@ const styles = {
   },
   progressFill: {
     height: "100%",
-    background: "linear-gradient(90deg, #16a34a 0%, #3b82f6 100%)",
+    background: "linear-gradient(90deg, #16a34a 0%, #275791 100%)",
   },
   progressPercent: {
     minWidth: "48px",

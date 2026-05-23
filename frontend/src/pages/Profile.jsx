@@ -7,6 +7,11 @@ import axios from "axios";
 import PresenceAvatar from '../components/PresenceAvatar';
 import { useNotification } from '../contexts/NotificationContext';
 
+const getUserId = (user) => {
+  if (!user) return null;
+  return typeof user === 'object' ? user._id || user.id || null : user;
+};
+
 const HeartIcon = ({ filled = false, size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -1067,7 +1072,7 @@ export default function Profile() {
             ...styles.profileHeader,
             background: isDarkMode
               ? "linear-gradient(135deg, #0a1a3a 0%, #1a3a5a 100%)"
-              : "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+              : "linear-gradient(135deg, #275791 0%, #275791 100%)",
           }}>
             <div style={styles.profileImageContainer}>
               <div
@@ -1090,7 +1095,7 @@ export default function Profile() {
                   <PresenceAvatar
                     src={user?.profilePicture || user?.companyLogo}
                     alt={(user?.firstName || user?.companyName || user?.email) || 'User'}
-                    size={360}
+                    size={120}
                     userId={user?._id || user?.id}
                     initialIsOnline={!!user?.isOnline}
                     initialLastActive={user?.lastActive || null}
@@ -1233,7 +1238,7 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#2563eb",
+                  color: "#1892aa",
                 }}>
                   Full Name
                 </label>
@@ -1344,7 +1349,7 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#2563eb",
+                  color: "#1892aa",
                 }}>
                   Email
                 </label>
@@ -1359,7 +1364,7 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#2563eb",
+                  color: "#1892aa",
                 }}>
                   Account Type
                 </label>
@@ -1376,7 +1381,7 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#2563eb",
+                  color: "#1892aa",
                 }}>
                   Member Since
                 </label>
@@ -1434,7 +1439,7 @@ export default function Profile() {
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{
-                        color: '#2563eb',
+                        color: '#1892aa',
                         textDecoration: 'none',
                         cursor: 'pointer',
                         fontWeight: 500,
@@ -1911,7 +1916,7 @@ export default function Profile() {
                       width: '48px',
                       height: '48px',
                       borderRadius: '50%',
-                      background: '#2563eb',
+                      background: '#1892aa',
                       display: 'grid',
                       placeItems: 'center',
                       color: '#fff',
@@ -2097,7 +2102,7 @@ export default function Profile() {
                     style={{
                       ...styles.progressFill,
                       width: `${completion}%`,
-                      backgroundColor: completion === 100 ? "#22c55e" : "#3b82f6",
+                      backgroundColor: completion === 100 ? "#22c55e" : "#275791",
                     }}
                   ></div>
                 </div>
@@ -2138,11 +2143,15 @@ export default function Profile() {
                   >
                     <div style={styles.profilePostHeader}>
                       <div style={styles.profilePostAvatar}>
-                        {post.authorAvatar ? (
-                          <img src={post.authorAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                        ) : (
-                          user?.firstName?.charAt(0) || 'U'
-                        )}
+                        <PresenceAvatar
+                          userId={getUserId(post.author)}
+                          src={post.authorAvatar}
+                          alt={post.authorName || user?.firstName || 'User'}
+                          size={48}
+                          initialPresenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : undefined)}
+                          initialIsOnline={post.authorIsOnline || post.author?.isOnline || (getUserId(post.author) === currentUserId ? user?.isOnline : false)}
+                          style={{ width: '100%', height: '100%' }}
+                        />
                       </div>
                       <div style={styles.profilePostHeading}>
                         <div style={styles.profilePostCompanyRow}>
@@ -2283,7 +2292,7 @@ const styles = {
   logoText: {
     fontSize: "24px",
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#1892aa",
   },
 
   navLinks: {
@@ -2312,7 +2321,7 @@ const styles = {
 
   profileButton: {
     background:
-      "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #1892aa 0%, #275791 100%)",
     border: "none",
     borderRadius: "50%",
     width: "44px",
@@ -2368,7 +2377,7 @@ const styles = {
   profileHeader: {
     padding: "40px",
     background:
-      "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+      "linear-gradient(135deg, #275791 0%, #275791 100%)",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
@@ -2617,7 +2626,7 @@ const styles = {
   detailLabel: {
     fontSize: "12px",
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#1892aa",
     textTransform: "uppercase",
     marginBottom: "8px",
   },
@@ -2696,7 +2705,7 @@ const styles = {
   uploadButton: {
     padding: "12px 22px",
     borderRadius: "14px",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#1892aa",
     border: "none",
     color: "#ffffff",
     cursor: "pointer",
@@ -2733,7 +2742,7 @@ const styles = {
     height: "100%",
     width: "75%",
     background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)",
+      "linear-gradient(90deg, #1892aa 0%, #275791 100%)",
     borderRadius: "4px",
   },
 
@@ -2745,7 +2754,7 @@ const styles = {
   smallEditButton: {
     padding: "8px 14px",
     borderRadius: "10px",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#1892aa",
     color: "#ffffff",
     border: "none",
     cursor: "pointer",
@@ -2796,7 +2805,7 @@ const styles = {
   interactionButton: {
     padding: "10px 18px",
     borderRadius: "14px",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#1892aa",
     color: "#ffffff",
     border: "none",
     cursor: "pointer",
@@ -2813,7 +2822,7 @@ const styles = {
   deleteJobButton: {
     padding: "10px 18px",
     borderRadius: "14px",
-    backgroundColor: "#1e40af",
+    backgroundColor: "#275791",
     color: "#ffffff",
     border: "none",
     cursor: "pointer",
@@ -2899,7 +2908,7 @@ const styles = {
     width: "48px",
     height: "48px",
     borderRadius: "50%",
-    background: "#2563eb",
+    background: "#1892aa",
     color: "#ffffff",
     display: "grid",
     placeItems: "center",
@@ -2948,7 +2957,7 @@ const styles = {
     marginBottom: "12px",
   },
   profileTag: {
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     fontSize: "12px",
   },
@@ -3086,7 +3095,7 @@ const styles = {
   statusButton: {
     padding: "10px 14px",
     borderRadius: "12px",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#1892aa",
     color: "#ffffff",
     border: "none",
     cursor: "pointer",
@@ -3098,15 +3107,15 @@ const styles = {
     padding: "10px 14px",
     borderRadius: "12px",
     backgroundColor: "transparent",
-    color: "#2563eb",
-    border: "1px solid #2563eb",
+    color: "#1892aa",
+    border: "1px solid #1892aa",
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
   },
 
   viewProfileButton: {
-    border: "1px solid #2563eb",
+    border: "1px solid #1892aa",
     borderRadius: "12px",
     background: "#111827",
     color: "#ffffff",
@@ -3185,12 +3194,13 @@ const styles = {
 
   secondaryButton: {
     padding: "12px 28px",
-    border: "2px solid #2563eb",
+    border: "2px solid #1892aa",
     borderRadius: "12px",
     background: "transparent",
-    color: "#2563eb",
+    color: "#1892aa",
     fontWeight: "700",
     cursor: "pointer",
     fontSize: "14px",
   },
 };
+

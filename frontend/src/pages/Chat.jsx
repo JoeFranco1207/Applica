@@ -2,10 +2,9 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNotification } from '../contexts/NotificationContext';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
-import PresenceAvatar from '../components/PresenceAvatar';
 
 export default function Chat() {
-  const { socket, isConnected } = useNotification();
+  const { socket } = useNotification();
   const location = useLocation();
   const requestedChatUserId = useMemo(() => new URLSearchParams(location.search).get('user'), [location.search]);
   const [connections, setConnections] = useState([]);
@@ -26,7 +25,6 @@ export default function Chat() {
   const [incomingCallData, setIncomingCallData] = useState(null);
   const [activeCallUser, setActiveCallUser] = useState(null);
   const [callStartTime, setCallStartTime] = useState(null);
-  const [queuedCall, setQueuedCall] = useState(null);
 
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -304,27 +302,6 @@ export default function Chat() {
   }, [socket, selectedUser]);
 
   useEffect(() => {
-    if (!queuedCall || !socket || !isConnected) return;
-    if (callState !== 'calling') return;
-    if (!queuedCall.targetUser) return;
-    if (peerConnectionRef.current) return;
-
-    const resumeCall = async () => {
-      try {
-        await prepareCallConnection(queuedCall.mode, true, queuedCall.targetUser);
-        setQueuedCall(null);
-        setChatError(null);
-      } catch (err) {
-        console.error('Unable to resume queued call', err);
-        setChatError('Unable to start the call after connecting.');
-        cleanupCall();
-      }
-    };
-
-    resumeCall();
-  }, [queuedCall, socket, isConnected, callState]);
-
-  useEffect(() => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStreamRef.current || null;
     }
@@ -439,7 +416,6 @@ export default function Chat() {
     setCallState('idle');
     setIncomingCallData(null);
     setActiveCallUser(null);
-    setQueuedCall(null);
   };
 
   const createPeerConnection = (targetUserId) => {
@@ -521,16 +497,9 @@ export default function Chat() {
       setChatError('Select a connected user to start a call.');
       return;
     }
-    setChatError(null);
     setCallMode(mode);
     setActiveCallUser(selectedUser);
     setCallState('calling');
-
-    if (!socket || !isConnected) {
-      setChatError('Connecting to call server... starting the call once ready.');
-      setQueuedCall({ mode, targetUser: selectedUser });
-      return;
-    }
 
     try {
       await prepareCallConnection(mode, true, selectedUser);
@@ -698,26 +667,6 @@ export default function Chat() {
     };
   }, [socket, callState, currentUser]);
 
-  useEffect(() => {
-    if (!queuedCall || !socket || !isConnected) return;
-    if (callState !== 'calling') return;
-    if (peerConnectionRef.current) return;
-
-    const resumeQueuedCall = async () => {
-      try {
-        await prepareCallConnection(queuedCall.mode, true, queuedCall.targetUser);
-        setQueuedCall(null);
-        setChatError(null);
-      } catch (err) {
-        console.error('Unable to resume queued call', err);
-        setChatError('Unable to start the call after connecting.');
-        cleanupCall();
-      }
-    };
-
-    resumeQueuedCall();
-  }, [queuedCall, socket, isConnected, callState]);
-
   const sendMessage = async () => {
     if (!selectedUser || (!messageText.trim() && !selectedFile)) return;
     setChatError(null);
@@ -789,15 +738,19 @@ export default function Chat() {
                 onClick={() => setSelectedUser(connection)}
               >
                 <div style={chatStyles.contactAvatar}>
-                  <PresenceAvatar
-                    src={getAvatarUrl(connection)}
-                    alt={connection.firstName || connection.companyName || connection.email || 'User'}
-                    userId={connection._id}
-                    initialPresenceMode={connection.presenceMode || (connection.isOnline ? 'online' : 'offline')}
-                    size={44}
-                    style={chatStyles.avatarImage}
-                    showLastActive={false}
-                  />
+                  {connection.profilePicture || connection.companyLogo ? (
+                    <img
+                      src={getAvatarUrl(connection)}
+                      alt="avatar"
+                      style={chatStyles.avatarImage}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = getPlaceholderAvatar(connection, 64);
+                      }}
+                    />
+                  ) : (
+                    <span>{(connection.firstName || connection.email || 'U')[0].toUpperCase()}</span>
+                  )}
                 </div>
                 <div>
                   <div style={chatStyles.contactName}>
@@ -817,15 +770,19 @@ export default function Chat() {
             <div style={chatStyles.chatHeader}>
               <div style={chatStyles.chatHeaderProfile}>
                 <div style={chatStyles.chatHeaderAvatar}>
-                  <PresenceAvatar
-                    src={getAvatarUrl(selectedUser)}
-                    alt={selectedUser.firstName || selectedUser.companyName || selectedUser.email || 'User'}
-                    userId={selectedUser._id}
-                    initialPresenceMode={selectedUser.presenceMode || (selectedUser.isOnline ? 'online' : 'offline')}
-                    size={84}
-                    style={{ ...chatStyles.avatarImage, width: 84, height: 84 }}
-                    showLastActive={false}
-                  />
+                  {selectedUser.profilePicture || selectedUser.companyLogo ? (
+                    <img
+                      src={getAvatarUrl(selectedUser)}
+                      alt="avatar"
+                      style={chatStyles.avatarImage}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = getPlaceholderAvatar(selectedUser, 96);
+                      }}
+                    />
+                  ) : (
+                    <span>{getAvatarInitials(selectedUser)}</span>
+                  )}
                 </div>
                 <div>
                   <div style={chatStyles.chatTitle}>
@@ -869,12 +826,6 @@ export default function Chat() {
                   const attachmentUrl = getAttachmentUrl(message.attachment?.fileUrl);
                   const messageAvatar = getMessageAvatarUrl(message);
                   const ownAvatar = getAvatarUrl(currentUser);
-                  const messageSender = message.sender && typeof message.sender === 'object' ? message.sender : null;
-                  const messageSenderId = messageSender?._id || messageSender?.id || null;
-                  const messageSenderPresence = messageSender?.presenceMode || (selectedUser && (message.sender === selectedUser._id || message.sender === selectedUser?.id)
-                    ? (selectedUser.presenceMode || (selectedUser.isOnline ? 'online' : undefined))
-                    : undefined);
-                  const senderAlt = messageSender ? (messageSender.firstName || messageSender.companyName || messageSender.email || 'User') : 'User';
                   const isSystem = Boolean(message.system);
                   if (isSystem) {
                     return (
@@ -893,15 +844,19 @@ export default function Chat() {
                     >
                       {!isOwn ? (
                         <div style={chatStyles.messageAvatarWrapper}>
-                          <PresenceAvatar
-                            src={messageAvatar}
-                            alt={senderAlt}
-                            userId={messageSenderId}
-                            initialPresenceMode={messageSenderPresence}
-                            size={36}
-                            style={chatStyles.messageAvatar}
-                            showLastActive={false}
-                          />
+                          {messageAvatar ? (
+                            <img
+                              src={messageAvatar}
+                              alt="avatar"
+                              style={chatStyles.messageAvatar}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = getPlaceholderAvatar(message.sender, 36);
+                              }}
+                            />
+                          ) : (
+                            <span>{getAvatarInitials(message.sender)}</span>
+                          )}
                         </div>
                       ) : null}
 
@@ -953,15 +908,19 @@ export default function Chat() {
 
                       {isOwn ? (
                         <div style={chatStyles.messageAvatarWrapper}>
-                          <PresenceAvatar
-                            src={ownAvatar}
-                            alt={currentUser?.firstName || currentUser?.email || 'You'}
-                            userId={currentUser?._id || currentUser?.id}
-                            initialPresenceMode={currentUser?.presenceMode || (currentUser?.isOnline ? 'online' : 'offline')}
-                            size={36}
-                            style={chatStyles.messageAvatar}
-                            showLastActive={false}
-                          />
+                          {ownAvatar ? (
+                            <img
+                              src={ownAvatar}
+                              alt="avatar"
+                              style={chatStyles.messageAvatar}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = getPlaceholderAvatar(currentUser, 36);
+                              }}
+                            />
+                          ) : (
+                            <span>{getAvatarInitials(currentUser)}</span>
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -1748,3 +1707,4 @@ const chatStyles = {
     color: 'var(--text-muted)',
   },
 };
+

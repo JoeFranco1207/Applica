@@ -1,24 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 :root {
-  --text: #374151;
-  --text-h: #0f172a;
-  --muted: #6b7280;
-  --bg: #f8fafc;
+  --text: #616a85;
+  --text-h: #275791;
+  --muted: #8a95ac;
+  --bg: #f4f7fb;
   --surface: #ffffff;
   --surface-strong: #ffffff;
-  --surface-alt: #f1f5f9;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --input-bg: #f8fafc;
-  --primary: #2563eb;
-  --primary-strong: #1d4ed8;
-  --accent: #2563eb;
-  --accent-bg: rgba(59, 130, 246, 0.12);
-  --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --card-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --surface-alt: #eef4fb;
+  --border: #d4e0ea;
+  --border-strong: #c5d1df;
+  --input-bg: #f8fbfe;
+  --primary: #1892aa;
+  --primary-strong: #146c84;
+  --accent: #275791;
+  --accent-strong: #1f4d78;
+  --accent-bg: rgba(24, 146, 170, 0.14);
+  --shadow: 0 18px 40px rgba(24, 146, 170, 0.12);
+  --card-shadow: 0 18px 40px rgba(24, 146, 170, 0.08);
   --cta-text: #ffffff;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Poppins', 'Montserrat', sans-serif;
+  --heading: 'Cooper BT', 'Poppins', 'Montserrat', sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
@@ -33,22 +36,22 @@
 }
 
 :root[data-theme='dark'] {
-  --text: #d1d5db;
-  --text-h: #f8fafc;
-  --muted: #94a3b8;
-  --bg: #0b1220;
-  --surface: #111827;
-  --surface-strong: #111827;
-  --surface-alt: #1f2937;
-  --border: #323a4b;
-  --border-strong: #374151;
-  --input-bg: #111827;
-  --primary: #60a5fa;
-  --primary-strong: #3b82f6;
-  --accent: #82cfff;
-  --accent-bg: rgba(96, 165, 250, 0.15);
-  --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  --card-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --text: #e4e9f2;
+  --text-h: #f8fbff;
+  --muted: #9aa7c1;
+  --bg: #070a11;
+  --surface: #11161f;
+  --surface-strong: #11161f;
+  --surface-alt: #141d28;
+  --border: #1f2c40;
+  --border-strong: #24354d;
+  --input-bg: #11161f;
+  --primary: #1892aa;
+  --primary-strong: #146c84;
+  --accent: #275791;
+  --accent-bg: rgba(39, 87, 145, 0.18);
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --card-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
   --cta-text: #ffffff;
 }
 
@@ -62,6 +65,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }
 
 #root {
@@ -136,3 +151,4 @@ code {
   padding: 4px 8px;
   background: var(--surface-alt);
 }
+

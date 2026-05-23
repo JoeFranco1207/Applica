@@ -55,3 +55,4 @@ export default function LikesList({ likerIds = [], postId, onClose }) {
     </div>
   );
 }
+

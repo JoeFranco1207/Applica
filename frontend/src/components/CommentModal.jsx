@@ -171,3 +171,4 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
 };
 
 export default CommentModal;
+

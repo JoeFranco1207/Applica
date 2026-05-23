@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './PostCard.css';
 import LikesList from './LikesList';
+import PresenceAvatar from './PresenceAvatar';
 import { useTranslate } from '../hooks/useTranslate';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -388,34 +389,20 @@ const PostCard = ({ post, onUpdate }) => {
       <div className="post-header">
         <div className="author-info">
           <div className="avatar-wrapper" style={{ position: 'relative' }}>
-            {(currentPost.authorAvatar && !authorAvatarError) ? (
-              <img
-                src={currentPost.authorAvatar}
-                alt={currentPost.authorName}
-                className="author-avatar"
-                style={{ cursor: currentPost.author ? 'pointer' : 'default' }}
-                onClick={() => {
-                  const authorId = getUserId(currentPost.author);
-                  if (authorId) navigate(`/profile/${authorId}`);
-                }}
-                onError={() => setAuthorAvatarError(true)}
-              />
-            ) : (
-              <div
-                className="author-avatar placeholder"
-                style={{ cursor: currentPost.author ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => {
-                  const authorId = getUserId(currentPost.author);
-                  if (authorId) navigate(`/profile/${authorId}`);
-                }}
-              >
-                {(currentPost.authorName && currentPost.authorName.charAt(0)) || 'U'}
-              </div>
-            )}
-
-            {authorPresenceMode ? (
-              <span className={`presence-dot presence-${authorPresenceMode}`} title={authorPresenceMode}></span>
-            ) : null}
+            <PresenceAvatar
+              userId={getUserId(currentPost.author)}
+              src={currentPost.authorAvatar}
+              alt={currentPost.authorName || 'User'}
+              initialPresenceMode={currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined)}
+              initialIsOnline={currentPost.authorIsOnline || currentPost.author?.isOnline}
+              size={48}
+              style={{ width: '100%', height: '100%', cursor: currentPost.author ? 'pointer' : 'default' }}
+              showLastActive={false}
+              onClick={() => {
+                const authorId = getUserId(currentPost.author);
+                if (authorId) navigate(`/profile/${authorId}`);
+              }}
+            />
           </div>
           <div className="author-details">
             <h3
@@ -691,3 +678,4 @@ const PostCard = ({ post, onUpdate }) => {
       )}
 
 export default PostCard;
+

@@ -61,7 +61,7 @@ const RESUME_DESIGNS = [
     id: 1,
     name: 'Classic Professional',
     description: 'Clean and professional design with a modern touch. Perfect for corporate roles.',
-    color: '#1e40af',
+    color: '#275791',
     features: ['Two-column layout', 'Accent color bar', 'Clean typography'],
     preview: 'classic-professional'
   },
@@ -507,7 +507,7 @@ export default function ResumeDesigns() {
                     onClick={handleAddExtracurricular}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: '#275791',
                       color: '#fff',
                       border: 'none',
                       borderRadius: '8px',
@@ -885,3 +885,4 @@ const styles = {
     transition: 'all 0.2s',
   },
 };
+

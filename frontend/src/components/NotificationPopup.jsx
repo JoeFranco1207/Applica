@@ -87,7 +87,7 @@ const NotificationPopup = () => {
       case 'react':
         return '#e74c3c';
       case 'comment':
-        return '#3498db';
+        return '#1892aa';
       case 'view':
         return '#9b59b6';
       case 'share':
@@ -96,9 +96,9 @@ const NotificationPopup = () => {
         return '#f39c12';
       case 'apply':
       case 'status':
-        return '#2563eb';
+        return '#1892aa';
       default:
-        return '#34495e';
+        return '#616a85';
     }
   };
 
@@ -160,3 +160,4 @@ const NotificationPopup = () => {
 };
 
 export default NotificationPopup;
+

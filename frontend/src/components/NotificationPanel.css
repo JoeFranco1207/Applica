@@ -40,7 +40,7 @@
 .np-message { font-size: 14px; margin-bottom: 6px; color: var(--text-h); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .np-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .np-time { color: var(--muted); }
-.np-dot { width: 10px; height: 10px; background: #2563eb; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 4px rgba(37,99,235,0.08); }
+.np-dot { width: 10px; height: 10px; background: #1892aa; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 4px rgba(37,99,235,0.08); }
 
 .np-close { background: transparent; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px 6px; }
 
@@ -52,3 +52,4 @@
 @media (max-width: 640px) {
   .notification-panel { width: calc(100vw - 24px); right: 12px; }
 }
+

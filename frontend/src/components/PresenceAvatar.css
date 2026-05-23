@@ -10,7 +10,7 @@
   justify-content: center;
   border-radius: 50%;
   object-fit: cover;
-  background: #e6e6e6;
+  background: var(--surface-alt);
   color: #fff;
   font-weight: 700;
 }
@@ -39,3 +39,4 @@
   color: #95a5a6;
   white-space: nowrap;
 }
+

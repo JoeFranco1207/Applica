@@ -629,7 +629,7 @@ backButton: {
     top: "20px",
     right: "20px",
     background:
-      "linear-gradient(to right, #3b82f6, #2563eb)",
+      "linear-gradient(to right, #275791, #1892aa)",
     padding: "8px 14px",
     borderRadius: "999px",
     fontSize: "0.8rem",
@@ -649,7 +649,7 @@ backButton: {
     borderRadius: "14px",
     border: "none",
     background:
-      "linear-gradient(to right, #3b82f6, #2563eb)",
+      "linear-gradient(to right, #275791, #1892aa)",
     color: "#fff",
     fontSize: "1rem",
     fontWeight: "700",
@@ -699,7 +699,7 @@ backButton: {
   },
   progressBarFill: {
     height: "100%",
-    background: "linear-gradient(90deg, #3b82f6, #10b981)",
+    background: "linear-gradient(90deg, #275791, #10b981)",
     transition: "width 0.3s ease",
   },
   label: {
@@ -767,7 +767,7 @@ backButton: {
     padding: "12px 18px",
     borderRadius: "12px",
     border: "none",
-    background: "linear-gradient(90deg, #10b981, #3b82f6)",
+    background: "linear-gradient(90deg, #10b981, #275791)",
     color: "#fff",
     cursor: "pointer",
   },

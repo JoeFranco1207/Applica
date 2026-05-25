@@ -391,7 +391,7 @@ export default function Signup() {
   }
 
   return (
-    <div
+    <div className="page-container"
       style={{
         ...styles.page,
         flexDirection: isMobile
@@ -897,10 +897,12 @@ function VerificationModal({
 }) {
   return (
     <div
+      className="modal-overlay"
       style={styles.modalOverlay}
       onClick={onClose}
     >
       <div
+        className="modal-card"
         style={styles.modalContainer}
         onClick={(e) =>
           e.stopPropagation()

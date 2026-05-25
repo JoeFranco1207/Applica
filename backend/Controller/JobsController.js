@@ -78,7 +78,8 @@ export const toggleJobLikeController = async (req, res, next) => {
 export const applyToJobController = async (req, res, next) => {
   try {
     const jobId = req.params.jobId;
-    const updatedJob = await applyToJob(jobId, req.user.id);
+    const coverLetter = typeof req.body.coverLetter === 'string' ? req.body.coverLetter.trim() : '';
+    const updatedJob = await applyToJob(jobId, req.user.id, coverLetter);
     return res.success(new AppSuccessful("Application recorded", 200, updatedJob));
   } catch (err) {
     next(err);

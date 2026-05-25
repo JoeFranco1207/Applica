@@ -722,8 +722,8 @@ export default function Chat() {
   };
 
   return (
-    <div style={chatStyles.page}>
-      <div style={chatStyles.sidebar}>
+    <div className="page-container chat-root" style={chatStyles.page}>
+      <div className="chat-sidebar" style={chatStyles.sidebar}>
         <div style={chatStyles.header}>Connections</div>
         {loadingConnections ? (
           <div style={chatStyles.emptyState}>Loading connections...</div>
@@ -764,7 +764,7 @@ export default function Chat() {
         )}
       </div>
 
-      <div style={chatStyles.chatArea}>
+      <div className="chat-area" style={chatStyles.chatArea}>
         {selectedUser ? (
           <>
             <div style={chatStyles.chatHeader}>
@@ -1036,8 +1036,8 @@ export default function Chat() {
         </div>
       ) : null}
       {showUnsendModal ? (
-        <div style={chatStyles.modalOverlay} onClick={closeUnsendModal}>
-          <div style={chatStyles.modalCard} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" style={chatStyles.modalOverlay} onClick={closeUnsendModal}>
+            <div className="modal-card" style={chatStyles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h3 style={chatStyles.modalTitle}>Confirm Unsend</h3>
             <p style={chatStyles.modalMessage}>Are you sure you want to unsend this message?</p>
             <div style={chatStyles.modalActions}>
@@ -1058,7 +1058,8 @@ export default function Chat() {
 const chatStyles = {
   page: {
     display: 'flex',
-    height: 'calc(100vh - 120px)',
+    minHeight: 'calc(100vh - 120px)',
+    height: 'auto',
     gap: 20,
     padding: 20,
     boxSizing: 'border-box',

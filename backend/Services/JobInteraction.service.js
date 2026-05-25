@@ -86,7 +86,7 @@ export const toggleJobLike = async (jobId, userId) => {
   return job;
 };
 
-export const applyToJob = async (jobId, userId) => {
+export const applyToJob = async (jobId, userId, coverLetter = '') => {
   const job = await Job.findById(jobId);
   if (!job) {
     throw new AppError("Job not found", 404);
@@ -126,6 +126,7 @@ export const applyToJob = async (jobId, userId) => {
 
       existingApplication.status = 'pending';
       existingApplication.resume = applicantUser.resume;
+      existingApplication.coverLetter = coverLetter || existingApplication.coverLetter || '';
       existingApplication.appliedAt = new Date();
       existingApplication.updatedAt = new Date();
       existingApplication.rejectedAt = undefined;
@@ -136,6 +137,7 @@ export const applyToJob = async (jobId, userId) => {
     job.applicants.push({
       user: userId,
       resume: applicantUser.resume,
+      coverLetter: coverLetter || '',
       status: "pending",
       appliedAt: new Date(),
       updatedAt: new Date(),
@@ -257,10 +259,17 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
     const applicantName = `${applicantUser.firstName || ''} ${applicantUser.lastName || ''}`.trim();
     const employerUser = await User.findById(employerId).select('companyName firstName lastName');
     const employerName = employerUser?.companyName || `${employerUser?.firstName || ''} ${employerUser?.lastName || ''}`.trim() || 'Applica Employer';
-    const message =
-      status === 'rejected'
-        ? `Your application for ${job.title} has been rejected. You can reapply after 20 days.`
-        : `Your application for ${job.title} has been ${status}.`;
+    let message;
+
+    if (status === 'rejected') {
+      message = `Your application for ${job.title} has been rejected. You can reapply after 20 days.`;
+    } else if (status === 'reviewing') {
+      message = `Your application for ${job.title} is under review.`;
+    } else if (status === 'accepted') {
+      message = `Your application for ${job.title} has been accepted.`;
+    } else {
+      message = `Your application for ${job.title} is now ${status}.`;
+    }
 
     try {
       await createNotificationService({

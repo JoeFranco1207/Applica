@@ -61,6 +61,9 @@ const CreateJob = () => {
     requirements: "",
     location: "",
     salary: "",
+    salaryMin: "",
+    salaryMax: "",
+    salaryFrequency: "monthly",
     externalLink: "",
   });
   const [jobMedia, setJobMedia] = useState(null);
@@ -263,7 +266,14 @@ const CreateJob = () => {
         description: formData.description,
         requirements: formData.requirements,
         location: formData.location,
-        salary: formData.salary ? parseInt(formData.salary) : 0,
+        salary: formData.salaryMin
+          ? parseInt(formData.salaryMin)
+          : formData.salary
+          ? parseInt(formData.salary)
+          : 0,
+        salaryMin: formData.salaryMin ? parseInt(formData.salaryMin) : undefined,
+        salaryMax: formData.salaryMax ? parseInt(formData.salaryMax) : undefined,
+        salaryFrequency: formData.salaryFrequency,
         externalLink: normalizedLink || undefined,
         media: jobMedia || undefined,
       };
@@ -293,7 +303,7 @@ const CreateJob = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="page-container" style={styles.container}>
       <div style={styles.header}>
         <button style={styles.backBtn} onClick={() => navigate("/profile")}>
           <ArrowLeftIcon size={18} />
@@ -421,15 +431,51 @@ const CreateJob = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Salary (₱)</label>
-                <input
-                  type="number"
-                  name="salary"
-                  value={formData.salary}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 150000"
-                  style={styles.input}
-                />
+                <label style={styles.label}>Salary range</label>
+                <div style={styles.salaryPanel}>
+                  <div style={styles.salaryInputsRow}>
+                    <div style={styles.salaryColumn}>
+                      <span style={styles.salaryLabel}>Min</span>
+                      <input
+                        type="number"
+                        name="salaryMin"
+                        value={formData.salaryMin}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 10000"
+                        style={styles.input}
+                      />
+                    </div>
+                    <div style={styles.salaryColumn}>
+                      <span style={styles.salaryLabel}>Max</span>
+                      <input
+                        type="number"
+                        name="salaryMax"
+                        value={formData.salaryMax}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 20000"
+                        style={styles.input}
+                      />
+                    </div>
+                  </div>
+                  <div style={styles.salaryFrequencyRow}>
+                    <label style={styles.salaryLabel}>Payment cycle</label>
+                    <select
+                      name="salaryFrequency"
+                      value={formData.salaryFrequency}
+                      onChange={handleInputChange}
+                      style={styles.select}
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="daily">Daily</option>
+                      <option value="one-time">One-time</option>
+                    </select>
+                  </div>
+                  <span style={styles.helpText}>
+                    Add a minimum and maximum salary, then choose how it is paid.
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -690,6 +736,55 @@ const styles = {
     minHeight: "90px",
     resize: "vertical",
     transition: "border-color 0.2s",
+  },
+  salaryPanel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    padding: "18px",
+    borderRadius: "14px",
+    border: "1px solid rgba(59, 130, 246, 0.16)",
+    backgroundColor: "rgba(59, 130, 246, 0.06)",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  salaryInputsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "12px",
+  },
+  salaryFrequencyRow: {
+    display: "grid",
+    gap: "8px",
+  },
+  salaryColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    minWidth: 0,
+  },
+  salaryLabel: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "var(--text-muted)",
+  },
+  select: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "13px",
+    fontFamily: "inherit",
+    outline: "none",
+    transition: "border-color 0.2s",
+  },
+  helpText: {
+    fontSize: "12px",
+    color: "var(--text-muted)",
+    marginTop: "6px",
+    maxWidth: "100%",
   },
 
   twoColumnGrid: {

@@ -263,7 +263,7 @@ export default function ResumeDesigns() {
   };
 
   return (
-    <div
+    <div className="page-container"
       style={{
         ...styles.container,
         backgroundColor: isDarkMode ? '#1a1a1a' : '#f8fafc',
@@ -372,6 +372,7 @@ export default function ResumeDesigns() {
       {/* Preview Modal */}
       {showPreview && selectedDesign && (
         <div
+          className="modal-overlay"
           style={styles.modalOverlay}
           onClick={() => {
             if (generating) return;
@@ -382,6 +383,7 @@ export default function ResumeDesigns() {
           }}
         >
           <div
+            className="modal-card"
             style={{
               ...styles.modalCard,
               backgroundColor: isDarkMode ? '#0f0f0f' : '#ffffff',

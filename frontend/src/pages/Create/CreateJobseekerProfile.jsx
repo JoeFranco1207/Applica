@@ -410,7 +410,7 @@ const CreateJobseekerProfile = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="page-container" style={styles.container}>
       <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16 }}>
         <button style={styles.backBtn} onClick={() => navigate("/profile")}>← Back</button>
       </div>

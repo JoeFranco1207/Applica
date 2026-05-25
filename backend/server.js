@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
+import axios from "axios";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
@@ -18,6 +19,7 @@ import ChatRouter from './Routes/ChatRouter.js';
 import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
 
 dotenv.config();
+const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com';
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -51,6 +53,193 @@ app.use("/api/employer", EmployerRouter);
 app.use('/api/posts', PostRouter);
 app.use('/api/notifications', NotificationRouter);
 app.use('/api/chat', ChatRouter);
+
+const translateText = async (text, source, target) => {
+  const response = await axios.post(
+    `${LIBRETRANSLATE_URL}/translate`,
+    {
+      q: text,
+      source,
+      target,
+      format: 'text',
+      api_key: process.env.LIBRETRANSLATE_KEY || ''
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    }
+  );
+  return response.data?.translatedText || '';
+};
+
+const translateWithMyMemory = async (text, source, target) => {
+  const encoded = encodeURIComponent(text);
+  const candidates = [];
+
+  if (source === 'auto') {
+    candidates.push('tl|en', 'ceb|en', 'tl-PH|en', 'en|en');
+  } else {
+    candidates.push(`${source}|${target}`);
+  }
+
+  for (const pair of candidates) {
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encoded}&langpair=${pair}`;
+      const response = await axios.get(url, { timeout: 15000 });
+      const result = response.data?.responseData?.translatedText;
+      if (result && result.trim()) {
+        return result.trim();
+      }
+    } catch (err) {
+      // ignore and try next fallback
+    }
+  }
+
+  throw new Error('MyMemory translation failed');
+};
+
+const autoCorrectText = (text) => {
+  let corrected = text.trim().replace(/\s+/g, ' ');
+  corrected = corrected.replace(/\s*([.,!?;:])\s*/g, '$1 ');
+  corrected = corrected.replace(/\bi\b/g, 'I');
+  corrected = corrected.replace(/\s+([.,!?;:])/g, '$1');
+  corrected = corrected.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => `${prefix}${char.toUpperCase()}`);
+  corrected = corrected.replace(/\s+([?.!])$/g, '$1');
+  if (!/[.!?]$/.test(corrected)) corrected += '.';
+  return corrected;
+};
+
+const rephraseText = (text, style = 'professional', round = 1) => {
+  const rules = [
+    { regex: /\bI have\b/gi, value: 'My experience includes' },
+    { regex: /\bI would like to\b/gi, value: 'I am eager to' },
+    { regex: /\bI am a\b/gi, value: 'As a' },
+    { regex: /\bI am an\b/gi, value: 'As an' },
+    { regex: /\bI'm a\b/gi, value: 'As a' },
+    { regex: /\bI'm an\b/gi, value: 'As an' },
+    { regex: /\bI'm\b/gi, value: 'I am' },
+    { regex: /\bI want to\b/gi, value: 'I seek to' },
+    { regex: /\bIn my previous role\b/gi, value: 'Previously,' },
+    { regex: /\bhelped\b/gi, value: 'supported' },
+    { regex: /\bworked on\b/gi, value: 'contributed to' },
+    { regex: /\bbuilt\b/gi, value: 'developed' },
+    { regex: /\bcreated\b/gi, value: 'developed' },
+    { regex: /\bresponsible for\b/gi, value: 'accountable for' },
+    { regex: /\bmanage(?:d|s|r)?\b/gi, value: 'oversee' },
+    { regex: /\bexperience with\b/gi, value: 'experience in' },
+    { regex: /\bgood\b/gi, value: 'strong' },
+    { regex: /\bgreat\b/gi, value: 'excellent' },
+    { regex: /\bbest\b/gi, value: 'strongest' },
+    { regex: /\bvery\b/gi, value: 'extremely' },
+    { regex: /\busing\b/gi, value: 'leveraging' },
+    { regex: /\buse\b/gi, value: 'leverage' },
+    { regex: /\bsuccessfully\b/gi, value: 'effectively' },
+    { regex: /\bstrong\b/gi, value: 'proven' },
+    { regex: /\bI am applying\b/gi, value: 'I am submitting this application' },
+    { regex: /\bI apply\b/gi, value: 'I submit' },
+    { regex: /\bI love\b/gi, value: 'I am passionate about' }
+  ];
+
+  if (style === 'formal') {
+    rules.push(
+      { regex: /\bI would like to\b/gi, value: 'I respectfully wish to' },
+      { regex: /\bI want to\b/gi, value: 'I aspire to' },
+      { regex: /\bI have\b/gi, value: 'I possess' },
+      { regex: /\bplease\b/gi, value: 'kindly' }
+    );
+  }
+
+  let result = autoCorrectText(text);
+  rules.forEach(({ regex, value }) => {
+    result = result.replace(regex, value);
+  });
+
+  if (round >= 2) {
+    result = result.replace(/\bI am\b/gi, 'I am currently');
+    result = result.replace(/\bMy experience includes\b/gi, 'With experience in');
+    result = result.replace(/\bI seek to\b/gi, 'I am looking to');
+    result = result.replace(/\bI am passionate about\b/gi, 'I take pride in');
+    result = result.replace(/\bAs a\b/gi, 'In the role of a');
+  }
+
+  if (round >= 3) {
+    result = result.replace(/\bPreviously,\b/gi, 'Previously, in my prior role,');
+    result = result.replace(/\bI am eager to\b/gi, 'I look forward to');
+    result = result.replace(/\bI am submitting this application\b/gi, 'I submit this application');
+    result = result.replace(/\bI am an\b/gi, 'In the capacity of an');
+  }
+
+  if (round >= 4) {
+    result = result.replace(/\bI am currently\b/gi, 'I currently');
+    result = result.replace(/\bIn the role of a\b/gi, 'As a dedicated');
+    result = result.replace(/\bWith experience in\b/gi, 'With a background in');
+  }
+
+  result = result.replace(/\s+/g, ' ').trim();
+  result = result.replace(/\s+([.,!?;:])/g, '$1');
+  result = result.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => `${prefix}${char.toUpperCase()}`);
+  if (!/[.!?]$/.test(result)) result += '.';
+  return result;
+};
+
+const translateWithFallback = async (text, source, target) => {
+  try {
+    return await translateText(text, source, target);
+  } catch (err) {
+    console.warn('LibreTranslate failed, falling back to MyMemory:', err?.response?.data || err.message || err);
+    return await translateWithMyMemory(text, source, target);
+  }
+};
+
+app.post('/api/translate/cover-letter', async (req, res) => {
+  const { text, action, style, rephraseRound = 1, translateRound = 1 } = req.body || {};
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ status: 'error', message: 'Text is required.' });
+  }
+
+  try {
+    if (action === 'translate') {
+      const translatedText = await translateWithFallback(text.trim(), 'auto', 'en');
+      const finalText = Number(translateRound) > 1
+        ? rephraseText(translatedText, 'professional', Number(translateRound))
+        : translatedText;
+      return res.status(200).json({ status: 'success', message: 'Cover letter translated into English.', data: finalText });
+    }
+
+    if (action === 'correct') {
+      try {
+        const firstPass = await translateWithFallback(text.trim(), 'auto', 'fr');
+        const roundTrip = await translateWithFallback(firstPass, 'fr', 'en');
+        return res.status(200).json({ status: 'success', message: 'Cover letter corrected.', data: roundTrip || autoCorrectText(text) });
+      } catch (err) {
+        return res.status(200).json({ status: 'success', message: 'Cover letter corrected using fallback.', data: autoCorrectText(text) });
+      }
+    }
+
+    if (action === 'rephrase') {
+      try {
+        let intermediateLang = 'es';
+        if (style === 'formal') intermediateLang = 'fr';
+        if (style === 'professional') intermediateLang = 'de';
+
+        const firstPass = await translateWithFallback(text.trim(), 'auto', intermediateLang);
+        const roundTrip = await translateWithFallback(firstPass, intermediateLang, 'en');
+        const baseText = roundTrip || text;
+        const finalText = rephraseText(baseText, style, Number(rephraseRound) || 1);
+        return res.status(200).json({ status: 'success', message: 'Cover letter rephrased.', data: finalText });
+      } catch (err) {
+        return res.status(200).json({ status: 'success', message: 'Cover letter rephrased using fallback.', data: rephraseText(text, style, Number(rephraseRound) || 1) });
+      }
+    }
+
+    return res.status(400).json({ status: 'error', message: 'Unknown action.' });
+  } catch (error) {
+    console.error('Translate endpoint failure:', error?.response?.data || error.message || error);
+    return res.status(502).json({ status: 'error', message: 'Unable to transform cover letter. Please try again later.' });
+  }
+});
 
 // Debug endpoint to verify the server is reachable and receives POSTs
 app.post('/api/debug/post-test', (req, res) => {

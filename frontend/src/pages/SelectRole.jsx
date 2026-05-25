@@ -50,7 +50,7 @@ export default function SelectRole() {
   };
 
   return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="page-container" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ padding: 28, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', width: 520, maxWidth: '92%' }}>
         <h2 style={{ marginTop: 0, marginBottom: 8 }}>Select your role</h2>
         <p style={{ marginTop: 0, marginBottom: 18 }}>Choose whether you'd like to use Applica as a Jobseeker or an Employer.</p>

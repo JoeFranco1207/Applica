@@ -97,6 +97,58 @@ const renderBulletList = (text, style = {}) => {
   );
 };
 
+const getCompanyDisplayName = (job) => {
+  return job?.createdBy?.companyName || job?.companyName || job?.company || job?.employerName || 'Hiring Manager';
+};
+
+const getUserProfileSummary = (user) => {
+  if (!user) return [];
+  const items = [];
+  if (user.bio) items.push({ label: 'Bio', value: user.bio });
+  if (user.experience) items.push({ label: 'Experience', value: user.experience });
+  if (user.education) items.push({ label: 'Education', value: user.education });
+  const location = [user.location?.region, user.location?.city, user.location?.barangay, user.location?.otherDetails]
+    .filter(Boolean)
+    .join(', ');
+  if (location) items.push({ label: 'Location', value: location });
+  if (user.resume) {
+    const display = user.resume.split('/').pop()?.split('?')[0]?.split('#')[0] || user.resume;
+    items.push({ label: 'Resume', value: display, link: /^https?:\/\//i.test(user.resume) ? user.resume : null });
+  }
+  return items;
+};
+
+const generateCoverLetterTemplate = (job, user) => {
+  if (!job) return '';
+  const companyName = getCompanyDisplayName(job);
+  const jobTitle = job.title || job.role || 'the position';
+  const userIntro = user?.experience || user?.bio || 'relevant experience';
+  const requirementList = splitTextIntoListItems(job.requirements || (job.details?.join('\n') || ''));
+  const highlights = [];
+
+  if (requirementList.length) {
+    highlights.push(`- ${requirementList[0]}`);
+    if (requirementList[1]) highlights.push(`- ${requirementList[1]}`);
+  } else {
+    highlights.push('- Proven ability to deliver strong results in a fast-paced environment.');
+    highlights.push('- Collaborative approach and strong communication skills.');
+  }
+
+  const educationSentence = user?.education ? `I also bring ${user.education} training and a strong foundation in the skills needed for this role.` : '';
+  const closingName = user?.firstName || user?.email || 'Applicant';
+
+  return [
+    `Dear ${companyName},`,
+    `I am excited to apply for the ${jobTitle} role at ${companyName}. With ${userIntro}, I believe I can contribute meaningfully to your team and support your goals in this position.`,
+    `My most relevant qualifications include:\n${highlights.join('\n')}`,
+    educationSentence,
+    `My resume is attached for additional details on my background and accomplishments. I would welcome the opportunity to discuss how I can help ${companyName} succeed.`,
+    `Thank you for your time and consideration.\n\nSincerely,\n${closingName}`
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+};
+
 const HeartIcon = ({ filled = false, size = 18 }) => (
   <svg
     width={size}
@@ -382,9 +434,39 @@ export default function BrowseJob() {
   const [modalJob, setModalJob] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applyJobInfo, setApplyJobInfo] = useState(null);
+  const [applyStep, setApplyStep] = useState(1);
   const [applyError, setApplyError] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [coverLetterStyle, setCoverLetterStyle] = useState('professional');
+  const [rephraseCount, setRephraseCount] = useState(0);
+  const [translateCount, setTranslateCount] = useState(0);
+  const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
+  const [isRephrasing, setIsRephrasing] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [userLikes, setUserLikes] = useState(new Set());
   const [profileLoading, setProfileLoading] = useState(false);
+
+  const formatSalaryText = (job) => {
+    const min = job.salaryMin;
+    const max = job.salaryMax;
+    const freq = job.salaryFrequency;
+
+    if (min != null && max != null && !isNaN(min) && !isNaN(max)) {
+      const range = `₱${Number(min).toLocaleString()} - ₱${Number(max).toLocaleString()}`;
+      return `${range}${freq ? ` / ${freq}` : ''}`;
+    }
+
+    if (min != null && !isNaN(min)) {
+      return `₱${Number(min).toLocaleString()}${freq ? ` / ${freq}` : ''}`;
+    }
+
+    const salaryValue = job.salary;
+    if (salaryValue != null && !isNaN(salaryValue) && Number(salaryValue) > 0) {
+      return `₱${Number(salaryValue).toLocaleString()}`;
+    }
+
+    return 'Negotiable';
+  };
 
   const refreshAuthenticatedUser = async () => {
     if (!token) return null;
@@ -508,6 +590,170 @@ export default function BrowseJob() {
   const { translated: translatedModalDescription, loading: translatingModalDescription } = useTranslate(modalJob?.description || '');
   const { translated: translatedApplyTitle, loading: translatingApplyTitle } = useTranslate(applyJobInfo?.title || '');
 
+  const getResumeDisplayName = () => {
+    const resume = effectiveUser?.resume;
+    if (!resume) return t('browse.noResumeFound') || 'No resume found';
+    return resume.split('/').pop()?.split('?')[0]?.split('#')[0] || resume;
+  };
+
+  const handleAutoCorrectCoverLetter = async () => {
+    const text = coverLetter?.trim();
+    if (!text) return;
+
+    setIsAutoCorrecting(true);
+    try {
+      const response = await axios.post('http://localhost:8000/api/translate/cover-letter', {
+        text,
+        action: 'correct'
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
+      });
+
+      const corrected = response.data?.data?.trim();
+      if (corrected) {
+        setCoverLetter(corrected);
+      } else {
+        setCoverLetter(text.replace(/\s+/g, ' ').replace(/\bi\b/g, 'I'));
+      }
+    } catch (error) {
+      console.error('Auto-correct failed:', error?.message || error);
+      const fallback = text
+        .replace(/\s+/g, ' ')
+        .replace(/\bi\b/g, 'I')
+        .replace(/([.!?])\s*(?=[A-Za-z])/g, '$1 ')
+        .replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => `${prefix}${char.toUpperCase()}`)
+        .replace(/\s+([.,!?;:])/g, '$1');
+      setCoverLetter(/[.!?]$/.test(fallback) ? fallback : `${fallback}.`);
+    } finally {
+      setIsAutoCorrecting(false);
+    }
+  };
+
+  const handleRephraseCoverLetter = async () => {
+    const text = coverLetter?.trim();
+    const style = coverLetterStyle || 'professional';
+    if (!text) return;
+
+    setIsRephrasing(true);
+    try {
+      const response = await axios.post('http://localhost:8000/api/translate/cover-letter', {
+        text,
+        action: 'rephrase',
+        style,
+        rephraseRound: rephraseCount + 1,
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
+      });
+
+      const paraphrased = response.data?.data?.trim();
+      if (paraphrased) {
+        setCoverLetter(paraphrased);
+      } else {
+        setCoverLetter(text);
+      }
+      setRephraseCount((count) => count + 1);
+    } catch (error) {
+      console.error('Rephrase failed:', error?.message || error);
+
+      const fallbackWords = [
+        { regex: /\bI have\b/gi, value: 'My experience includes' },
+        { regex: /\bI would like to\b/gi, value: 'I am eager to' },
+        { regex: /\bI am a\b/gi, value: 'As a' },
+        { regex: /\bI am an\b/gi, value: 'As an' },
+        { regex: /\bI'm a\b/gi, value: 'As a' },
+        { regex: /\bI'm an\b/gi, value: 'As an' },
+        { regex: /\bI'm\b/gi, value: 'I am' },
+        { regex: /\bI want to\b/gi, value: 'I seek to' },
+        { regex: /\bIn my previous role\b/gi, value: 'Previously,' },
+        { regex: /\bhelped\b/gi, value: 'supported' },
+        { regex: /\bworked on\b/gi, value: 'contributed to' },
+        { regex: /\bbuilt\b/gi, value: 'developed' },
+        { regex: /\bcreated\b/gi, value: 'developed' },
+        { regex: /\bresponsible for\b/gi, value: 'accountable for' },
+        { regex: /\bmanage(?:d|s|r)?\b/gi, value: 'oversee' },
+        { regex: /\bexperience with\b/gi, value: 'experience in' },
+        { regex: /\bgood\b/gi, value: 'strong' },
+        { regex: /\bgreat\b/gi, value: 'excellent' },
+        { regex: /\bbest\b/gi, value: 'strongest' },
+        { regex: /\bvery\b/gi, value: 'extremely' },
+        { regex: /\busing\b/gi, value: 'leveraging' },
+        { regex: /\buse\b/gi, value: 'leverage' },
+        { regex: /\bsuccessfully\b/gi, value: 'effectively' },
+        { regex: /\bstrong\b/gi, value: 'proven' }
+      ];
+
+      if (style === 'formal') {
+        fallbackWords.push(
+          { regex: /\bI would like to\b/gi, value: 'I respectfully wish to' },
+          { regex: /\bI want to\b/gi, value: 'I aspire to' },
+          { regex: /\bI have\b/gi, value: 'I possess' },
+          { regex: /\bplease\b/gi, value: 'kindly' }
+        );
+      }
+
+      const alternate = text
+        .split(/([.!?]+)/)
+        .map((chunk, index, parts) => {
+          let result = chunk.trim();
+          if (!result) return '';
+          fallbackWords.forEach(({ regex, value }) => {
+            result = result.replace(regex, value);
+          });
+          if (index % 2 === 0 && parts.length > 3) {
+            result = result.replace(/\bI am\b/gi, 'As someone who is');
+            result = result.replace(/\bMy experience includes\b/gi, 'With experience in');
+            result = result.replace(/\bI seek to\b/gi, 'I am seeking to');
+          }
+          return result;
+        })
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const finalText = alternate || text;
+      setCoverLetter(finalText);
+      setRephraseCount((count) => count + 1);
+    } finally {
+      setIsRephrasing(false);
+    }
+  };
+
+  const handleTranslateCoverLetter = async () => {
+    const text = coverLetter?.trim();
+    if (!text) return;
+
+    setIsTranslating(true);
+    try {
+      const response = await axios.post('http://localhost:8000/api/translate/cover-letter', {
+        text,
+        action: 'translate',
+        translateRound: translateCount + 1
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
+      });
+
+      const translated = response.data?.data?.trim();
+      if (translated) {
+        setCoverLetter(translated);
+      }
+      setTranslateCount((count) => count + 1);
+    } catch (error) {
+      console.error('Translate to English failed:', error?.message || error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const openApplyModal = async (job) => {
     if (!token) {
       navigate("/auth");
@@ -526,7 +772,12 @@ export default function BrowseJob() {
     }
 
     setApplyJobInfo(job);
+    setApplyStep(1);
     setApplyError("");
+    setCoverLetter("");
+    setCoverLetterStyle('professional');
+    setRephraseCount(0);
+    setTranslateCount(0);
     setShowApplyModal(true);
   };
 
@@ -534,7 +785,23 @@ export default function BrowseJob() {
     setShowApplyModal(false);
     setApplyJobInfo(null);
     setApplyError("");
+    setApplyStep(1);
+    setCoverLetter("");
+    setCoverLetterStyle('professional');
+    setRephraseCount(0);
+    setTranslateCount(0);
+    setIsAutoCorrecting(false);
+    setIsRephrasing(false);
+    setIsTranslating(false);
   };
+
+  const goToCoverLetterStep = () => {
+    if (!coverLetter.trim()) {
+      setCoverLetter(generateCoverLetterTemplate(applyJobInfo, effectiveUser));
+    }
+    setApplyStep(2);
+  };
+  const goToReviewStep = () => setApplyStep(1);
 
   const confirmApply = async () => {
     if (!applyJobInfo) return;
@@ -560,7 +827,7 @@ export default function BrowseJob() {
       setJobActionLoading(true);
         const response = await axios.post(
         `http://localhost:8000/api/jobs/${jobId}/apply`,
-        {},
+        { coverLetter: coverLetter?.trim() || '' },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1141,7 +1408,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       description: job.description,
       details: [
         `Requirements: ${job.requirements}`,
-        job.salary ? `Salary: ₱${job.salary.toLocaleString()}` : "Salary: Negotiable",
+        `Salary: ${formatSalaryText(job)}`,
         `Employer: ${job.createdBy?.companyName || `${job.createdBy?.firstName || ""} ${job.createdBy?.lastName || ""}`}`,
         `Job ID: ${job._id}`,
       ],
@@ -1199,7 +1466,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     : samplePosts;
 
   return (
-    <div style={styles.container}>
+    <div className="page-container" style={styles.container}>
       <div style={styles.pageHeader}>
         <div>
           <h1 style={styles.title}>{t("browse.feedTitle")}</h1>
@@ -1707,8 +1974,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
           style={styles.fab}
           onClick={() => navigate("/create/job")}
           title="Post Job"
+          aria-label="Post Job"
         >
-          +
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14.06 4.94l3.75 3.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          <span style={styles.fabText}>Post job</span>
         </button>
       )}
 
@@ -1732,15 +2004,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       )}
       {/* Job Modal */}
       {showJobModal && modalJob && (
-        <div style={styles.modalOverlay} onClick={closeJobModal}>
-          <div style={{ ...styles.modalCard, background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" style={styles.modalOverlay} onClick={closeJobModal}>
+          <div className="modal-card" style={{ ...styles.modalCard, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ ...styles.modalHeader, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
-              <h2 style={{ margin: 0, color: '#fff', fontSize: 18, fontWeight: 800, textAlign: 'left', flex: 1 }}>{translatingModalTitle ? modalJob.title : (translatedModalTitle || modalJob.title)}</h2>
+              <h2 style={{ margin: 0, color: 'var(--text-h)', fontSize: 18, fontWeight: 800, textAlign: 'left', flex: 1 }}>{translatingModalTitle ? modalJob.title : (translatedModalTitle || modalJob.title)}</h2>
               <button style={{ ...styles.modalClose, position: 'absolute', right: 12, top: 8 }} onClick={closeJobModal}>✕</button>
             </div>
 
             {/* Author row like social post modal */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid var(--border)' }}>
               <div
                 style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: modalJob.createdBy?._id ? 'pointer' : 'default' }}
                 onClick={() => { const authorId = getUserId(modalJob.createdBy); if (authorId) navigate(`/profile/${authorId}`); }}
@@ -1760,20 +2032,20 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{modalJob.createdBy?.companyName || modalJob.companyName || modalJob.createdBy?.firstName || 'Employer'}</div>
-                  {modalJob.createdBy?.role && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.03)' }}>{modalJob.createdBy.role}</div>}
+                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-h)' }}>{modalJob.createdBy?.companyName || modalJob.companyName || modalJob.createdBy?.firstName || 'Employer'}</div>
+                  {modalJob.createdBy?.role && <div style={{ fontSize: 12, color: 'var(--text)', padding: '2px 8px', borderRadius: 12, background: 'var(--surface-alt)' }}>{modalJob.createdBy.role}</div>}
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ color: '#1892aa', fontSize: 13 }}>{modalJob.createdBy?.email || modalJob.employerEmail || 'No email'}</div>
-                  <div style={{ color: '#94a3b8', fontSize: 12 }}>{formatDateMonthDay(modalJob.createdAt)}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{formatDateMonthDay(modalJob.createdAt)}</div>
                 </div>
               </div>
             </div>
 
-            <div style={{ ...styles.modalBody, color: '#fff', textAlign: 'left' }}>
-              <p style={{ ...styles.postText, color: '#fff', marginBottom: '18px' }}>{translatingModalDescription ? modalJob.description : (translatedModalDescription || modalJob.description)}</p>
+            <div style={{ ...styles.modalBody, color: 'var(--text)', textAlign: 'left' }}>
+              <p style={{ ...styles.postText, color: 'var(--text)', marginBottom: '18px' }}>{translatingModalDescription ? modalJob.description : (translatedModalDescription || modalJob.description)}</p>
               {modalJob.media?.data && (
-                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   {modalJob.media.type === 'video' ? (
                     <video src={modalJob.media.data} style={{ width: '100%', maxHeight: 360, objectFit: 'cover' }} controls />
                   ) : (
@@ -1793,8 +2065,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                       gap: 8,
                       padding: '10px 14px',
                       borderRadius: 12,
-                      background: 'rgba(255,255,255,0.06)',
-                      color: '#93c5fd',
+                      background: 'var(--surface-alt)',
+                      color: 'var(--primary)',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -1804,7 +2076,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 </div>
               )}
               {modalJob.location && (
-                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <iframe
                     title="Mapa ng lokasyon"
                     src={`https://maps.google.com/maps?q=${encodeURIComponent(modalJob.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
@@ -1814,16 +2086,16 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   />
                 </div>
               )}
-              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Mga Kailangan</h4>
-              {renderBulletList(modalJob.requirements, { color: '#e2e8f0', marginBottom: '18px' }) || (
-                <p style={{ ...styles.postText, color: '#e2e8f0', marginBottom: '18px' }}>
+              <h4 style={{ color: 'var(--text-h)', marginBottom: '12px', marginTop: 0 }}>Mga Kailangan</h4>
+              {renderBulletList(modalJob.requirements, { color: 'var(--text)', marginBottom: '18px' }) || (
+                <p style={{ ...styles.postText, color: 'var(--text)', marginBottom: '18px' }}>
                   Walang ibinigay na requirements.
                 </p>
               )}
 
-              <h4 style={{ color: '#f8fafc', marginBottom: '12px', marginTop: 0 }}>Detalye</h4>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#e2e8f0' }}>
-                {modalJob.salary !== undefined && <li style={{ marginBottom: '10px' }}>Sahod: {modalJob.salary ? `₱${modalJob.salary.toLocaleString()}` : 'Negoasyable'}</li>}
+              <h4 style={{ color: 'var(--text-h)', marginBottom: '12px', marginTop: 0 }}>Detalye</h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: 'var(--text)' }}>
+                <li style={{ marginBottom: '10px' }}>Sahod: {formatSalaryText(modalJob)}</li>
                 {modalJob.category && <li style={{ marginBottom: '10px' }}>Kategorya: {modalJob.category}</li>}
                 {modalJob.jobType && <li style={{ marginBottom: '10px' }}>Uri: {modalJob.jobType}</li>}
                 {modalJob.experienceLevel && <li style={{ marginBottom: '0' }}>Karanasan: {modalJob.experienceLevel}</li>}
@@ -1866,7 +2138,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               </button>
             </div>
             {/* Bottom comment input bar */}
-            <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 12, alignItems: 'center', background: 'transparent' }}>
+            <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center', background: 'transparent' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
                 {currentUser?.profilePicture || currentUser?.companyLogo ? (
                   <img src={currentUser.profilePicture || currentUser.companyLogo} alt="ikaw" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1879,12 +2151,12 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 placeholder={t('browse.commentPlaceholder')}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)', color: '#fff' }}
+                style={{ flex: 1, padding: '10px 14px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text)' }}
               />
               <button
                 onClick={handleJobComment}
                 disabled={!commentText.trim()}
-                style={{ background: 'transparent', border: 'none', color: commentText.trim() ? '#1892aa' : 'rgba(255,255,255,0.2)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
+                style={{ background: 'transparent', border: 'none', color: commentText.trim() ? 'var(--primary)' : 'var(--muted)', fontSize: 18, cursor: commentText.trim() ? 'pointer' : 'not-allowed' }}
                 title={t('browse.postAnswerTitle')}
               >
                 ➤
@@ -1895,91 +2167,267 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       )}
 
       {showApplyModal && applyJobInfo && (
-        <div style={styles.modalOverlay} onClick={closeApplyModal}>
-          <div style={{ ...styles.modalCard, ...styles.applyModalCard }} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <div>
-                  <h2 style={{ margin: 0 }}>
-                    {translatingApplyTitle
-                      ? (applyJobInfo.title || applyJobInfo.role || t('browse.applyModalDefaultTitle'))
-                      : (translatedApplyTitle || applyJobInfo.title || applyJobInfo.role || t('browse.applyModalDefaultTitle'))}
-                  </h2>
-                  <p style={styles.modalCompany}>
-                    {applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.company')} · {applyJobInfo.location || t('browse.remote')}
-                  </p>
+        <div className="modal-overlay" style={styles.modalOverlay} onClick={closeApplyModal}>
+          <div className="modal-card" style={{ ...styles.modalCard, ...styles.applyModalCard, maxWidth: '760px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              ...styles.modalHeader,
+              background: 'linear-gradient(135deg, var(--primary) 0%, rgba(var(--primary-rgb), 0.8) 100%)',
+              borderBottom: 'none',
+              paddingBottom: '24px',
+              paddingTop: '24px'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{
+                  margin: 0,
+                  color: 'var(--primary)',
+                  fontSize: '22px',
+                  fontWeight: '800'
+                }}>
+                  {applyStep === 1 ? (t('browse.applicationReviewTitle') || 'Review Job Details') : (t('browse.applicationCoverLetterTitle') || 'Write Your Cover Letter')}
+                </h2>
+                <p style={{
+                  color: 'var(--text-muted)',
+                  marginTop: '8px',
+                  marginBottom: '0',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  letterSpacing: '0.3px'
+                }}>
+                  {applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.company')} · {applyJobInfo.location || t('browse.remote')}
+                </p>
+                <div style={{ marginTop: '10px', display: 'inline-flex', gap: '8px', padding: '6px 12px', borderRadius: '999px', background: 'rgba(var(--primary-rgb),0.12)', color: 'var(--primary)', fontSize: '12px', fontWeight: 700 }}>
+                  <span>{applyStep === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}</span>
                 </div>
+              </div>
             </div>
 
             <div style={styles.modalBody}>
-              <div style={styles.applyVerticalGrid}>
-                <div style={styles.applyProfileSection}>
-                  <div style={styles.companyBadge}>
-                    {(applyJobInfo.createdBy?.companyLogo || applyJobInfo.employerAvatar) ? (
-                      <img
-                        src={applyJobInfo.createdBy?.companyLogo || applyJobInfo.createdBy?.profilePicture || applyJobInfo.employerAvatar}
-                        alt="company logo"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                      />
-                    ) : (
-                      <span style={{ fontWeight: 700 }}>{(applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'Employer').charAt(0)}</span>
+              {applyStep === 1 ? (
+                <div style={styles.applyVerticalGrid}>
+                  <div style={{
+                    background: 'var(--surface-alt)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '16px' }}>
+                      <div style={{ width: '58px', height: '58px', borderRadius: '16px', overflow: 'hidden', background: 'var(--primary)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: '24px', fontWeight: 800 }}>
+                        {applyJobInfo?.createdBy?.companyLogo ? (
+                          <img src={applyJobInfo.createdBy.companyLogo} alt={getCompanyDisplayName(applyJobInfo)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span>{(applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || 'E').charAt(0)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-h)' }}>{applyJobInfo.title || applyJobInfo.role || t('browse.applyModalDefaultTitle')}</p>
+                        <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>{applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.company')} · {applyJobInfo.location || t('browse.remote')}</p>
+                      </div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.8, color: 'var(--text)' }}>{applyJobInfo.description || t('browse.noDescriptionProvided')}</p>
+                  </div>
+
+                  <div style={{
+                    background: 'var(--surface-alt)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: '0.9' }}>{t('browse.requirements')}</p>
+                    {renderBulletList(applyJobInfo.requirements, { color: 'var(--text)' }) || (
+                      <p style={{ margin: 0, lineHeight: 1.8, color: 'var(--text)' }}>{applyJobInfo.details?.join(', ') || t('browse.noRequirementsProvided')}</p>
                     )}
                   </div>
-                  <div style={styles.applyProfileInfo}>
-                    <p style={styles.applyInfoTitle}>{t('browse.postedBy')}</p>
-                    <p style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-h)' }}>
-                      {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.createdBy?.companyName || applyJobInfo.companyName || applyJobInfo.company || applyJobInfo.employerName || t('browse.employer')}
-                    </p>
-                    <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || t('browse.notProvided')}
-                    </p>
-                    <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                      {applyJobInfo.createdBy?.role || t('browse.employer')} · {applyJobInfo.location || t('browse.remote')}
-                    </p>
+
+                  <div style={{
+                    background: 'var(--surface-alt)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: '0.9' }}>{t('browse.companyInformation')}</p>
+                    <div style={{ display: 'grid', gap: '10px', color: 'var(--text)' }}>
+                      <div><strong>{t('browse.employer') || 'Employer'}:</strong> {applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || t('browse.employer')}</div>
+                      <div><strong>{t('browse.email') || 'Email'}:</strong> {applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || t('browse.notProvided')}</div>
+                      {applyJobInfo.createdBy?.companyName && <div><strong>{t('browse.company') || 'Company'}:</strong> {applyJobInfo.createdBy.companyName}</div>}
+                      <div><strong>{t('browse.location') || 'Location'}:</strong> {applyJobInfo.location || t('browse.remote')}</div>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                <div style={styles.applyVerticalGrid}>
+                  <div style={{
+                    background: 'var(--surface-alt)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: '0.9' }}>{t('browse.yourProfile') || 'Your Profile'}</p>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', overflow: 'hidden', background: 'var(--primary)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 700, fontSize: '18px' }}>
+                        {effectiveUser?.profilePicture ? (
+                          <img src={effectiveUser.profilePicture} alt={effectiveUser?.firstName || 'Profile'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span>{effectiveUser?.firstName?.charAt(0) || effectiveUser?.email?.charAt(0) || 'U'}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--text-h)' }}>{effectiveUser?.firstName || effectiveUser?.email ? `${effectiveUser?.firstName || ''} ${effectiveUser?.lastName || ''}`.trim() : (t('browse.jobseeker') || 'Jobseeker')}</p>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{effectiveUser?.email || t('browse.notProvided')}</p>
+                      </div>
+                    </div>
 
-                <div style={{ marginTop: '16px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>{t('browse.jobDescription')}</p>
-                  <p style={{ margin: '0 0 14px', lineHeight: 1.7, color: 'var(--text-muted)' }}>
-                    {applyJobInfo.description || applyJobInfo.postedAt || t('browse.noDescriptionProvided')}
-                  </p>
-                </div>
+                    <div style={{ marginTop: '18px', background: 'var(--surface)', borderRadius: '14px', padding: '14px', border: '1px solid var(--border)' }}>
+                      <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-h)' }}>{t('browse.resumePreview') || 'Resume Preview'}</p>
+                      {getUserProfileSummary(effectiveUser).length ? (
+                        <div style={{ display: 'grid', gap: '10px' }}>
+                          {getUserProfileSummary(effectiveUser).map((item) => (
+                            <div key={item.label} style={{ color: 'var(--text)', fontSize: '14px', lineHeight: 1.6 }}>
+                              <span style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-h)' }}>{item.label}</span>
+                              {item.link ? (
+                                <a href={item.link} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>{item.value}</a>
+                              ) : (
+                                <span>{item.value}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text)', fontSize: '14px', lineHeight: 1.6 }}>{t('browse.noResumeFound') || 'No resume found'}</div>
+                      )}
+                    </div>
+                  </div>
 
-                <div style={{ marginBottom: '20px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700 }}>{t('browse.requirements')}</p>
-                  {renderBulletList(applyJobInfo.requirements, { color: 'var(--text-muted)' }) || (
-                    <p style={{ margin: 0, lineHeight: 1.7, color: 'var(--text-muted)' }}>
-                      {applyJobInfo.details?.join(', ') || t('browse.noRequirementsProvided')}
-                    </p>
-                  )}
+                  <div style={{
+                    background: 'var(--surface-alt)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <label htmlFor="coverLetter" style={{ display: 'block', marginBottom: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>{t('browse.coverLetter') || 'Cover Letter'}</label>
+                    <textarea
+                      id="coverLetter"
+                      value={coverLetter}
+                      onChange={(e) => setCoverLetter(e.target.value)}
+                      placeholder={t('browse.coverLetterPlaceholder') || 'Write a few lines about why this role is a strong fit for you...'}
+                      style={{ width: '100%', minHeight: '160px', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px', fontSize: '14px', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', outline: 'none' }}
+                    />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '14px', alignItems: 'center' }}>
+                      <label htmlFor="coverLetterStyle" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-h)', whiteSpace: 'nowrap' }}>
+                        {t('browse.coverLetterStyleLabel') || 'Rephrase style:'}
+                      </label>
+                      <select
+                        id="coverLetterStyle"
+                        value={coverLetterStyle}
+                        onChange={(e) => setCoverLetterStyle(e.target.value)}
+                        style={{ borderRadius: '12px', border: '1px solid var(--border)', padding: '10px 14px', minWidth: '180px', background: 'var(--surface)', color: 'var(--text)' }}
+                      >
+                        <option value="professional">{t('browse.professional') || 'Professional'}</option>
+                        <option value="formal">{t('browse.formal') || 'Formal'}</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '14px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={handleAutoCorrectCoverLetter}
+                        disabled={isAutoCorrecting || isRephrasing || isTranslating || !coverLetter.trim()}
+                        style={{
+                          borderRadius: '10px',
+                          border: '1px solid var(--primary)',
+                          background: isAutoCorrecting ? 'rgba(var(--primary-rgb),0.12)' : 'var(--surface)',
+                          color: 'var(--primary)',
+                          padding: '12px 18px',
+                          fontWeight: 700,
+                          cursor: coverLetter.trim() && !isAutoCorrecting && !isRephrasing && !isTranslating ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        {isAutoCorrecting ? (t('browse.correcting') || 'Correcting...') : (t('browse.autoCorrect') || 'Auto-correct')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRephraseCoverLetter}
+                        disabled={isAutoCorrecting || isRephrasing || isTranslating || !coverLetter.trim()}
+                        style={{
+                          borderRadius: '10px',
+                          border: '1px solid var(--primary)',
+                          background: isRephrasing ? 'rgba(var(--primary-rgb),0.12)' : 'var(--surface)',
+                          color: 'var(--primary)',
+                          padding: '12px 18px',
+                          fontWeight: 700,
+                          cursor: coverLetter.trim() && !isAutoCorrecting && !isRephrasing && !isTranslating ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        {isRephrasing ? (t('browse.rephrasing') || 'Rephrasing...') : (t('browse.rephrase') || 'Rephrase')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTranslateCoverLetter}
+                        disabled={isAutoCorrecting || isRephrasing || isTranslating || !coverLetter.trim()}
+                        style={{
+                          borderRadius: '10px',
+                          border: '1px solid var(--primary)',
+                          background: isTranslating ? 'rgba(var(--primary-rgb),0.12)' : 'var(--surface)',
+                          color: 'var(--primary)',
+                          padding: '12px 18px',
+                          fontWeight: 700,
+                          cursor: coverLetter.trim() && !isAutoCorrecting && !isRephrasing && !isTranslating ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        {isTranslating ? (t('browse.translating') || 'Translating...') : (t('browse.translateToEnglish') || 'Translate to English')}
+                      </button>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px', flex: '1 1 240px' }}>{t('browse.coverLetterHelp') || 'Auto-correct grammar or rephrase the letter before sending.'}</span>
+                    </div>
+                  </div>
                 </div>
-
-                <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>{t('browse.jobDetails')}</p>
-                  <div style={styles.applyInfoRow}><span>{t('browse.salary')}</span><span>{applyJobInfo.salary ? `₱${applyJobInfo.salary.toLocaleString()}` : t('browse.negotiable')}</span></div>
-                  <div style={styles.applyInfoRow}><span>{t('browse.location')}</span><span>{applyJobInfo.location || t('browse.remote')}</span></div>
-                  {applyJobInfo.category && <div style={styles.applyInfoRow}><span>{t('browse.category')}</span><span>{applyJobInfo.category}</span></div>}
-                  {applyJobInfo.jobType && <div style={styles.applyInfoRow}><span>{t('browse.type')}</span><span>{applyJobInfo.jobType}</span></div>}
-                  {applyJobInfo.experienceLevel && <div style={styles.applyInfoRow}><span>{t('browse.experience')}</span><span>{applyJobInfo.experienceLevel}</span></div>}
-                  <div style={styles.applyInfoRow}><span>{t('browse.applicantsCount')}</span><span>{applyJobInfo.applicants?.length || 0}</span></div>
-                  <div style={styles.applyInfoRow}><span>{t('browse.posted')}</span><span>{applyJobInfo.createdAt ? formatDateMonthDay(applyJobInfo.createdAt) : applyJobInfo.postedAt || t('browse.unknown')}</span></div>
-                </div>
-
-                <div style={styles.applyInfoSection}>
-                  <p style={styles.applyInfoTitle}>{t('browse.companyInformation')}</p>
-                  <div style={styles.applyInfoRow}><span>{t('browse.employer')}</span><span>{applyJobInfo.createdBy?.firstName ? `${applyJobInfo.createdBy.firstName} ${applyJobInfo.createdBy.lastName}` : applyJobInfo.companyName || applyJobInfo.company || t('browse.employer')}</span></div>
-                  <div style={styles.applyInfoRow}><span>{t('browse.email')}</span><span>{applyJobInfo.createdBy?.email || applyJobInfo.employerEmail || t('browse.notProvided')}</span></div>
-                  {applyJobInfo.createdBy?.companyName && <div style={styles.applyInfoRow}><span>{t('browse.company')}</span><span>{applyJobInfo.createdBy.companyName}</span></div>}
-                  {applyJobInfo.companyLocation?.region && <div style={styles.applyInfoRow}><span>{t('browse.location')}</span><span>{`${applyJobInfo.companyLocation.region}, ${applyJobInfo.companyLocation.city}`}</span></div>}
-                </div>
-              </div>
+              )}
 
               {applyError && <p style={{ color: '#b91c1c', margin: '14px 0 0' }}>{applyError}</p>}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', margin: '24px 20px 20px' }}>
-              <button style={styles.secondaryButton} onClick={closeApplyModal}>{t('browse.cancel')}</button>
-              <button style={styles.actionButton} onClick={confirmApply} disabled={jobActionLoading}>{t('browse.confirmApplication')}</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', margin: '20px 20px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+              <button
+                style={{
+                  ...styles.secondaryButton,
+                  borderRadius: '8px',
+                  padding: '12px 28px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  transition: 'all 0.3s',
+                  border: '1.5px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-h)',
+                  cursor: 'pointer'
+                }}
+                onClick={applyStep === 1 ? closeApplyModal : goToReviewStep}
+              >
+                {applyStep === 1 ? (t('browse.cancel') || 'Cancel') : (t('browse.back') || 'Back')}
+              </button>
+              <button
+                style={{
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'var(--primary)',
+                  color: '#ffffff',
+                  padding: '12px 32px',
+                  fontWeight: '700',
+                  cursor: jobActionLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.3s ease',
+                  opacity: jobActionLoading ? '0.7' : '1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  minWidth: '160px',
+                  boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)',
+                  letterSpacing: '0.3px'
+                }}
+                onClick={applyStep === 1 ? goToCoverLetterStep : confirmApply}
+                disabled={applyStep === 2 ? jobActionLoading : false}
+              >
+                {applyStep === 1
+                  ? (t('browse.next') || 'Next')
+                  : (jobActionLoading ? '⏳ Applying...' : `✓ ${t('browse.confirmApplication') || 'Confirm Application'}`)}
+              </button>
             </div>
           </div>
         </div>
@@ -1987,8 +2435,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
       {/* Location Modal */}
       {showLocationModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowLocationModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" style={styles.modalOverlay} onClick={() => setShowLocationModal(false)}>
+          <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={{ margin: 0 }}>{t('browse.chooseLocation')}</h2>
               <button style={styles.modalClose} onClick={() => setShowLocationModal(false)}>✕</button>
@@ -2056,12 +2504,17 @@ const styles = {
     margin: "0 auto",
     padding: "12px 20px 8px",
     borderBottom: "1px solid var(--border)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "10px",
   },
   title: {
     fontSize: "28px",
     fontWeight: "800",
     marginBottom: "2px",
     letterSpacing: "-0.5px",
+    textAlign: "center",
   },
   subtitle: {
     fontSize: "12px",
@@ -2069,6 +2522,7 @@ const styles = {
     maxWidth: "760px",
     color: "var(--text-muted)",
     marginBottom: "8px",
+    textAlign: "center",
   },
   tabs: {
     display: "flex",
@@ -2076,10 +2530,11 @@ const styles = {
     flexWrap: "nowrap",
     marginBottom: "0",
     borderBottom: "1px solid var(--border)",
-    marginLeft: "-20px",
-    marginRight: "-20px",
-    paddingLeft: "20px",
+    marginLeft: "0",
+    marginRight: "0",
+    paddingLeft: "0",
     overflowX: "auto",
+    justifyContent: "center",
   },
   tab: {
     padding: "12px 16px",
@@ -2109,9 +2564,12 @@ const styles = {
   searchBarRow: {
     marginBottom: "8px",
     paddingTop: "8px",
+    display: "flex",
+    justifyContent: "center",
   },
   searchInput: {
-    width: "100%",
+    width: "640px",
+    maxWidth: "100%",
     boxSizing: "border-box",
     padding: "10px 14px",
     borderRadius: "24px",
@@ -2665,6 +3123,21 @@ composerTextarea: {
     justifyContent: "center",
     gap: "6px",
   },
+  secondaryButton: {
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    padding: "10px 20px",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontSize: "13px",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+  },
   modalBackdrop: {
     position: "fixed",
     inset: 0,
@@ -2805,10 +3278,11 @@ composerTextarea: {
     fontSize: "13px",
   },
   modalBody: {
-    maxHeight: "calc(90vh - 120px)",
+    maxHeight: "calc(90vh - 160px)",
     overflowY: "auto",
-    padding: "20px",
+    padding: "24px",
     flex: 1,
+    background: 'var(--surface)',
   },
   modalActions: {
     display: "flex",
@@ -2818,17 +3292,19 @@ composerTextarea: {
     flexShrink: 0,
   },
   applyModalCard: {
-    width: "min(760px, 90vw)",
+    width: "min(800px, 90vw)",
     maxWidth: "100%",
     maxHeight: "90vh",
-    borderRadius: "24px",
+    borderRadius: "20px",
     padding: "0",
     overflow: "hidden",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+    border: "1px solid var(--border)",
   },
   applyVerticalGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
-    gap: "18px",
+    gap: "20px",
     alignItems: "start",
   },
   applySectionHeader: {
@@ -2838,10 +3314,10 @@ composerTextarea: {
   },
   applyProfileSection: {
     display: "flex",
-    gap: "16px",
-    alignItems: "center",
-    paddingBottom: "18px",
-    borderBottom: "1px solid var(--border)",
+    gap: "18px",
+    alignItems: "flex-start",
+    paddingBottom: "0",
+    borderBottom: "none",
   },
   applyProfileInfo: {
     display: "grid",
@@ -2849,8 +3325,8 @@ composerTextarea: {
     minWidth: 0,
   },
   companyBadge: {
-    width: "52px",
-    height: "52px",
+    width: "56px",
+    height: "56px",
     borderRadius: "50%",
     background: "var(--primary)",
     color: "#fff",
@@ -2858,27 +3334,36 @@ composerTextarea: {
     placeItems: "center",
     fontSize: "18px",
     flexShrink: 0,
+    boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.2)",
   },
   applyInfoSection: {
-    background: "rgba(15, 23, 42, 0.03)",
-    borderRadius: "18px",
+    background: "linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.02) 100%)",
+    borderRadius: "12px",
     padding: "18px",
     display: "grid",
-    gap: "12px",
+    gap: "0",
+    border: "1px solid var(--border)",
   },
   applyInfoTitle: {
     margin: 0,
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "700",
-    color: "#0f172a",
+    color: "var(--text-h)",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    opacity: "0.8",
   },
   applyInfoRow: {
     display: "flex",
     justifyContent: "space-between",
     gap: "18px",
-    color: "#334155",
+    color: "var(--text-muted)",
     fontSize: "13px",
     lineHeight: 1.6,
+  },
+  "applyInfoRow:last-child": {
+    borderBottom: "none",
+    paddingBottom: "0",
   },
   applySidebar: {
     display: "grid",
@@ -2888,19 +3373,28 @@ composerTextarea: {
     position: "fixed",
     right: "24px",
     bottom: "24px",
-    width: "56px",
-    height: "56px",
-    borderRadius: "50%",
-    backgroundColor: "#9ca3af",
+    minWidth: "170px",
+    height: "54px",
+    padding: "0 18px",
+    borderRadius: "999px",
+    background: "linear-gradient(135deg, #4f6cff, #19c6ff)",
     color: "#ffffff",
     border: "none",
-    display: "grid",
-    placeItems: "center",
-    fontSize: "28px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+    fontSize: "14px",
     fontWeight: 700,
     cursor: "pointer",
-    boxShadow: "0 16px 36px rgba(0, 0, 0, 0.18)",
+    boxShadow: "0 18px 40px rgba(44, 104, 255, 0.24)",
     zIndex: 2000,
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+  },
+  fabText: {
+    display: "inline-block",
+    lineHeight: 1,
+    letterSpacing: "0.01em",
   },
   notificationToastContainer: {
     position: "fixed",

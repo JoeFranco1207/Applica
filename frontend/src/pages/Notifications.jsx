@@ -246,7 +246,7 @@ const Notifications = () => {
   }
 
   return (
-    <div className="notifications-container">
+    <div className="page-container notifications-container">
       <div className="notifications-header">
         <h1>Notifications</h1>
         <p>Stay updated with your interactions</p>

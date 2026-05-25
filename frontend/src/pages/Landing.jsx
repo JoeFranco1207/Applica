@@ -59,7 +59,7 @@ export default function Landing() {
   };
 
   return (
-    <div style={{
+    <div className="page-container" style={{
       ...styles.container,
       backgroundColor: isDarkMode ? "#1a1a1a" : "#ffffff",
       color: isDarkMode ? "#ffffff" : "#000",

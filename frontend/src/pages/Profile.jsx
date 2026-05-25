@@ -1057,7 +1057,7 @@ export default function Profile() {
       : calculateJobseekerProfileCompletion(user);
 
   return (
-    <div style={{
+    <div className="page-container" style={{
       ...styles.container,
       backgroundColor: isDarkMode ? "#1a1a1a" : "#f8fafc",
       color: isDarkMode ? "#ffffff" : "#000",
@@ -1748,7 +1748,15 @@ export default function Profile() {
                                           >
                                             View profile
                                           </button>
-                                          {status !== "accepted" && (
+                                          {status === "pending" && (
+                                            <button
+                                              style={styles.statusButton}
+                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
+                                            >
+                                              Review
+                                            </button>
+                                          )}
+                                          {status === "reviewing" && (
                                             <button
                                               style={styles.statusButton}
                                               onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
@@ -1762,14 +1770,6 @@ export default function Profile() {
                                               onClick={() => handleApplicantStatusChange(job._id, user._id, "rejected")}
                                             >
                                               Reject
-                                            </button>
-                                          )}
-                                          {status !== "reviewing" && (
-                                            <button
-                                              style={styles.statusButtonSecondary}
-                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
-                                            >
-                                              Reviewing
                                             </button>
                                           )}
                                           <button
@@ -1800,8 +1800,8 @@ export default function Profile() {
           )}
 
           {showApplicantModal && selectedApplicant && (
-            <div style={styles.modalOverlay} onClick={closeApplicantModal}>
-              <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={closeApplicantModal}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
                   <div style={styles.modalTitleRow}>
                     {selectedApplicantInfo?.profilePicture ? (
@@ -1821,7 +1821,15 @@ export default function Profile() {
                   <p style={styles.modalValue}>{selectedApplicant.status || "pending"}</p>
                   {selectedApplicant.jobId && (
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                      {selectedApplicant.status !== 'accepted' && (
+                      {selectedApplicant.status === 'pending' && (
+                        <button
+                          style={styles.statusButton}
+                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'reviewing')}
+                        >
+                          Review
+                        </button>
+                      )}
+                      {selectedApplicant.status === 'reviewing' && (
                         <button
                           style={styles.statusButton}
                           onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'accepted')}
@@ -1835,14 +1843,6 @@ export default function Profile() {
                           onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'rejected')}
                         >
                           Reject
-                        </button>
-                      )}
-                      {selectedApplicant.status !== 'reviewing' && (
-                        <button
-                          style={styles.statusButtonSecondary}
-                          onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'reviewing')}
-                        >
-                          Reviewing
                         </button>
                       )}
                       <button
@@ -1904,8 +1904,8 @@ export default function Profile() {
           )}
 
           {showJobModal && modalJob && (
-            <div style={styles.modalOverlay} onClick={closeJobModal}>
-              <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={closeJobModal}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
                   <h2 style={{ margin: 0 }}>{modalJob.title}</h2>
                   <button style={styles.modalClose} onClick={closeJobModal}>✕</button>
@@ -1966,8 +1966,8 @@ export default function Profile() {
           )}
 
           {showImageModal && (
-            <div style={styles.modalOverlay} onClick={closeImageModal}>
-              <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={closeImageModal}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
                   <h2 style={styles.modalTitle}>
                     {user?.role === "employer"

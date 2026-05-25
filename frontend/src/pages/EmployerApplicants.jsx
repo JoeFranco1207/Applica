@@ -202,7 +202,7 @@ export default function EmployerApplicants() {
 
   if (!token || user?.role !== "employer") {
     return (
-      <div style={styles.container}>
+      <div className="page-container" style={styles.container}>
         <div style={styles.headerCard}>
           <h1 style={styles.pageTitle}>Applicants</h1>
           <p style={styles.pageDescription}>
@@ -217,7 +217,7 @@ export default function EmployerApplicants() {
   const applicantsByStatus = getAllApplicants();
 
   return (
-    <div style={styles.container}>
+    <div className="page-container" style={styles.container}>
       <div style={styles.headerCard}>
         <div>
           <h1 style={styles.pageTitle}>Applicant Review</h1>
@@ -310,7 +310,16 @@ export default function EmployerApplicants() {
                               >
                                 View
                               </button>
-                            {activeTab !== "accepted" && (
+                            {activeTab === "pending" && (
+                              <button
+                                style={styles.reviewButton}
+                                disabled={jobActionLoading}
+                                onClick={() => handleApplicantStatusChange(entry.jobId, entry.applicantUser._id, "reviewing")}
+                              >
+                                Review
+                              </button>
+                            )}
+                            {activeTab === "reviewing" && (
                               <button
                                 style={styles.actionPrimary}
                                 disabled={jobActionLoading}
@@ -343,24 +352,48 @@ export default function EmployerApplicants() {
       )}
 
       {showApplicantModal && selectedApplicant && (
-        <div style={styles.modalOverlay} onClick={closeApplicantModal}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <div style={styles.modalTitleRow}>
-                <div>
-                  <h2 style={styles.modalTitle}>
+        <div className="modal-overlay" style={styles.modalOverlay} onClick={closeApplicantModal}>
+          <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              ...styles.modalHeader,
+              background: 'linear-gradient(135deg, var(--primary) 0%, rgba(var(--primary-rgb), 0.8) 100%)',
+              borderRadius: '16px 16px 0 0',
+              margin: '-28px -28px 0 -28px',
+              padding: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: 'none'
+            }}>
+              <div>
+                  <h2 style={{
+                    margin: 0,
+                    color: '#ffffff',
+                    fontSize: '26px',
+                    fontWeight: '800'
+                  }}>
                     {selectedApplicantInfo?.firstName} {selectedApplicantInfo?.lastName}
                   </h2>
-                  {(selectedApplicant.jobTitle || selectedApplicant.companyName) && (
-                    <div style={styles.modalSubtitle}>
+                    {(selectedApplicant.jobTitle || selectedApplicant.companyName) && (
+                    <div style={{
+                      color: 'rgba(255,255,255,0.95)',
+                      marginTop: '8px',
+                      marginBottom: '0',
+                      fontSize: '14px',
+                      fontWeight: 500
+                    }}>
                       {selectedApplicant.jobTitle || ""}
                       {selectedApplicant.jobTitle && selectedApplicant.companyName ? " · " : ""}
                       {selectedApplicant.companyName || ""}
                     </div>
                   )}
                 </div>
-              </div>
-              <button style={styles.modalClose} onClick={closeApplicantModal}>✕</button>
+              <button style={{
+                ...styles.modalClose,
+                color: '#ffffff',
+                fontSize: '28px',
+                opacity: 0.8
+              }} onClick={closeApplicantModal}>✕</button>
             </div>
 
             <div style={styles.modalBody}>
@@ -387,7 +420,16 @@ export default function EmployerApplicants() {
                   <div style={styles.modalActions}>
                     {selectedApplicant.jobId && (
                       <>
-                        {selectedApplicant.status !== "accepted" && (
+                        {selectedApplicant.status === "pending" && (
+                          <button
+                            style={styles.reviewButton}
+                            disabled={jobActionLoading}
+                            onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicantInfo?._id, "reviewing")}
+                          >
+                            Review
+                          </button>
+                        )}
+                        {selectedApplicant.status === "reviewing" && (
                           <button
                             style={styles.acceptButton}
                             disabled={jobActionLoading}
@@ -428,6 +470,14 @@ export default function EmployerApplicants() {
                   {selectedApplicantInfo?.experience && <div style={styles.infoBlock}><div style={styles.infoLabel}>Experience</div><div style={styles.infoValue}>{selectedApplicantInfo.experience}</div></div>}
                   {selectedApplicantInfo?.education && <div style={styles.infoBlock}><div style={styles.infoLabel}>Education</div><div style={styles.infoValue}>{selectedApplicantInfo.education}</div></div>}
                   {selectedApplicantInfo?.bio && <div style={styles.infoBlock}><div style={styles.infoLabel}>Bio</div><div style={styles.infoValue}>{selectedApplicantInfo.bio}</div></div>}
+                  {selectedApplicant?.coverLetter && (
+                    <div style={styles.infoBlock}>
+                      <div style={styles.infoLabel}>Cover Letter</div>
+                      <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', lineHeight: 1.7, fontSize: 14 }}>
+                        {selectedApplicant.coverLetter}
+                      </div>
+                    </div>
+                  )}
                   {(selectedApplicantInfo?.resume || selectedApplicant?.resume) && (
                     <div style={styles.infoBlock}>
                       <div style={styles.infoLabel}>Resume</div>
@@ -656,15 +706,20 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    padding: "12px 10px",
+    padding: "14px 12px",
     borderBottom: "1px solid rgba(2,6,23,0.04)",
     width: "100%",
     boxSizing: "border-box",
-    transition: "background 120ms ease",
+    transition: "background 160ms ease, transform 160ms ease, box-shadow 160ms ease",
     cursor: "default",
+    borderRadius: 10,
+    backgroundClip: "padding-box",
+    boxShadow: "0 1px 0 rgba(2,6,23,0.02)",
   },
   applicantRowTableHover: {
     backgroundColor: "var(--surface-alt)",
+    transform: "translateY(-2px)",
+    boxShadow: "var(--card-shadow)",
   },
   headerRow: {
     display: "flex",
@@ -913,7 +968,7 @@ const styles = {
     padding: 20,
   },
   modalCard: {
-    width: "min(820px, 96%)",
+    width: "min(900px, 96%)",
     maxHeight: "90vh",
     overflowY: "auto",
     backgroundColor: "var(--surface)",

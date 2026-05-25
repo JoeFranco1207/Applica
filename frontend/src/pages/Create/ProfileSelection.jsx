@@ -252,7 +252,7 @@ const ProfileSelection = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="page-container" style={styles.container}>
       {/* BACKGROUND GLOW */}
       <div style={styles.glow1}></div>
       <div style={styles.glow2}></div>
@@ -399,8 +399,9 @@ const ProfileSelection = () => {
       </div>
 
       {showProfileModal && (
-            <div style={styles.modalOverlay}>
+            <div className="modal-overlay" style={styles.modalOverlay}>
               <div
+                className="modal-card"
                 style={{ ...styles.modalContainer, width: 'min(920px, 95vw)', display: 'flex', gap: 24, alignItems: 'center' }}
                 onClick={(e) => e.stopPropagation()}
               >

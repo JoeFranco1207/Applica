@@ -9,6 +9,10 @@ const applicantSchema = new mongoose.Schema({
   resume: {
     type: String,
   },
+  coverLetter: {
+    type: String,
+    default: '',
+  },
   status: {
     type: String,
     enum: ["pending", "reviewing", "accepted", "rejected"],
@@ -46,6 +50,13 @@ export const jobSchema = new mongoose.Schema({
     },
     location: String,
     salary: Number,
+    salaryMin: Number,
+    salaryMax: Number,
+    salaryFrequency: {
+      type: String,
+      enum: ["monthly", "yearly", "weekly", "daily", "one-time"],
+      default: "monthly"
+    },
     externalLink: String,
     media: {
       type: {

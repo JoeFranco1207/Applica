@@ -197,6 +197,31 @@ export const NotificationProvider = ({ children }) => {
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
   };
 
+  const deleteNotification = async (notificationId) => {
+    const token = localStorage.getItem('token');
+    if (!token || !notificationId) return;
+    try {
+      await axios.delete(
+        `http://localhost:8000/api/notifications/${notificationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      // remove locally and adjust unread count
+      setNotifications((prev) => {
+        const wasUnread = prev.find((n) => n.id === notificationId && !n.read);
+        if (wasUnread) {
+          setUnreadCount((u) => Math.max(u - 1, 0));
+        }
+        return prev.filter((n) => n.id !== notificationId);
+      });
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
   const markNotificationAsRead = async (notificationId) => {
     const token = localStorage.getItem('token');
     if (!token || !notificationId) return;
@@ -238,6 +263,7 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications,
     clearNotifications,
     markAsRead,
+    deleteNotification,
     isConnected,
     setPresence,
   };

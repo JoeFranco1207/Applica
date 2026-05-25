@@ -97,7 +97,7 @@ const Feed = () => {
   }
 
   return (
-    <div className="feed-container">
+    <div className="page-container feed-container">
       <div className="feed-header">
         <h1>Feed</h1>
         <p>Discover posts from employers and job seekers</p>

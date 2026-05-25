@@ -41,10 +41,10 @@ export default function UserSessions() {
     }
   };
 
-  if (loading) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (loading) return <div className="page-container" style={{ padding: 20 }}>Loading...</div>;
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="page-container" style={{ padding: 20 }}>
       <h2>User Sessions</h2>
       {user && (
         <div style={{ marginBottom: 12 }}>

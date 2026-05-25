@@ -28,8 +28,9 @@ const Avatar = ({ src, alt, size = 40, userId, presenceMode, lastActive, onClick
 );
 
 export default function NotificationPanel({ onClose }) {
-  const { notifications, markNotificationAsRead, removeNotification } = useNotification();
+  const { notifications, markNotificationAsRead, removeNotification, deleteNotification } = useNotification();
   const [tab, setTab] = useState('all');
+  const [showAllOverlay, setShowAllOverlay] = useState(false);
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
@@ -42,7 +43,7 @@ export default function NotificationPanel({ onClose }) {
   const earlier = [];
   const todayDate = new Date().toDateString();
   (filtered || []).forEach((n) => {
-    const d = new Date(n.createdAt || Date.now()).toDateString();
+    const d = new Date(n.createdAt || 0).toDateString();
     if (d === todayDate) today.push(n); else earlier.push(n);
   });
 
@@ -116,78 +117,98 @@ export default function NotificationPanel({ onClose }) {
     }
   };
 
+  const panelList = (
+    <div className="np-list">
+      {today.length > 0 && (
+        <div className="np-section">
+          <div className="np-section-title">Today</div>
+          {today.map((n) => (
+            <div key={n.id} className={`np-item ${n.read ? 'read' : 'unread'}`} onClick={() => handleClick(n)}>
+              <Avatar
+                src={getActorPicture(n)}
+                alt={getActorName(n)}
+                userId={getActorId(n)}
+                presenceMode={getActorPresenceMode(n)}
+                lastActive={getActorLastActive(n)}
+                onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
+              />
+              <div className="np-body">
+                <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
+                <div className="np-meta">
+                  <span className="np-time">{timeAgo(n.createdAt)}</span>
+                  {!n.read && <span className="np-dot" aria-hidden />}
+                </div>
+              </div>
+              <button className="np-close" onClick={(e) => { e.stopPropagation(); if (typeof deleteNotification === 'function') { deleteNotification(n.id); } else { removeNotification(n.id); } }}>&times;</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {earlier.length > 0 && (
+        <div className="np-section">
+          <div className="np-section-title">Earlier</div>
+          {earlier.map((n) => (
+            <div key={n.id} className={`np-item ${n.read ? 'read' : 'unread'}`} onClick={() => handleClick(n)}>
+              <Avatar
+                src={getActorPicture(n)}
+                alt={getActorName(n)}
+                userId={getActorId(n)}
+                presenceMode={getActorPresenceMode(n)}
+                lastActive={getActorLastActive(n)}
+                onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
+              />
+              <div className="np-body">
+                <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
+                <div className="np-meta">
+                  <span className="np-time">{timeAgo(n.createdAt)}</span>
+                  {!n.read && <span className="np-dot" aria-hidden />}
+                </div>
+              </div>
+              <button className="np-close" onClick={(e) => { e.stopPropagation(); if (typeof deleteNotification === 'function') { deleteNotification(n.id); } else { removeNotification(n.id); } }}>&times;</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {today.length === 0 && earlier.length === 0 && (
+        <div className="np-empty">You're all caught up</div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="notification-panel">
-      <div className="np-header">
-        <div className="np-title">Notifications</div>
-        <div className="np-tabs">
-          <button className={`np-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>All</button>
-          <button className={`np-tab ${tab === 'unread' ? 'active' : ''}`} onClick={() => setTab('unread')}>Unread</button>
+    <>
+      <div className="notification-panel">
+        <div className="np-header">
+          <div className="np-title">Notifications</div>
+          <div className="np-tabs">
+            <button className={`np-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>All</button>
+            <button className={`np-tab ${tab === 'unread' ? 'active' : ''}`} onClick={() => setTab('unread')}>Unread</button>
+          </div>
+        </div>
+
+        {panelList}
+
+        <div className="np-footer">
+          <button className="np-seeall" onClick={() => { setShowAllOverlay(true); }}>See all</button>
         </div>
       </div>
 
-      <div className="np-list">
-        {today.length > 0 && (
-          <div className="np-section">
-            <div className="np-section-title">Today</div>
-            {today.map((n) => (
-              <div key={n.id} className={`np-item ${n.read ? 'read' : 'unread'}`} onClick={() => handleClick(n)}>
-                <Avatar
-                  src={getActorPicture(n)}
-                  alt={getActorName(n)}
-                  userId={getActorId(n)}
-                  presenceMode={getActorPresenceMode(n)}
-                  lastActive={getActorLastActive(n)}
-                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
-                />
-                <div className="np-body">
-                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
-                  <div className="np-meta">
-                    <span className="np-time">{timeAgo(n.createdAt)}</span>
-                    {!n.read && <span className="np-dot" aria-hidden />}
-                  </div>
-                </div>
-                <button className="np-close" onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }}>&times;</button>
+      {showAllOverlay && (
+        <div className="np-fullscreen-overlay" onClick={() => setShowAllOverlay(false)}>
+          <div className="np-fullscreen-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="np-fullscreen-header">
+              <div className="np-title">All Notifications</div>
+              <div>
+                <button className="np-tab" onClick={() => setShowAllOverlay(false)}>Close</button>
               </div>
-            ))}
+            </div>
+            {panelList}
           </div>
-        )}
-
-        {earlier.length > 0 && (
-          <div className="np-section">
-            <div className="np-section-title">Earlier</div>
-            {earlier.map((n) => (
-              <div key={n.id} className={`np-item ${n.read ? 'read' : 'unread'}`} onClick={() => handleClick(n)}>
-                <Avatar
-                  src={getActorPicture(n)}
-                  alt={getActorName(n)}
-                  userId={getActorId(n)}
-                  presenceMode={getActorPresenceMode(n)}
-                  lastActive={getActorLastActive(n)}
-                  onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}
-                />
-                <div className="np-body">
-                  <div className="np-message"><strong onClick={(e) => { e.stopPropagation(); const aid = getActorId(n); if (aid) { markNotificationAsRead(n.id); onClose?.(); if (n.type === 'connection') { navigate(`/profile/${aid}?connectionRequest=true&notificationId=${encodeURIComponent(n.id)}`); } else { navigate(`/profile/${aid}`); } } }}>{getActorName(n)}</strong> — {n.message}</div>
-                  <div className="np-meta">
-                    <span className="np-time">{timeAgo(n.createdAt)}</span>
-                    {!n.read && <span className="np-dot" aria-hidden />}
-                  </div>
-                </div>
-                <button className="np-close" onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }}>&times;</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {today.length === 0 && earlier.length === 0 && (
-          <div className="np-empty">You're all caught up</div>
-        )}
-      </div>
-
-      <div className="np-footer">
-        <button className="np-seeall" onClick={() => { onClose?.(); navigate('/notifications'); }}>See all</button>
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

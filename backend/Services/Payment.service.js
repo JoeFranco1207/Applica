@@ -167,11 +167,35 @@ const getPaymongoPaymentLink = async (paymentLinkId) => {
 
 export const verifyAIPremiumPaymentLink = async (userId, paymentLinkId) => {
   const link = await getPaymongoPaymentLink(paymentLinkId);
-  const status = link?.attributes?.status || link?.attributes?.payment_status || null;
-  const normalizedStatus = String(status || '').toLowerCase();
-  const paidStatuses = ['paid', 'completed', 'succeeded'];
+  // Primary status might be on the link attributes, but some PayMongo flows
+  // attach status to nested payment objects. Check both.
+  const linkStatus = link?.attributes?.status || link?.attributes?.payment_status || null;
+  const normalizedLinkStatus = String(linkStatus || '').toLowerCase();
 
-  if (paidStatuses.includes(normalizedStatus)) {
+  // Look for nested payments on the link and check their statuses as fallback.
+  const payments = Array.isArray(link?.attributes?.payments) ? link.attributes.payments : [];
+  let foundPaid = false;
+  let foundStatus = normalizedLinkStatus || null;
+
+  const paidStatuses = ['paid', 'completed', 'succeeded', 'captured'];
+
+  if (paidStatuses.includes(normalizedLinkStatus)) {
+    foundPaid = true;
+  }
+
+  if (!foundPaid && payments.length > 0) {
+    for (const p of payments) {
+      const pStatus = p?.attributes?.status || p?.attributes?.payment_status || null;
+      const normalizedPStatus = String(pStatus || '').toLowerCase();
+      if (!foundStatus && normalizedPStatus) foundStatus = normalizedPStatus;
+      if (paidStatuses.includes(normalizedPStatus)) {
+        foundPaid = true;
+        break;
+      }
+    }
+  }
+
+  if (foundPaid) {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { premiumAIAccess: true },
@@ -179,13 +203,13 @@ export const verifyAIPremiumPaymentLink = async (userId, paymentLinkId) => {
     );
     return {
       premiumAIAccess: !!updatedUser?.premiumAIAccess,
-      status: normalizedStatus,
+      status: foundStatus || 'paid',
     };
   }
 
   return {
     premiumAIAccess: false,
-    status: normalizedStatus,
+    status: foundStatus || (normalizedLinkStatus || ''),
   };
 };
 

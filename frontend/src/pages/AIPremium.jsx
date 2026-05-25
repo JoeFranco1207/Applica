@@ -11,7 +11,6 @@ export default function AIPremium() {
   const token = localStorage.getItem("token");
   const user = token ? JSON.parse(localStorage.getItem("user") || "{}") : null;
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -19,42 +18,40 @@ export default function AIPremium() {
   const plans = [
     {
       id: "monthly",
-      name: "Monthly Premium",
-      price: "₱99",
+      name: "Monthly Plan",
+      price: "₱69",
       duration: "1 Month",
       features: [
         "Unlimited AI-powered resume generation",
-        "Resume match to find best jobs",
-        "AI applicant filtering (for employers)",
-        "Priority support",
+        "Resume matching for best-fit jobs",
+        "AI-powered applicant filtering",
+        "Priority access to premium tools",
       ],
       popular: false,
     },
     {
-      id: "quarterly",
-      name: "Quarterly Premium",
-      price: "₱249",
-      duration: "3 Months",
+      id: "halfYearly",
+      name: "Half-Year Plan",
+      price: "₱450",
+      duration: "6 Months",
       features: [
-        "Unlimited AI-powered resume generation",
-        "Resume match to find best jobs",
-        "AI applicant filtering (for employers)",
-        "Priority support",
-        "20% savings vs monthly",
+        "Everything in Monthly Plan",
+        "Longer access at a lower rate",
+        "AI resume and job matching",
+        "Premium support and faster access",
       ],
       popular: true,
     },
     {
       id: "annual",
-      name: "Annual Premium",
+      name: "Annual Plan",
       price: "₱799",
       duration: "12 Months",
       features: [
-        "Unlimited AI-powered resume generation",
-        "Resume match to find best jobs",
-        "AI applicant filtering (for employers)",
-        "Priority support",
-        "33% savings vs monthly",
+        "Best value for long-term users",
+        "Unlimited AI resume generation",
+        "Resume matching and applicant filtering",
+        "Priority support and savings",
       ],
       popular: false,
     },
@@ -66,10 +63,10 @@ export default function AIPremium() {
       return;
     }
     setSelectedPlan(plan);
-    setShowPaymentModal(true);
+    setError("");
   };
 
-  const handlePurchase = async (method = "gcash") => {
+  const handlePurchase = async () => {
     if (!selectedPlan || !token) {
       setError("Please select a plan and sign in");
       return;
@@ -78,10 +75,16 @@ export default function AIPremium() {
     setError("");
     setLoading(true);
 
+    const paymentWindow = window.open('about:blank', '_blank');
+    if (paymentWindow) {
+      paymentWindow.opener = null;
+      paymentWindow.document.write('<p style="font-family: sans-serif; padding: 20px;">Opening PayMongo checkout...</p>');
+    }
+
     try {
       const response = await axios.post(
         "http://localhost:8000/api/payments/ai-premium",
-        { method, plan: selectedPlan.id },
+        { plan: selectedPlan.id },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -90,22 +93,23 @@ export default function AIPremium() {
       );
 
       const paymentUrl = response.data?.data?.paymentUrl;
-      const sourceId = response.data?.data?.sourceId;
-
-      if (sourceId) {
-        try {
-          localStorage.setItem("aiPremiumSourceId", sourceId);
-        } catch (e) {
-          console.warn("Failed to save aiPremiumSourceId to localStorage", e);
-        }
-      }
-
-      if (paymentUrl) {
-        window.location.assign(paymentUrl);
-      } else {
+      if (!paymentUrl) {
+        if (paymentWindow) paymentWindow.close();
         setError("Could not start payment. Please try again later.");
+        return;
       }
+
+      if (!paymentWindow) {
+        setError(
+          "Popup blocked. Please allow popups for this site and try again."
+        );
+        return;
+      }
+
+      paymentWindow.location.href = paymentUrl;
+      navigate('/ai-premium/success');
     } catch (err) {
+      if (paymentWindow) paymentWindow.close();
       console.error("AI premium checkout error", err);
       setError(
         err.response?.data?.message ||
@@ -155,11 +159,13 @@ export default function AIPremium() {
       gap: "28px",
       marginBottom: "60px",
     },
-    planCard: (popular) => ({
+    planCard: (popular, active) => ({
       backgroundColor: isDarkMode ? "#1e293b" : "#ffffff",
       borderRadius: "16px",
       padding: "32px 24px",
-      border: popular
+      border: active
+        ? "2px solid #facc15"
+        : popular
         ? "2px solid #1892aa"
         : isDarkMode
         ? "1px solid #334155"
@@ -167,12 +173,15 @@ export default function AIPremium() {
       position: "relative",
       display: "flex",
       flexDirection: "column",
-      boxShadow: popular
+      boxShadow: active
+        ? "0 16px 40px rgba(250, 204, 21, 0.18)"
+        : popular
         ? "0 10px 30px rgba(24, 146, 170, 0.15)"
         : isDarkMode
         ? "0 1px 3px rgba(0, 0, 0, 0.3)"
         : "0 1px 3px rgba(0, 0, 0, 0.1)",
-      transition: "transform 0.2s, box-shadow 0.2s",
+      transform: active ? "translateY(-4px)" : "none",
+      transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
     }),
     popularBadge: {
       position: "absolute",
@@ -253,6 +262,79 @@ export default function AIPremium() {
       padding: "8px 12px",
       marginLeft: "-12px",
     },
+    checkoutPanel: {
+      maxWidth: "900px",
+      margin: "0 auto",
+      padding: "30px 20px",
+      borderRadius: "20px",
+      backgroundColor: isDarkMode ? "#111827" : "#ffffff",
+      border: isDarkMode ? "1px solid #334155" : "1px solid #e2e8f0",
+      boxShadow: isDarkMode
+        ? "0 20px 60px rgba(0, 0, 0, 0.25)"
+        : "0 10px 30px rgba(15, 23, 42, 0.08)",
+      marginBottom: "40px",
+    },
+    checkoutHeader: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "flex-start",
+      gap: "6px",
+      marginBottom: "20px",
+    },
+    checkoutTitle: {
+      margin: 0,
+      color: isDarkMode ? "#f8fafc" : "#0f172a",
+      fontSize: "28px",
+      fontWeight: "800",
+    },
+    checkoutSubtitle: {
+      margin: 0,
+      color: isDarkMode ? "#94a3b8" : "#475569",
+      fontSize: "16px",
+    },
+    checkoutBox: {
+      display: "grid",
+      gap: "18px",
+      padding: "24px",
+      borderRadius: "18px",
+      backgroundColor: isDarkMode ? "#0f172a" : "#f8fafc",
+      border: isDarkMode ? "1px solid #334155" : "1px solid #e2e8f0",
+    },
+    checkoutAmount: {
+      fontSize: "44px",
+      fontWeight: "900",
+      color: "#1892aa",
+      letterSpacing: "-1px",
+    },
+    checkoutDescription: {
+      color: isDarkMode ? "#cbd5e1" : "#475569",
+      fontSize: "15px",
+      lineHeight: 1.8,
+    },
+    errorBox: {
+      color: "#b91c1c",
+      backgroundColor: "#fee2e2",
+      padding: "14px 16px",
+      borderRadius: "12px",
+      fontSize: "14px",
+      border: "1px solid #fecaca",
+    },
+    purchaseButton: {
+      padding: "16px 22px",
+      borderRadius: "14px",
+      border: "none",
+      backgroundColor: "#1892aa",
+      color: "#ffffff",
+      fontSize: "16px",
+      fontWeight: "700",
+      cursor: "pointer",
+      transition: "opacity 0.2s",
+    },
+    poweredBy: {
+      fontSize: "12px",
+      color: isDarkMode ? "#94a3b8" : "#64748b",
+      textAlign: "center",
+    },
   };
 
   return (
@@ -277,11 +359,13 @@ export default function AIPremium() {
       </div>
 
       <div style={styles.plansContainer}>
-        {plans.map((plan) => (
-          <div key={plan.id} style={styles.planCard(plan.popular)}>
-            {plan.popular && (
-              <div style={styles.popularBadge}>MOST POPULAR</div>
-            )}
+        {plans.map((plan) => {
+          const isActive = selectedPlan?.id === plan.id;
+          return (
+            <div key={plan.id} style={styles.planCard(plan.popular, isActive)}>
+              {plan.popular && (
+                <div style={styles.popularBadge}>MOST POPULAR</div>
+              )}
             <h3 style={styles.planName}>{plan.name}</h3>
             <div style={styles.planPrice}>{plan.price}</div>
             <div style={styles.planDuration}>{plan.duration}</div>
@@ -303,228 +387,36 @@ export default function AIPremium() {
               {plan.popular ? "Get Started" : "Choose Plan"}
             </button>
           </div>
-        ))}
+        );
+      })}
       </div>
 
-      {showPaymentModal && selectedPlan && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: "20px",
-          }}
-          onClick={() => setShowPaymentModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: isDarkMode ? "#1e293b" : "#ffffff",
-              borderRadius: "16px",
-              padding: "40px 32px",
-              maxWidth: "600px",
-              width: "100%",
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-              maxHeight: "90vh",
-              overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div style={{ textAlign: "center", marginBottom: "32px" }}>
-              <div
-                style={{
-                  display: "inline-block",
-                  background: "linear-gradient(135deg, #1892aa 0%, #275791 100%)",
-                  color: "#fff",
-                  padding: "8px 16px",
-                  borderRadius: "999px",
-                  fontSize: "12px",
-                  fontWeight: "700",
-                  letterSpacing: "0.5px",
-                  marginBottom: "16px",
-                }}
-              >
-                APPLICA AI PREMIUM
-              </div>
-              <h2
-                style={{
-                  margin: "0 0 8px",
-                  color: isDarkMode ? "#f1f5f9" : "#0f172a",
-                  fontSize: "28px",
-                  fontWeight: "800",
-                }}
-              >
-                {selectedPlan.name}
-              </h2>
-              <p
-                style={{
-                  color: isDarkMode ? "#cbd5e1" : "#64748b",
-                  margin: "0",
-                  fontSize: "14px",
-                }}
-              >
-                {selectedPlan.duration}
-              </p>
+      {selectedPlan && (
+        <div style={styles.checkoutPanel}>
+          <div style={styles.checkoutHeader}>
+            <h2 style={styles.checkoutTitle}>Selected Plan</h2>
+            <p style={styles.checkoutSubtitle}>
+              {selectedPlan.name} — {selectedPlan.duration}
+            </p>
+          </div>
+
+          <div style={styles.checkoutBox}>
+            <div style={styles.checkoutAmount}>{selectedPlan.price}</div>
+            <div style={styles.checkoutDescription}>
+              You will be redirected to PayMongo&apos;s secure checkout page to
+              complete the purchase.
             </div>
-
-            {/* Amount Section */}
-            <div
-              style={{
-                textAlign: "center",
-                padding: "28px",
-                background: isDarkMode
-                  ? "rgba(24, 146, 170, 0.1)"
-                  : "rgba(24, 146, 170, 0.05)",
-                borderRadius: "12px",
-                marginBottom: "32px",
-                border: isDarkMode
-                  ? "1px solid rgba(24, 146, 170, 0.2)"
-                  : "1px solid rgba(24, 146, 170, 0.1)",
-              }}
-            >
-              <p
-                style={{
-                  color: isDarkMode ? "#94a3b8" : "#64748b",
-                  margin: "0 0 8px",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Amount to Pay
-              </p>
-              <div
-                style={{
-                  fontSize: "48px",
-                  fontWeight: "900",
-                  color: "#1892aa",
-                  margin: "0",
-                  letterSpacing: "-1px",
-                }}
-              >
-                {selectedPlan.price}
-              </div>
-            </div>
-
-            {/* Payment Method Section */}
-            <div style={{ marginBottom: "24px" }}>
-              <p
-                style={{
-                  color: isDarkMode ? "#cbd5e1" : "#64748b",
-                  margin: "0 0 16px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Select Payment Method
-              </p>
-
-              {error && (
-                <div
-                  style={{
-                    color: "#dc2626",
-                    backgroundColor: "#fee2e2",
-                    padding: "12px 14px",
-                    borderRadius: "8px",
-                    marginBottom: "16px",
-                    fontSize: "14px",
-                  }}
-                >
-                  {error}
-                </div>
-              )}
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <button
-                  style={{
-                    padding: "16px",
-                    borderRadius: "10px",
-                    border: "2px solid #1892aa",
-                    background: "#1892aa",
-                    color: "#fff",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.7 : 1,
-                    transition: "all 0.2s",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                  onClick={() => handlePurchase("gcash")}
-                  disabled={loading}
-                >
-                  <span style={{ fontSize: "24px" }}>💳</span>
-                  <span>{loading ? "Processing..." : "GCash"}</span>
-                </button>
-                <button
-                  style={{
-                    padding: "16px",
-                    borderRadius: "10px",
-                    border: "2px solid #1892aa",
-                    background: "transparent",
-                    color: "#1892aa",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.7 : 1,
-                    transition: "all 0.2s",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                  onClick={() => handlePurchase("card")}
-                  disabled={loading}
-                >
-                  <span style={{ fontSize: "24px" }}>💳</span>
-                  <span>{loading ? "Processing..." : "Card"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Cancel Button */}
+            {error && (
+              <div style={styles.errorBox}>{error}</div>
+            )}
             <button
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: "8px",
-                border: "none",
-                background: isDarkMode ? "#334155" : "#e2e8f0",
-                color: isDarkMode ? "#cbd5e1" : "#475569",
-                fontSize: "14px",
-                fontWeight: "600",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-              onClick={() => setShowPaymentModal(false)}
+              style={styles.purchaseButton}
+              onClick={handlePurchase}
               disabled={loading}
             >
-              Cancel
+              {loading ? 'Redirecting...' : `Upgrade to Premium — ${selectedPlan.price}`}
             </button>
-
-            {/* Powered by PayMongo */}
-            <div
-              style={{
-                textAlign: "center",
-                marginTop: "20px",
-                fontSize: "12px",
-                color: isDarkMode ? "#64748b" : "#94a3b8",
-              }}
-            >
-              Powered by PayMongo
-            </div>
+            <div style={styles.poweredBy}>Powered by PayMongo</div>
           </div>
         </div>
       )}

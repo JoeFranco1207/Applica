@@ -4,7 +4,12 @@ import User from '../Model/UserSchema.js';
 
 const PAYMONGO_KEY = process.env.PAYMONGO_SECRET_KEY;
 const PAYMONGO_BASE_URL = process.env.PAYMONGO_BASE_URL || 'https://api.paymongo.com/v1';
-const PREMIUM_AMOUNT = parseInt(process.env.AI_PREMIUM_AMOUNT || '19900', 10); // ₱199.00 in cents
+
+const PREMIUM_PLAN_AMOUNTS = {
+  monthly: 6900,
+  halfYearly: 45000,
+  annual: 79900,
+};
 
 const getPaymongoAuth = () => {
   if (!PAYMONGO_KEY) {
@@ -16,16 +21,26 @@ const getPaymongoAuth = () => {
   };
 };
 
+const getPremiumAmountForPlan = (plan) => {
+  const amount = PREMIUM_PLAN_AMOUNTS[plan];
+  if (!amount) {
+    throw new AppError('Invalid premium plan selected.', 400);
+  }
+  return amount;
+};
+
 export const createAIPremiumPaymentSource = async (userId, req) => {
   const user = await User.findById(userId);
   if (!user) {
     throw new AppError('User not found.', 404);
   }
 
+  const plan = (req?.body?.plan || req?.query?.plan || 'monthly').toString();
+  const amount = getPremiumAmountForPlan(plan);
+
   // Determine frontend origin from the incoming request so redirects land
-  // on the same origin where `localStorage` was written.
+  // on the same origin where the SPA wrote localStorage.
   const deriveFrontendOrigin = () => {
-    // Prefer explicit env override
     if (process.env.PAYMONGO_SUCCESS_URL && process.env.PAYMONGO_FAILED_URL) {
       return {
         success: process.env.PAYMONGO_SUCCESS_URL,
@@ -33,7 +48,6 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
       };
     }
 
-    // Try to read Origin header (most reliable for SPA requests)
     try {
       const origin = req?.headers?.origin || req?.get?.('origin') || null;
       if (origin) {
@@ -43,7 +57,6 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
         };
       }
 
-      // Fallback to Referer header and extract origin
       const referer = req?.headers?.referer || req?.get?.('referer') || null;
       if (referer) {
         try {
@@ -60,45 +73,38 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
       // ignore
     }
 
-    // Last resort defaults (keep previous defaults)
     return {
-      success: process.env.PAYMONGO_SUCCESS_URL || 'http://localhost:5177/ai-premium/success',
-      failed: process.env.PAYMONGO_FAILED_URL || 'http://localhost:5177/ai-premium/failed',
+      success: process.env.PAYMONGO_SUCCESS_URL || 'http://localhost:5173/ai-premium/success',
+      failed: process.env.PAYMONGO_FAILED_URL || 'http://localhost:5173/ai-premium/failed',
     };
   };
 
   const { success: successUrl, failed: failedUrl } = deriveFrontendOrigin();
 
-  // Allow caller to specify payment method (e.g. 'gcash' or 'card').
-  const paymentType = (req?.body?.method || req?.query?.method || 'gcash').toString().toLowerCase();
-
-  const payload = {
-    data: {
-      attributes: {
-        type: paymentType,
-        amount: PREMIUM_AMOUNT,
-        currency: 'PHP',
-        redirect: {
-          success: successUrl,
-          failed: failedUrl,
-        },
-        billing: {
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-        },
-        description: 'Applica AI Premium Access',
-        // Include user id so webhooks (when they fire) can map events to users
-        metadata: {
-          userId: String(user._id),
-        },
+  const createPayload = () => {
+    return {
+      amount,
+      currency: 'PHP',
+      description: `Applica AI Premium (${plan})`,
+      redirect: {
+        success: successUrl,
+        failed: failedUrl,
       },
-    },
+      billing: {
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+      },
+      metadata: {
+        userId: String(user._id),
+        plan,
+      },
+    };
   };
 
-  try {
-    const response = await axios.post(
-      `${PAYMONGO_BASE_URL}/sources`,
-      payload,
+  const sendPaymentLinkRequest = async (payloadToSend) => {
+    return axios.post(
+      `${PAYMONGO_BASE_URL}/payment_links`,
+      payloadToSend,
       {
         auth: getPaymongoAuth(),
         headers: {
@@ -107,25 +113,32 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
         timeout: 20000,
       }
     );
+  };
 
-    const source = response.data?.data;
-    const checkoutUrl = source?.attributes?.redirect?.checkout_url;
-    console.log('PayMongo create source response:', { id: source?.id, status: source?.attributes?.status });
+  try {
+    const response = await sendPaymentLinkRequest(createPayload());
+
+    const link = response.data?.data;
+    const checkoutUrl =
+      link?.attributes?.checkout_url ||
+      link?.attributes?.url ||
+      link?.url;
+    console.log('PayMongo create payment link response:', {
+      id: link?.id,
+      status: link?.attributes?.status || link?.status,
+      checkoutUrl,
+    });
     if (!checkoutUrl) {
       throw new AppError('PayMongo checkout URL was not returned.', 502);
     }
 
-    // Persist the most-recent source id on the user document so redirects
-    // that omit query params can still be confirmed.
-    try {
-      await User.findByIdAndUpdate(userId, { lastAIPaymentSource: source.id });
-    } catch (e) {
-      console.warn('Failed to save lastAIPaymentSource on user:', e?.message || e);
-    }
+    await User.findByIdAndUpdate(userId, {
+      lastAIPaymentSource: link.id,
+    });
 
     return {
       paymentUrl: checkoutUrl,
-      sourceId: source.id,
+      checkoutId: link.id,
     };
   } catch (err) {
     console.error('PayMongo API Response Status:', err?.response?.status);
@@ -136,10 +149,56 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
   }
 };
 
+const getPaymongoPaymentLink = async (paymentLinkId) => {
+  if (!paymentLinkId) {
+    throw new AppError('Payment link id is required.', 400);
+  }
+
+  const response = await axios.get(
+    `${PAYMONGO_BASE_URL}/payment_links/${paymentLinkId}`,
+    {
+      auth: getPaymongoAuth(),
+      timeout: 20000,
+    }
+  );
+
+  return response.data?.data;
+};
+
+export const verifyAIPremiumPaymentLink = async (userId, paymentLinkId) => {
+  const link = await getPaymongoPaymentLink(paymentLinkId);
+  const status = link?.attributes?.status || link?.attributes?.payment_status || null;
+  const normalizedStatus = String(status || '').toLowerCase();
+  const paidStatuses = ['paid', 'completed', 'succeeded'];
+
+  if (paidStatuses.includes(normalizedStatus)) {
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { premiumAIAccess: true },
+      { new: true }
+    );
+    return {
+      premiumAIAccess: !!updatedUser?.premiumAIAccess,
+      status: normalizedStatus,
+    };
+  }
+
+  return {
+    premiumAIAccess: false,
+    status: normalizedStatus,
+  };
+};
+
 export const confirmAIPremiumPaymentSource = async (userId, sourceId) => {
-  // If sourceId wasn't provided (redirect omitted it), try the last saved source
   if (!sourceId) {
-    const user = await User.findById(userId).select('lastAIPaymentSource');
+    const user = await User.findById(userId).select('premiumAIAccess lastAIPaymentSource');
+    if (user?.premiumAIAccess) {
+      return {
+        premiumAIAccess: true,
+        status: 'paid',
+      };
+    }
+
     if (user && user.lastAIPaymentSource) {
       sourceId = user.lastAIPaymentSource;
     }

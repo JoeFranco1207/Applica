@@ -1,7 +1,9 @@
 import AppSuccessful from '../Middleware/AppSuccessful.js';
+import User from '../Model/UserSchema.js';
 import {
   createAIPremiumPaymentSource,
   confirmAIPremiumPaymentSource,
+  verifyAIPremiumPaymentLink,
 } from '../Services/Payment.service.js';
 
 export const createAIPremiumPayment = async (req, res, next) => {
@@ -19,7 +21,12 @@ export const createAIPremiumPayment = async (req, res, next) => {
 
 export const confirmAIPremiumPayment = async (req, res, next) => {
   try {
-    const sourceId = req.query.sourceId || req.query.source;
+    const sourceId =
+      req.query.sourceId ||
+      req.query.source ||
+      req.query.source_id ||
+      req.query.id ||
+      null;
     const result = await confirmAIPremiumPaymentSource(req.user.id, sourceId);
     return res.success(
       new AppSuccessful('AI Premium access confirmed', 200, result)
@@ -34,6 +41,26 @@ export const getLastAIPaymentSource = async (req, res, next) => {
     const userId = req.user.id;
     const user = await (await import('../Model/UserSchema.js')).default.findById(userId).select('lastAIPaymentSource');
     return res.success(new AppSuccessful('Last AI payment source retrieved', 200, { lastAIPaymentSource: user?.lastAIPaymentSource || null }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAIPremiumStatus = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId).select('premiumAIAccess lastAIPaymentSource');
+
+    if (user?.premiumAIAccess) {
+      return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: true }));
+    }
+
+    if (user?.lastAIPaymentSource) {
+      const result = await verifyAIPremiumPaymentLink(userId, user.lastAIPaymentSource);
+      return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: result.premiumAIAccess, status: result.status }));
+    }
+
+    return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: false }));
   } catch (err) {
     next(err);
   }

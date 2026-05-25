@@ -2,40 +2,24 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
-export default function AIPaymentSuccess() {
+export default function AIPaymentSuccess({ failed }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('processing');
-  const [message, setMessage] = useState('Processing your payment...');
+  const [status, setStatus] = useState(failed ? 'error' : 'processing');
+  const [message, setMessage] = useState(
+    failed
+      ? 'Payment was not completed. Please try again or return to the premium page.'
+      : 'Waiting for PayMongo payment confirmation...'
+  );
 
   useEffect(() => {
-    const confirmPayment = async () => {
+    let mounted = true;
+    let attempt = 0;
+
+    const checkStatus = async () => {
       try {
-        // Check multiple possible parameter names from PayMongo
-        const sourceId = searchParams.get('source_id') || 
-                         searchParams.get('sourceId') || 
-                         searchParams.get('source') || 
-                         searchParams.get('id');
-        
-        console.log('Query params:', Object.fromEntries(searchParams));
-        console.log('Source ID found:', sourceId);
-        
-        // Fallback: if the redirect did not include the source id, try localStorage
-        let finalSourceId = sourceId;
-        if (!finalSourceId) {
-          finalSourceId = localStorage.getItem('aiPremiumSourceId');
-          if (finalSourceId) console.log('Falling back to sourceId from localStorage');
-        }
-
-        if (!finalSourceId) {
-          setStatus('error');
-          setMessage('Payment source ID not found in redirect.');
-          return;
-        }
-
-        // Call the confirm endpoint
         const response = await axios.get(
-          `http://localhost:8000/api/payments/ai-premium/confirm?sourceId=${encodeURIComponent(finalSourceId)}`,
+          'http://localhost:8000/api/payments/ai-premium/status',
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -43,27 +27,52 @@ export default function AIPaymentSuccess() {
           }
         );
 
+        if (!mounted) return;
+        if (failed) return;
+
         if (response.data?.data?.premiumAIAccess) {
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            try {
+              const parsedUser = JSON.parse(storedUser);
+              localStorage.setItem(
+                'user',
+                JSON.stringify({ ...parsedUser, premiumAIAccess: true })
+              );
+            } catch (e) {
+              console.warn('Unable to update user premium status in localStorage.', e);
+            }
+          }
+
           setStatus('success');
           setMessage('🎉 Payment successful! Your AI Premium access is now active.');
           setTimeout(() => {
-            // Clear saved source id after successful confirmation
-            try { localStorage.removeItem('aiPremiumSourceId'); } catch (e) {}
-            navigate('/jobs');
+            navigate('/explore');
           }, 2000);
+          return;
+        }
+
+        attempt += 1;
+        if (attempt < 12) {
+          setTimeout(checkStatus, 5000);
         } else {
           setStatus('error');
-          setMessage('Payment verification failed. Please try again.');
+          setMessage('Payment appears pending. If you completed checkout, please wait a moment and refresh this page.');
         }
       } catch (err) {
-        console.error('Payment confirmation error:', err);
+        if (!mounted) return;
+        console.error('Payment status error:', err);
         setStatus('error');
-        setMessage(err.response?.data?.message || 'Payment confirmation failed.');
+        setMessage(err.response?.data?.message || 'Payment verification failed.');
       }
     };
 
-    confirmPayment();
-  }, [searchParams, navigate]);
+    checkStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   return (
     <div style={styles.container}>
@@ -72,13 +81,22 @@ export default function AIPaymentSuccess() {
           <>
             <div style={styles.spinner} />
             <p style={styles.text}>{message}</p>
+            <p style={styles.smallText}>
+              Your checkout page should be open in a new tab. Keep this tab open while we wait for confirmation.
+            </p>
           </>
         )}
         {status === 'success' && (
           <>
             <div style={styles.successIcon}>✓</div>
             <p style={styles.text}>{message}</p>
-            <p style={styles.smallText}>Redirecting to Jobs...</p>
+            <p style={styles.smallText}>Redirecting to Explore...</p>
+            <button
+              onClick={() => navigate('/ai-premium')}
+              style={styles.button}
+            >
+              Return to Premium Page
+            </button>
           </>
         )}
         {status === 'error' && (
@@ -86,10 +104,10 @@ export default function AIPaymentSuccess() {
             <div style={styles.errorIcon}>✕</div>
             <p style={styles.text}>{message}</p>
             <button
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate('/ai-premium')}
               style={styles.button}
             >
-              Back to Jobs
+              Return to Premium Page
             </button>
           </>
         )}

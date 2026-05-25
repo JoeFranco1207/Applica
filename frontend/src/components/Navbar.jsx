@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -105,13 +105,29 @@ const ChatIcon = ({ size = 20 }) => (
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token"));
   const navigate = useNavigate();
+  const location = useLocation();
   const { notifications, unreadCount, markNotificationAsRead, fetchNotifications } = useNotification();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const token = localStorage.getItem("token");
-  const user = token ? JSON.parse(localStorage.getItem("user") || "{}") : null;
-
   const { language, setLanguage, translate } = useLanguage();
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    setToken(storedToken);
+
+    if (storedToken) {
+      try {
+        const parsedUser = JSON.parse(localStorage.getItem("user") || "null");
+        setUser(parsedUser);
+      } catch (error) {
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
+  }, [location.pathname]);
   const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
   const initials = fullName
     ? fullName
@@ -124,6 +140,9 @@ export default function Navbar() {
     ? user.email.charAt(0).toUpperCase()
     : "U";
   const profileImage = user?.profilePicture || user?.companyLogo || null;
+  const premiumBadgeStyle = user?.premiumAIAccess
+    ? { backgroundColor: '#16a34a' }
+    : { backgroundColor: '#6b7280' };
 
   const handleLogout = async () => {
     try {
@@ -208,6 +227,9 @@ export default function Navbar() {
           <ThemeSwitch isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
           {token ? (
             <>
+              <div style={{ ...styles.statusBadge, ...premiumBadgeStyle }}>
+                {user?.premiumAIAccess ? 'Premium' : 'Free'}
+              </div>
               <button
                 type="button"
                 style={{ ...styles.notificationButton, cursor: 'pointer' }}
@@ -485,6 +507,18 @@ const styles = {
     maxHeight: 500,
     overflowY: "auto",
     zIndex: 1001,
+  },
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '8px 12px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#fff',
+    backgroundColor: '#6b7280',
+    border: '1px solid rgba(255,255,255,0.12)',
   },
   notificationPanelHeader: {
     padding: "16px",

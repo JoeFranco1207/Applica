@@ -8,6 +8,7 @@ import {
   updateApplicantStatusController,
   removeApplicantController,
   deleteEmployerJobController,
+  filterApplicantsWithAIController,
 } from "../Controller/JobsController.js";
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.patch('/my-jobs/:jobId/applicants/:applicantId/status', protection, restr
 router.post('/my-jobs/:jobId/applicants/:applicantId/view-resume', protection, restrictTo('employer'), notifyApplicantResumeViewedController);
 router.delete('/my-jobs/:jobId/applicants/:applicantId', protection, restrictTo('employer'), removeApplicantController);
 router.delete('/my-jobs/:jobId', protection, restrictTo('employer'), deleteEmployerJobController);
+router.post('/my-jobs/:jobId/applicants/filter-ai', protection, restrictTo('employer'), filterApplicantsWithAIController);
 
 export default router;

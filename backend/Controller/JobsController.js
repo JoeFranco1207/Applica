@@ -11,6 +11,7 @@ import {
   removeApplicant,
   deleteEmployerJob,
 } from "../Services/JobInteraction.service.js";
+import { filterApplicantsWithAI } from "../Services/AIFilter.service.js";
 
 export const getJobsController = async (req, res, next) => {
   try {
@@ -135,6 +136,17 @@ export const deleteEmployerJobController = async (req, res, next) => {
     const jobId = req.params.jobId;
     const deletedJob = await deleteEmployerJob(jobId, req.user.id);
     return res.success(new AppSuccessful("Job deleted successfully", 200, deletedJob));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const filterApplicantsWithAIController = async (req, res, next) => {
+  try {
+    const jobId = req.params.jobId;
+    const { keywords = [] } = req.body || {};
+    const results = await filterApplicantsWithAI(jobId, req.user.id, keywords);
+    return res.success(new AppSuccessful('Applicants filtered (AI)', 200, results));
   } catch (err) {
     next(err);
   }

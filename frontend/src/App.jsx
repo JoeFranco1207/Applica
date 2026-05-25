@@ -20,6 +20,8 @@ import EmployerApplicants from "./pages/EmployerApplicants";
 import ResumeDesigns from "./pages/ResumeDesigns";
 import Chat from "./pages/Chat";
 import UserSessions from "./pages/Admin/UserSessions";
+import AIPaymentSuccess from "./pages/AIPaymentSuccess";
+import AIPremium from "./pages/AIPremium";
 
 function Layout() {
   const location = useLocation();
@@ -80,6 +82,10 @@ function App() {
   return (
     <NotificationProvider>
       <Routes>
+        {/* Public payment redirect pages (no layout, no auth required) */}
+        <Route path="/ai-premium/success" element={<AIPaymentSuccess />} />
+        
+        {/* Main app with layout and auth */}
         <Route element={<Layout />}>
           <Route path="/auth" element={<Signup />} />
           <Route path="/landing" element={<Landing />} />
@@ -93,6 +99,7 @@ function App() {
           <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/post/:id" element={<ProtectedRoute><PostView /></ProtectedRoute>} />
           <Route path="/resume-designs" element={<ProtectedRoute><ResumeDesigns /></ProtectedRoute>} />
+          <Route path="/ai-premium" element={<ProtectedRoute><AIPremium /></ProtectedRoute>} />
           <Route path="/employer/applicants" element={<ProtectedRoute><EmployerApplicants /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/admin/users/:id/sessions" element={<ProtectedRoute><UserSessions /></ProtectedRoute>} />

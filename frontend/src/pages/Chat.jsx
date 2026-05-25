@@ -1652,8 +1652,8 @@ const chatStyles = {
   modalCancelButton: {
     borderRadius: 999,
     border: '1px solid var(--border)',
-    backgroundColor: 'transparent',
-    color: 'inherit',
+    backgroundColor: 'var(--surface)',
+    color: 'var(--text)',
     padding: '10px 16px',
     cursor: 'pointer',
   },

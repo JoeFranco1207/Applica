@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
+import AppError from '../Middleware/AppError.js';
 import User from "../Model/UserSchema.js";
 
 // Template generators for each resume style
@@ -17,7 +18,19 @@ export const createResumeService = async (userId, resumeData) => {
   const user = await User.findById(userId);
 
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
+  }
+
+  // Premium check: if the frontend requested AI-assisted resume generation
+  // via `resumeData.useAI === true`, require the user to have `premiumAIAccess`.
+  // Premium users may generate unlimited AI-assisted resumes.
+  if (resumeData && resumeData.useAI) {
+    if (!user.premiumAIAccess) {
+      throw new AppError('AI-generated resumes require Applica AI Premium access', 403);
+    }
+    // Note: here is where real AI-enhanced resume generation code would run.
+    // This project currently renders HTML templates; integrating an LLM
+    // should be done here and must remain behind this premium guard.
   }
 
   const firstName = user.firstName || "";

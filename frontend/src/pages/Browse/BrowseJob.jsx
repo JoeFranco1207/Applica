@@ -101,6 +101,50 @@ const getCompanyDisplayName = (job) => {
   return job?.createdBy?.companyName || job?.companyName || job?.company || job?.employerName || 'Hiring Manager';
 };
 
+const getResumeKeywords = (user) => {
+  if (!user) return [];
+  const text = [
+    user.experience,
+    user.education,
+    user.bio,
+    user.citizenShip,
+    user.location?.region,
+    user.location?.city,
+    user.location?.barangay,
+    user.location?.otherDetails,
+    user.resume?.split('/').pop(),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const tokens = text.match(/\b[a-z0-9]{4,}\b/g) || [];
+  return Array.from(new Set(tokens));
+};
+
+const getResumeMatchScore = (job, user) => {
+  const tokens = getResumeKeywords(user);
+  if (!tokens.length) return 0;
+
+  const jobText = [
+    job.role,
+    job.company,
+    job.location,
+    job.description,
+    job.details?.join(' '),
+    job.tags?.join(' '),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return tokens.reduce((score, token) => {
+    if (!jobText.includes(token)) return score;
+    const occurrences = jobText.split(token).length - 1;
+    return score + Math.min(occurrences, 2);
+  }, 0);
+};
+
 const getUserProfileSummary = (user) => {
   if (!user) return [];
   const items = [];
@@ -403,6 +447,8 @@ export default function BrowseJob() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [locationFilter, setLocationFilter] = useState("All");
   const [companyFilter, setCompanyFilter] = useState("All");
+  const [resumeMatchEnabled, setResumeMatchEnabled] = useState(true);
+  const [premiumAIAccess, setPremiumAIAccess] = useState(!!effectiveUser?.premiumAIAccess);
   const [savedJobIds, setSavedJobIds] = useState(() => {
     const saved = localStorage.getItem("savedJobs");
     return saved ? JSON.parse(saved) : [];
@@ -512,6 +558,10 @@ export default function BrowseJob() {
       isCanceled = true;
     };
   }, [token, serverUser]);
+
+  useEffect(() => {
+    setPremiumAIAccess(!!effectiveUser?.premiumAIAccess);
+  }, [effectiveUser]);
 
   // Listen for profile updates and update displayed social posts and job employer avatars/names
   useEffect(() => {
@@ -1427,10 +1477,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       employerEmail: job.createdBy?.email,
       employerAvatar: job.createdBy?.role === 'employer' ? job.createdBy?.companyLogo : job.createdBy?.profilePicture,
       employerName: `${job.createdBy?.firstName || ""} ${job.createdBy?.lastName || ""}`.trim() || job.createdBy?.email,
+      resumeScore: getResumeMatchScore(job, effectiveUser),
     };
   });
 
-  const feedItemsToShow = jobs.length ? jobPosts : samplePosts;
+  const rankedJobPosts = resumeMatchEnabled
+    ? [...jobPosts].sort((a, b) => (b.resumeScore || 0) - (a.resumeScore || 0))
+    : jobPosts;
+
+  const feedItemsToShow = jobs.length ? rankedJobPosts : samplePosts;
   const filteredPosts = feedItemsToShow.filter((post) => {
     if (activeTab === "saved" && !savedJobIds.includes(post.id)) {
       return false;
@@ -1541,6 +1596,40 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               </option>
             ))}
           </select>
+
+          {currentUser?.role === 'jobseeker' && (
+            <button
+              type="button"
+              onClick={() => setResumeMatchEnabled((prev) => !prev)}
+              style={resumeMatchEnabled ? styles.premiumActiveButton : styles.premiumButton}
+            >
+              {resumeMatchEnabled ? 'Resume Match On' : 'Resume Match Off'}
+            </button>
+          )}
+
+          {currentUser?.role === 'jobseeker' && (
+            <button
+              type="button"
+              onClick={() => navigate('/ai-premium')}
+              style={premiumAIAccess ? styles.premiumActiveButton : styles.premiumButton}
+              disabled={premiumAIAccess}
+            >
+                  {premiumAIAccess
+                    ? 'AI Premium Active'
+                    : 'Upgrade AI Premium'}
+            </button>
+          )}
+        </div>
+
+        <div style={styles.aiHintRow}>
+          {currentUser?.role === 'jobseeker' && (
+            <span style={styles.aiHintText}>
+              {resumeMatchEnabled
+                ? 'Resume-based personalization is active.'
+                : 'Enable resume match to surface the best roles for your profile.'}
+              {!effectiveUser?.resume && ' Upload your resume under Profile to improve results.'}
+            </span>
+          )}
         </div>
 
         <div style={styles.categoryChips}>
@@ -2615,6 +2704,45 @@ const styles = {
     cursor: "pointer",
     whiteSpace: "nowrap",
     flexShrink: 0,
+  },
+  premiumButton: {
+    padding: "8px 14px",
+    borderRadius: "20px",
+    border: "1px solid var(--primary)",
+    background: "var(--surface-alt)",
+    color: "var(--primary)",
+    fontSize: "11px",
+    fontWeight: "700",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
+  premiumActiveButton: {
+    padding: "8px 14px",
+    borderRadius: "20px",
+    border: "1px solid #0f766e",
+    background: "rgba(15, 118, 110, 0.12)",
+    color: "#0f766e",
+    fontSize: "11px",
+    fontWeight: "700",
+    cursor: "default",
+    flexShrink: 0,
+  },
+  aiHintRow: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    width: "100%",
+    gap: "4px",
+    marginTop: "6px",
+    paddingLeft: "4px",
+  },
+  aiHintText: {
+    fontSize: "11px",
+    color: "var(--text-muted)",
+  },
+  aiErrorText: {
+    fontSize: "11px",
+    color: "#dc2626",
   },
   activeChip: {
     padding: "6px 12px",

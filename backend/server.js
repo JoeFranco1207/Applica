@@ -16,6 +16,7 @@ import AdminRouter from "./Routes/AdminRouter.js";
 import PostRouter from './Routes/PostRouter.js';
 import NotificationRouter from './Routes/NotificationRouter.js';
 import ChatRouter from './Routes/ChatRouter.js';
+import PaymentRouter from './Routes/PaymentRouter.js';
 import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
 
 dotenv.config();
@@ -51,6 +52,7 @@ app.use("/api/jobs", JobsRouter);
 app.use("/api/jobseeker", JobseekerRouter);
 app.use("/api/employer", EmployerRouter);
 app.use('/api/posts', PostRouter);
+app.use('/api/payments', PaymentRouter);
 app.use('/api/notifications', NotificationRouter);
 app.use('/api/chat', ChatRouter);
 

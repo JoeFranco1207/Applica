@@ -92,6 +92,16 @@ const userSchema = new mongoose.Schema({
       enum: ['online', 'offline', 'dnd'],
       default: 'offline',
     },
+    premiumAIAccess: {
+      type: Boolean,
+      default: false,
+    },
+    // Transient: store the last created PayMongo source id for AI premium
+    lastAIPaymentSource: {
+      type: String,
+      default: '',
+      select: false,
+    },
     forgotPasswordCode: {
       type: Number,
       select: false,

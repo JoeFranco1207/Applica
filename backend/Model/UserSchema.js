@@ -96,9 +96,25 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    premiumPlan: {
+      type: String,
+      enum: ['monthly', 'halfYearly', 'annual', ''],
+      default: '',
+    },
     // Transient: store the last created PayMongo source id for AI premium
     lastAIPaymentSource: {
       type: String,
+      default: '',
+      select: false,
+    },
+    lastAIPaymentPhone: {
+      type: String,
+      default: '',
+      select: false,
+    },
+    lastAIPaymentPlan: {
+      type: String,
+      enum: ['monthly', 'halfYearly', 'annual', ''],
       default: '',
       select: false,
     },

@@ -1,0 +1,23 @@
+.premium-status-badge {
+  background: linear-gradient(120deg, #f59e0b, #ec4899, #6366f1, #22c55e);
+  background-size: 300% 300%;
+  animation: premiumGlide 4.5s ease infinite;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 0 18px rgba(229, 62, 145, 0.22);
+}
+
+.free-status-badge {
+  background: #6b7280;
+}
+
+@keyframes premiumGlide {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

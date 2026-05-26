@@ -11,6 +11,44 @@ const PREMIUM_PLAN_AMOUNTS = {
   annual: 79900,
 };
 
+const ALL_PAYMENT_METHODS = {
+  qrph: {
+    id: 'qrph',
+    label: 'QRPH',
+    description: 'Scan the code from your banking app or any QR payment app available in the Philippines.',
+  },
+  gcash: {
+    id: 'gcash',
+    label: 'GCash',
+    description: 'Pay instantly with GCash and finish the purchase inside Applica.',
+  },
+  maya: {
+    id: 'maya',
+    label: 'Maya',
+    description: 'Use your Maya wallet to pay directly from the app.',
+  },
+  card: {
+    id: 'card',
+    label: 'Card',
+    description: 'Pay securely with your debit or credit card.',
+  },
+};
+
+const SUPPORTED_PAYMENT_METHOD_IDS = (process.env.PAYMONGO_SUPPORTED_METHODS || 'gcash').split(',').map((m) => m.trim()).filter(Boolean);
+
+const PAYMENT_METHOD_TYPE_MAP = {
+  qrph: 'qris',
+  gcash: 'gcash',
+  maya: 'maya',
+  card: 'card',
+};
+
+export const getSupportedPaymongoMethods = () =>
+  SUPPORTED_PAYMENT_METHOD_IDS.map((id) => ALL_PAYMENT_METHODS[id]).filter(Boolean);
+
+const isPaymentMethodSupported = (method) =>
+  SUPPORTED_PAYMENT_METHOD_IDS.includes(method);
+
 const getPaymongoAuth = () => {
   if (!PAYMONGO_KEY) {
     throw new AppError('PayMongo secret key is not configured.', 500);
@@ -29,6 +67,14 @@ const getPremiumAmountForPlan = (plan) => {
   return amount;
 };
 
+const getPaymongoSourceType = (method) => {
+  const sourceType = PAYMENT_METHOD_TYPE_MAP[method];
+  if (!sourceType) {
+    throw new AppError('Unsupported payment method selected.', 400);
+  }
+  return sourceType;
+};
+
 export const createAIPremiumPaymentSource = async (userId, req) => {
   const user = await User.findById(userId);
   if (!user) {
@@ -36,10 +82,18 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
   }
 
   const plan = (req?.body?.plan || req?.query?.plan || 'monthly').toString();
-  const amount = getPremiumAmountForPlan(plan);
+  const paymentMethod = (req?.body?.paymentMethod || req?.query?.paymentMethod || 'gcash').toString();
+  if (!isPaymentMethodSupported(paymentMethod)) {
+    throw new AppError(
+      `The selected payment method '${paymentMethod}' is not available. Please choose one of: ${SUPPORTED_PAYMENT_METHOD_IDS.join(', ')}.`,
+      400
+    );
+  }
 
-  // Determine frontend origin from the incoming request so redirects land
-  // on the same origin where the SPA wrote localStorage.
+  const amount = getPremiumAmountForPlan(plan);
+  const sourceType = getPaymongoSourceType(paymentMethod);
+  const cardData = req?.body?.card || {};
+
   const deriveFrontendOrigin = () => {
     if (process.env.PAYMONGO_SUCCESS_URL && process.env.PAYMONGO_FAILED_URL) {
       return {
@@ -81,15 +135,12 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
 
   const { success: successUrl, failed: failedUrl } = deriveFrontendOrigin();
 
-  const createPayload = () => {
-    return {
+  const buildSourceAttributes = () => {
+    const baseAttributes = {
       amount,
       currency: 'PHP',
-      description: `Applica AI Premium (${plan})`,
-      redirect: {
-        success: successUrl,
-        failed: failedUrl,
-      },
+      type: sourceType,
+      source_type: sourceType,
       billing: {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
@@ -97,14 +148,44 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
       metadata: {
         userId: String(user._id),
         plan,
+        paymentMethod,
+      },
+      redirect: {
+        success: successUrl,
+        failed: failedUrl,
       },
     };
+
+    if (sourceType === 'card') {
+      if (!cardData.number || !cardData.expMonth || !cardData.expYear || !cardData.cvc) {
+        throw new AppError('Complete card information is required for card payments.', 400);
+      }
+
+      return {
+        ...baseAttributes,
+        card: {
+          number: cardData.number,
+          exp_month: cardData.expMonth,
+          exp_year: cardData.expYear,
+          cvc: cardData.cvc,
+          name: cardData.name || `${user.firstName} ${user.lastName}`,
+        },
+      };
+    }
+
+    return baseAttributes;
   };
 
-  const sendPaymentLinkRequest = async (payloadToSend) => {
-    return axios.post(
-      `${PAYMONGO_BASE_URL}/payment_links`,
-      payloadToSend,
+  const createPayload = {
+    data: {
+      attributes: buildSourceAttributes(),
+    },
+  };
+
+  try {
+    const response = await axios.post(
+      `${PAYMONGO_BASE_URL}/sources`,
+      createPayload,
       {
         auth: getPaymongoAuth(),
         headers: {
@@ -113,49 +194,47 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
         timeout: 20000,
       }
     );
-  };
 
-  try {
-    const response = await sendPaymentLinkRequest(createPayload());
-
-    const link = response.data?.data;
-    const checkoutUrl =
-      link?.attributes?.checkout_url ||
-      link?.attributes?.url ||
-      link?.url;
-    console.log('PayMongo create payment link response:', {
-      id: link?.id,
-      status: link?.attributes?.status || link?.status,
-      checkoutUrl,
-    });
-    if (!checkoutUrl) {
-      throw new AppError('PayMongo checkout URL was not returned.', 502);
+    const source = response.data?.data;
+    if (!source || !source.id) {
+      throw new AppError('PayMongo source creation failed to return a source id.', 502);
     }
 
+    const attributes = source.attributes || {};
     await User.findByIdAndUpdate(userId, {
-      lastAIPaymentSource: link.id,
+      lastAIPaymentSource: source.id,
+      lastAIPaymentPlan: plan,
+      lastAIPaymentMethod: paymentMethod,
     });
 
     return {
-      paymentUrl: checkoutUrl,
-      checkoutId: link.id,
+      sourceId: source.id,
+      status: attributes.status || 'pending',
+      paymentMethod,
+      premiumPlan: plan,
+      qrCode: attributes.qr_code || null,
+      sourceAttributes: attributes,
+      checkoutUrl: attributes.redirect?.checkout_url || null,
     };
   } catch (err) {
     console.error('PayMongo API Response Status:', err?.response?.status);
     console.error('PayMongo API Response Data:', err?.response?.data);
     console.error('PayMongo Error Message:', err?.message);
     const errorDetail = err?.response?.data?.errors?.[0]?.detail || err?.message || 'Unknown error';
-    throw new AppError(`Failed to create PayMongo payment source: ${errorDetail}`, 502);
+    const unsupportedMessage =
+      errorDetail.includes('source_type passed')
+        ? `${errorDetail} This payment method is currently unavailable for your PayMongo setup.`
+        : errorDetail;
+    throw new AppError(`Failed to create PayMongo payment source: ${unsupportedMessage}`, 502);
   }
 };
 
-const getPaymongoPaymentLink = async (paymentLinkId) => {
-  if (!paymentLinkId) {
-    throw new AppError('Payment link id is required.', 400);
+const getPaymongoSource = async (sourceId) => {
+  if (!sourceId) {
+    throw new AppError('Source id is required.', 400);
   }
-
   const response = await axios.get(
-    `${PAYMONGO_BASE_URL}/payment_links/${paymentLinkId}`,
+    `${PAYMONGO_BASE_URL}/sources/${sourceId}`,
     {
       auth: getPaymongoAuth(),
       timeout: 20000,
@@ -165,51 +244,80 @@ const getPaymongoPaymentLink = async (paymentLinkId) => {
   return response.data?.data;
 };
 
-export const verifyAIPremiumPaymentLink = async (userId, paymentLinkId) => {
-  const link = await getPaymongoPaymentLink(paymentLinkId);
-  // Primary status might be on the link attributes, but some PayMongo flows
-  // attach status to nested payment objects. Check both.
-  const linkStatus = link?.attributes?.status || link?.attributes?.payment_status || null;
-  const normalizedLinkStatus = String(linkStatus || '').toLowerCase();
+export const confirmPaymentBySourceId = async (sourceId) => {
+  const source = await getPaymongoSource(sourceId);
+  const status = source?.attributes?.status || source?.attributes?.payment_status || null;
+  const normalizedStatus = String(status || '').toLowerCase();
+  const metadata = source?.attributes?.metadata || {};
+  const planFromMetadata = metadata?.plan || metadata?.premiumPlan || null;
 
-  // Look for nested payments on the link and check their statuses as fallback.
-  const payments = Array.isArray(link?.attributes?.payments) ? link.attributes.payments : [];
-  let foundPaid = false;
-  let foundStatus = normalizedLinkStatus || null;
-
-  const paidStatuses = ['paid', 'completed', 'succeeded', 'captured'];
-
-  if (paidStatuses.includes(normalizedLinkStatus)) {
-    foundPaid = true;
+  const paidStatuses = ['chargeable', 'captured', 'paid', 'consumed', 'succeeded'];
+  if (!paidStatuses.includes(normalizedStatus)) {
+    return { premiumAIAccess: false, status: normalizedStatus || 'pending' };
   }
 
-  if (!foundPaid && payments.length > 0) {
-    for (const p of payments) {
-      const pStatus = p?.attributes?.status || p?.attributes?.payment_status || null;
-      const normalizedPStatus = String(pStatus || '').toLowerCase();
-      if (!foundStatus && normalizedPStatus) foundStatus = normalizedPStatus;
-      if (paidStatuses.includes(normalizedPStatus)) {
-        foundPaid = true;
-        break;
-      }
-    }
+  const update = { premiumAIAccess: true };
+  if (planFromMetadata) {
+    update.premiumPlan = planFromMetadata;
+    update.lastAIPaymentPlan = planFromMetadata;
   }
 
-  if (foundPaid) {
+  const metadataUserId = metadata?.userId || metadata?.user_id || null;
+  let user = null;
+  if (metadataUserId) {
+    user = await User.findByIdAndUpdate(metadataUserId, update, { new: true });
+  } else {
+    user = await User.findOneAndUpdate({ lastAIPaymentSource: sourceId }, update, { new: true });
+  }
+
+  if (!user) {
+    return { premiumAIAccess: false, status: normalizedStatus || 'pending' };
+  }
+
+  return {
+    premiumAIAccess: true,
+    status: normalizedStatus || 'paid',
+    premiumPlan: user.premiumPlan || planFromMetadata || user.lastAIPaymentPlan || null,
+    userId: user._id.toString(),
+  };
+};
+
+export const verifyAIPremiumPaymentSource = async (userId, sourceId) => {
+  const source = await getPaymongoSource(sourceId);
+  const status = source?.attributes?.status || source?.attributes?.payment_status || null;
+  const normalizedStatus = String(status || '').toLowerCase();
+  const metadata = source?.attributes?.metadata || {};
+  const planFromMetadata = metadata?.plan || metadata?.premiumPlan || null;
+
+  const paidStatuses = ['chargeable', 'captured', 'paid', 'consumed', 'succeeded'];
+  const failureStatuses = ['failed', 'cancelled', 'canceled', 'expired', 'voided'];
+
+  if (paidStatuses.includes(normalizedStatus)) {
+    const user = await User.findById(userId).select('lastAIPaymentPlan');
+    const planToSave = planFromMetadata || user?.lastAIPaymentPlan || '';
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { premiumAIAccess: true },
+      {
+        premiumAIAccess: true,
+        premiumPlan: planToSave,
+        lastAIPaymentPlan: planToSave,
+      },
       { new: true }
     );
+
     return {
-      premiumAIAccess: !!updatedUser?.premiumAIAccess,
-      status: foundStatus || 'paid',
+      premiumAIAccess: true,
+      status: normalizedStatus || 'paid',
+      premiumPlan: updatedUser?.premiumPlan || planToSave || null,
+      paymentMethod: metadata?.paymentMethod || null,
     };
   }
 
   return {
     premiumAIAccess: false,
-    status: foundStatus || (normalizedLinkStatus || ''),
+    status: normalizedStatus || 'pending',
+    paymentMethod: metadata?.paymentMethod || null,
   };
 };
 

@@ -3,7 +3,8 @@ import User from '../Model/UserSchema.js';
 import {
   createAIPremiumPaymentSource,
   confirmAIPremiumPaymentSource,
-  verifyAIPremiumPaymentLink,
+  verifyAIPremiumPaymentSource,
+  getSupportedPaymongoMethods,
 } from '../Services/Payment.service.js';
 
 export const createAIPremiumPayment = async (req, res, next) => {
@@ -49,18 +50,62 @@ export const getLastAIPaymentSource = async (req, res, next) => {
 export const getAIPremiumStatus = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId).select('premiumAIAccess lastAIPaymentSource');
+    const user = await User.findById(userId).select('premiumAIAccess lastAIPaymentSource premiumPlan lastAIPaymentPlan');
 
     if (user?.premiumAIAccess) {
-      return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: true }));
+      return res.success(
+        new AppSuccessful('AI premium status retrieved', 200, {
+          premiumAIAccess: true,
+          premiumPlan: user.premiumPlan || user.lastAIPaymentPlan || null,
+          status: 'paid',
+        })
+      );
     }
 
     if (user?.lastAIPaymentSource) {
-      const result = await verifyAIPremiumPaymentLink(userId, user.lastAIPaymentSource);
-      return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: result.premiumAIAccess, status: result.status }));
+      const result = await verifyAIPremiumPaymentSource(userId, user.lastAIPaymentSource);
+      return res.success(
+        new AppSuccessful('AI premium status retrieved', 200, {
+          premiumAIAccess: result.premiumAIAccess,
+          status: result.status,
+          premiumPlan: result.premiumPlan || user.lastAIPaymentPlan || null,
+          paymentMethod: result.paymentMethod || undefined,
+        })
+      );
     }
 
-    return res.success(new AppSuccessful('AI premium status retrieved', 200, { premiumAIAccess: false }));
+    return res.success(
+      new AppSuccessful('AI premium status retrieved', 200, {
+        premiumAIAccess: false,
+        status: 'pending',
+      })
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAIPremiumPaymentMethods = async (req, res, next) => {
+  try {
+    const methods = getSupportedPaymongoMethods();
+    return res.success(new AppSuccessful('Supported AI premium payment methods retrieved', 200, { methods }));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const attachGCashPhone = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { sourceId, phone } = req.body || {};
+    if (!phone) {
+      return next(new Error('Phone is required'));
+    }
+
+    const update = { lastAIPaymentPhone: phone };
+    if (sourceId) update.lastAIPaymentSource = sourceId;
+    const user = await User.findByIdAndUpdate(userId, update, { new: true });
+    return res.success(new AppSuccessful('GCash phone attached', 200, { phone: user?.lastAIPaymentPhone || phone }));
   } catch (err) {
     next(err);
   }
@@ -76,31 +121,35 @@ export const paymongoWebhookHandler = async (req, res) => {
     // Try to extract a source id and status from common shapes
     const sourceId = event?.data?.id || event?.data?.attributes?.source || event?.data?.attributes?.payment || null;
     const status = event?.data?.attributes?.status || event?.data?.attributes?.payment_status || event?.data?.attributes?.type || null;
+    const metadata = event?.data?.attributes?.metadata || {};
+    const planFromMetadata = metadata?.plan || metadata?.premiumPlan || null;
 
-    // If event contains nested resource
     const nestedId = event?.data?.attributes?.id;
-    if (!sourceId && nestedId) {
-      // prefer nested id
-    }
-
     const finalSourceId = sourceId || nestedId;
-    const successfulStatuses = ['chargeable', 'captured', 'paid', 'consumed'];
+    const normalizedStatus = String(status || '').toLowerCase();
+    const successfulStatuses = ['chargeable', 'captured', 'paid', 'consumed', 'succeeded'];
 
-    if (finalSourceId && (successfulStatuses.includes(status) || String(status).toLowerCase() === 'paid')) {
-      // Prefer explicit metadata mapping if available
-      const metadataUserId = event?.data?.attributes?.metadata?.userId || event?.data?.attributes?.metadata?.user_id || null;
+    if (finalSourceId && successfulStatuses.includes(normalizedStatus)) {
+      const metadataUserId = metadata?.userId || metadata?.user_id || null;
+      const update = {
+        premiumAIAccess: true,
+      };
+      if (planFromMetadata) {
+        update.premiumPlan = planFromMetadata;
+        update.lastAIPaymentPlan = planFromMetadata;
+      }
+
       if (metadataUserId) {
-        const user = await (await import('../Model/UserSchema.js')).default.findByIdAndUpdate(metadataUserId, { premiumAIAccess: true }, { new: true });
+        const user = await (await import('../Model/UserSchema.js')).default.findByIdAndUpdate(metadataUserId, update, { new: true });
         if (user) {
           console.log('PayMongo webhook: enabled premium for user via metadata', user._id.toString());
         } else {
           console.log('PayMongo webhook: metadata user id not found', metadataUserId);
         }
       } else {
-        // Find any user with this pending source and enable premium
         const user = await (await import('../Model/UserSchema.js')).default.findOneAndUpdate(
           { lastAIPaymentSource: finalSourceId },
-          { premiumAIAccess: true },
+          update,
           { new: true }
         );
 
@@ -111,12 +160,29 @@ export const paymongoWebhookHandler = async (req, res) => {
         }
       }
     } else {
-      console.log('PayMongo webhook: ignored event for source', finalSourceId, 'status', status);
+      console.log('PayMongo webhook: ignored event for source', finalSourceId, 'status', normalizedStatus);
     }
 
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('PayMongo webhook handler error', err);
     return res.status(500).json({ error: 'webhook handler failed' });
+  }
+};
+
+export const confirmAIPremiumPaymentPublic = async (req, res, next) => {
+  try {
+    const sourceId = req.query.sourceId || req.query.source || req.query.id || null;
+    if (!sourceId) {
+      return res.status(400).json({ success: false, message: 'sourceId is required' });
+    }
+
+    console.log('Public confirm called for sourceId=', sourceId);
+    const result = await (await import('../Services/Payment.service.js')).confirmPaymentBySourceId(sourceId);
+    console.log('Public confirm result for', sourceId, '=', result);
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    console.error('Public confirm error', err);
+    return res.status(500).json({ success: false, message: 'confirm failed' });
   }
 };

@@ -1,117 +1,241 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-export default function AIPaymentSuccess({ failed }) {
+const STATUS_NAMES = {
+  success: 'success',
+  failed: 'error',
+  cancelled: 'cancelled',
+};
+
+export default function AIPaymentSuccess({ page = 'success' }) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState(failed ? 'error' : 'processing');
+  const [status, setStatus] = useState(page === 'success' ? 'processing' : STATUS_NAMES[page]);
   const [message, setMessage] = useState(
-    failed
+    page === 'failed'
       ? 'Payment was not completed. Please try again or return to the premium page.'
+      : page === 'cancelled'
+      ? 'Payment was cancelled. You can try again or return to the premium page.'
       : 'Waiting for PayMongo payment confirmation...'
   );
 
   useEffect(() => {
     let mounted = true;
     let attempt = 0;
+    const maxAttempts = 15;
+    const pollingDelay = 4000;
+
+    const dispatchUserUpdatedEvent = () => {
+      window.dispatchEvent(new Event('app:userUpdated'));
+    };
+
+    const savePremiumToLocalStorage = (premiumPlan) => {
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) return;
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            ...parsedUser,
+            premiumAIAccess: true,
+            premiumPlan: premiumPlan || parsedUser.premiumPlan || parsedUser.lastAIPaymentPlan || parsedUser.premiumPlan,
+          })
+        );
+        dispatchUserUpdatedEvent();
+        setTimeout(() => {
+          try { window.location.reload(); } catch (e) { /* ignore */ }
+        }, 700);
+      } catch (e) {
+        console.warn('Unable to update user premium status in localStorage.', e);
+      }
+    };
+
+    const handleRedirect = (target) => {
+      setTimeout(() => {
+        navigate(target);
+      }, 1200);
+    };
+
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+    const tryConfirm = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sourceId = params.get('source') || params.get('sourceId') || params.get('id') || null;
+        const storedUser = localStorage.getItem('user');
+        let fallbackSource = null;
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            fallbackSource = parsed.lastAIPaymentSource || parsed.lastAIPaymentSource || null;
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        const finalSource = sourceId || fallbackSource;
+        if (!finalSource) return null;
+        // try public confirm first (works when sessions are not validated after redirect)
+        try {
+          const publicUrl = `${backendUrl}/api/payments/ai-premium/confirm-public?sourceId=${encodeURIComponent(finalSource)}`;
+          const pubRes = await axios.get(publicUrl);
+          if (pubRes?.data?.data) return pubRes.data.data;
+        } catch (e) {
+          // fall back to protected confirm
+        }
+
+        const url = `${backendUrl}/api/payments/ai-premium/confirm?sourceId=${encodeURIComponent(finalSource)}`;
+        const res = await axios.get(url, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        return res.data?.data || null;
+      } catch (e) {
+        return null;
+      }
+    };
 
     const checkStatus = async () => {
+      // try a direct confirm first (helps when webhook isn't delivered yet)
       try {
-        const response = await axios.get(
-          'http://localhost:8000/api/payments/ai-premium/status',
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          }
-        );
+        const confirmResult = await tryConfirm();
+        if (confirmResult?.premiumAIAccess) {
+          savePremiumToLocalStorage(confirmResult?.premiumPlan || null);
+          setStatus('success');
+          setMessage('🎉 Payment successful! Redirecting to premium page...');
+          handleRedirect('/ai-premium');
+          return;
+        }
+      } catch (e) {
+        // ignore and continue to polling
+      }
+      if (page !== 'success') {
+        return;
+      }
+
+      try {
+        const response = await axios.get(`${backendUrl}/api/payments/ai-premium/status`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
 
         if (!mounted) return;
-        if (failed) return;
 
-        if (response.data?.data?.premiumAIAccess) {
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            try {
-              const parsedUser = JSON.parse(storedUser);
-              localStorage.setItem(
-                'user',
-                JSON.stringify({ ...parsedUser, premiumAIAccess: true })
-              );
-            } catch (e) {
-              console.warn('Unable to update user premium status in localStorage.', e);
-            }
-          }
+        const data = response.data?.data || {};
+        const isPremium = data?.premiumAIAccess;
+        const paymentStatus = String(data?.status || 'pending').toLowerCase();
+        const premiumPlan = data?.premiumPlan || null;
 
+        if (isPremium) {
+          savePremiumToLocalStorage(premiumPlan);
           setStatus('success');
-          setMessage('🎉 Payment successful! Your AI Premium access is now active.');
-          setTimeout(() => {
-            navigate('/explore');
-          }, 2000);
+          setMessage('🎉 Payment successful! Redirecting to premium page...');
+          handleRedirect('/ai-premium');
+          return;
+        }
+
+        const failedStatuses = ['failed', 'declined', 'canceled', 'cancelled', 'expired', 'voided'];
+        const cancelledStatuses = ['canceled', 'cancelled'];
+
+        if (cancelledStatuses.includes(paymentStatus)) {
+          setStatus('cancelled');
+          setMessage('Payment was cancelled. Redirecting to cancellation page...');
+          handleRedirect('/payment-cancelled');
+          return;
+        }
+
+        if (failedStatuses.includes(paymentStatus)) {
+          setStatus('error');
+          setMessage('Payment failed. Redirecting to failed payment page...');
+          handleRedirect('/payment-failed');
           return;
         }
 
         attempt += 1;
-        if (attempt < 12) {
-          setTimeout(checkStatus, 5000);
-        } else {
+        if (attempt >= maxAttempts) {
           setStatus('error');
-          setMessage('Payment appears pending. If you completed checkout, please wait a moment and refresh this page.');
+          setMessage('Payment confirmation is still pending. Please refresh or return to premium.');
+          return;
         }
+
+        setTimeout(checkStatus, pollingDelay);
       } catch (err) {
         if (!mounted) return;
         console.error('Payment status error:', err);
-        setStatus('error');
-        setMessage(err.response?.data?.message || 'Payment verification failed.');
+        attempt += 1;
+
+        if (attempt >= maxAttempts) {
+          setStatus('error');
+          setMessage('Unable to verify payment. Please return to the premium page and try again.');
+          return;
+        }
+
+        setTimeout(checkStatus, pollingDelay);
       }
     };
 
-    checkStatus();
+    if (page === 'success') {
+      checkStatus();
+    }
 
     return () => {
       mounted = false;
     };
-  }, [navigate]);
+  }, [navigate, page]);
+
+  const renderContent = () => {
+    if (status === 'processing') {
+      return (
+        <>
+          <div style={styles.spinner} />
+          <p style={styles.text}>{message}</p>
+          <p style={styles.smallText}>
+            This page will update automatically once PayMongo confirms your payment.
+          </p>
+        </>
+      );
+    }
+
+    if (status === 'success') {
+      return (
+        <>
+          <div style={styles.successIcon}>✓</div>
+          <p style={styles.text}>{message}</p>
+          <p style={styles.smallText}>Redirecting to your premium page...</p>
+          <button onClick={() => navigate('/ai-premium')} style={styles.button}>
+            Go to Premium Page
+          </button>
+        </>
+      );
+    }
+
+    if (status === 'cancelled') {
+      return (
+        <>
+          <div style={styles.errorIcon}>⚠️</div>
+          <p style={styles.text}>{message}</p>
+          <button onClick={() => navigate('/ai-premium')} style={styles.button}>
+            Return to Premium Page
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div style={styles.errorIcon}>✕</div>
+        <p style={styles.text}>{message}</p>
+        <button onClick={() => navigate('/ai-premium')} style={styles.button}>
+          Return to Premium Page
+        </button>
+      </>
+    );
+  };
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        {status === 'processing' && (
-          <>
-            <div style={styles.spinner} />
-            <p style={styles.text}>{message}</p>
-            <p style={styles.smallText}>
-              Your checkout page should be open in a new tab. Keep this tab open while we wait for confirmation.
-            </p>
-          </>
-        )}
-        {status === 'success' && (
-          <>
-            <div style={styles.successIcon}>✓</div>
-            <p style={styles.text}>{message}</p>
-            <p style={styles.smallText}>Redirecting to Explore...</p>
-            <button
-              onClick={() => navigate('/ai-premium')}
-              style={styles.button}
-            >
-              Return to Premium Page
-            </button>
-          </>
-        )}
-        {status === 'error' && (
-          <>
-            <div style={styles.errorIcon}>✕</div>
-            <p style={styles.text}>{message}</p>
-            <button
-              onClick={() => navigate('/ai-premium')}
-              style={styles.button}
-            >
-              Return to Premium Page
-            </button>
-          </>
-        )}
-      </div>
+      <div style={styles.card}>{renderContent()}</div>
     </div>
   );
 }
@@ -130,7 +254,8 @@ const styles = {
     padding: '40px',
     textAlign: 'center',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    maxWidth: '400px',
+    maxWidth: '430px',
+    width: '90%',
   },
   spinner: {
     width: '50px',
@@ -175,7 +300,6 @@ const styles = {
   },
 };
 
-// Add CSS keyframe animation
 if (!document.getElementById('payment-success-styles')) {
   const style = document.createElement('style');
   style.id = 'payment-success-styles';

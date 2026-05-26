@@ -2,7 +2,6 @@ import AppSuccessful from "../Middleware/AppSuccessful.js";
 import { employerProfileService } from "../Services/CreateEmployerProfile.service.js";
 import Employer from '../Model/EmployerSchema.js'
 
-
 export const employerProfileController = async (req, res, next) => {
   try {
     const userId = req.user.id;

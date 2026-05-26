@@ -22,6 +22,9 @@ import Chat from "./pages/Chat";
 import UserSessions from "./pages/Admin/UserSessions";
 import AIPaymentSuccess from "./pages/AIPaymentSuccess";
 import AIPremium from "./pages/AIPremium";
+import GCashPayment from './pages/Payment/GCashPayment';
+import QRPayment from './pages/Payment/QRPayment';
+import CardPayment from './pages/Payment/CardPayment';
 
 function Layout() {
   const location = useLocation();
@@ -83,7 +86,13 @@ function App() {
     <NotificationProvider>
       <Routes>
         {/* Public payment redirect pages (no layout, no auth required) */}
-        <Route path="/ai-premium/success" element={<AIPaymentSuccess />} />
+        <Route path="/ai-premium/success" element={<AIPaymentSuccess page="success" />} />
+        <Route path="/payment/gcash" element={<GCashPayment />} />
+        <Route path="/payment/qr" element={<QRPayment />} />
+        <Route path="/payment/card" element={<CardPayment />} />
+        <Route path="/payment-failed" element={<AIPaymentSuccess page="failed" />} />
+        <Route path="/payment-cancelled" element={<AIPaymentSuccess page="cancelled" />} />
+        <Route path="/ai-premium/failed" element={<AIPaymentSuccess page="failed" />} />
         
         {/* Main app with layout and auth */}
         <Route element={<Layout />}>

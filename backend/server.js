@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
@@ -19,7 +20,10 @@ import ChatRouter from './Routes/ChatRouter.js';
 import PaymentRouter from './Routes/PaymentRouter.js';
 import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com';
 const app = express();
 const PORT = process.env.PORT || 8000;

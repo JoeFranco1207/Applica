@@ -7,6 +7,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "./ThemeSwitch";
 import NotificationPanel from "./NotificationPanel";
 import PresenceAvatar from './PresenceAvatar';
+import "./Navbar.css";
 
 const BellIcon = ({ size = 20, count = 0 }) => (
   <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -128,6 +129,41 @@ export default function Navbar() {
       setUser(null);
     }
   }, [location.pathname]);
+
+  // Listen for cross-tab storage updates so premium status updates live
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'user') {
+        try {
+          setUser(JSON.parse(e.newValue || 'null'));
+        } catch (err) {
+          setUser(null);
+        }
+      }
+      if (e.key === 'token') {
+        setToken(e.newValue);
+      }
+    };
+
+    const onUserUpdated = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (err) {
+          setUser(null);
+        }
+      }
+      setToken(localStorage.getItem('token'));
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('app:userUpdated', onUserUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('app:userUpdated', onUserUpdated);
+    };
+  }, []);
   const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
   const initials = fullName
     ? fullName
@@ -140,9 +176,8 @@ export default function Navbar() {
     ? user.email.charAt(0).toUpperCase()
     : "U";
   const profileImage = user?.profilePicture || user?.companyLogo || null;
-  const premiumBadgeStyle = user?.premiumAIAccess
-    ? { backgroundColor: '#16a34a' }
-    : { backgroundColor: '#6b7280' };
+  const premiumBadgeStyle = user?.premiumAIAccess ? {} : { backgroundColor: '#6b7280' };
+  const badgeClassName = user?.premiumAIAccess ? 'premium-status-badge' : 'free-status-badge';
 
   const handleLogout = async () => {
     try {
@@ -227,7 +262,10 @@ export default function Navbar() {
           <ThemeSwitch isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
           {token ? (
             <>
-              <div style={{ ...styles.statusBadge, ...premiumBadgeStyle }}>
+              <div
+                className={badgeClassName}
+                style={{ ...styles.statusBadge, ...premiumBadgeStyle }}
+              >
                 {user?.premiumAIAccess ? 'Premium' : 'Free'}
               </div>
               <button

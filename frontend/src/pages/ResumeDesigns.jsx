@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ThemeContext } from '../contexts/ThemeContext';
@@ -116,6 +116,8 @@ export default function ResumeDesigns() {
   const [step, setStep] = useState('confirm'); // 'confirm' or 'info'
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState('');
+  const progressIntervalRef = useRef(null);
   const [resumeUrl, setResumeUrl] = useState(null);
   
   // Additional info state
@@ -197,25 +199,49 @@ export default function ResumeDesigns() {
 
   const handleBackStep = () => {
     setStep('info');
-  }
+  };
+
+  const stopProgressAnimation = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+  };
+
+  const startProgressAnimation = () => {
+    stopProgressAnimation();
+    setProgressStatus('Preparing your resume...');
+    setProgress(5);
+    // Smooth deterministic increments to avoid big jumps in percent
+    progressIntervalRef.current = setInterval(() => {
+      setProgress((current) => {
+        if (current >= 45) return current;
+        // small steady increments early on
+        const next = current + Math.ceil(Math.random() * 3);
+        return next > 45 ? 45 : next;
+      });
+    }, 400);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopProgressAnimation();
+    };
+  }, []);
 
   const confirmGenerateResume = async () => {
     if (!selectedDesign) return;
+    if (user?.role === 'jobseeker' && !user?.premiumAIAccess) {
+      alert('This feature is available to AI Premium members only. Please upgrade to continue.');
+      navigate('/ai-premium');
+      return;
+    }
     setGenerating(true);
-    setProgress(5);
-
-    // animated progress while waiting for server
-    let interval = null;
-    interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 90) return p;
-        const next = p + Math.floor(Math.random() * 8) + 3;
-        return next > 90 ? 90 : next;
-      });
-    }, 700);
+    startProgressAnimation();
+    setProgress(10);
+    setProgressStatus('Sending resume request...');
 
     try {
-      // Filter out empty references and extracurricular
       const cleanReferences = references.filter(ref => ref.name.trim() || ref.contact.trim());
       const cleanExtracurricular = extracurricular.filter(e => e.trim());
 
@@ -234,6 +260,10 @@ export default function ResumeDesigns() {
         }
       );
 
+      // Advance to mid-progress once server accepted the job
+      setProgress(55);
+      setProgressStatus('Building your resume PDF...');
+
       const url = response?.data?.url || response?.data?.publicUrl;
       if (url) {
         setResumeUrl(url);
@@ -244,19 +274,32 @@ export default function ResumeDesigns() {
             parsed.resume = url;
             localStorage.setItem('user', JSON.stringify(parsed));
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Failed to update stored user resume URL', e);
+        }
       }
 
-      clearInterval(interval);
-      setProgress(100);
-      // small delay to show completion
+      stopProgressAnimation();
+      // Smoothly animate finalization
+      setProgress(80);
+      setProgressStatus('Finalizing PDF and preparing download...');
+      // small delay to show finalization
       setTimeout(() => {
-        setGenerating(false);
-      }, 500);
+        setProgress(95);
+        setProgressStatus('Almost done...');
+        setTimeout(() => {
+          setProgress(100);
+          setProgressStatus('Resume generation complete!');
+          setTimeout(() => {
+            setGenerating(false);
+          }, 400);
+        }, 450);
+      }, 450);
     } catch (error) {
       console.error('Error creating resume:', error);
-      clearInterval(interval);
+      stopProgressAnimation();
       setProgress(0);
+      setProgressStatus('');
       setGenerating(false);
       alert('Failed to create resume. Please try again.');
     }
@@ -594,12 +637,31 @@ export default function ResumeDesigns() {
                   >
                     Back
                   </button>
-                  <button
-                    style={styles.confirmButton}
-                    onClick={confirmGenerateResume}
-                  >
-                    Generate Resume
-                  </button>
+                  {user?.role === 'jobseeker' ? (
+                    user?.premiumAIAccess ? (
+                      <button
+                        style={styles.confirmButton}
+                        onClick={confirmGenerateResume}
+                      >
+                        Generate Resume
+                      </button>
+                    ) : (
+                      <button
+                        style={{ ...styles.confirmButton, backgroundColor: '#10b981' }}
+                        onClick={() => navigate('/ai-premium')}
+                        title="Upgrade to Premium to unlock resume generation"
+                      >
+                        Upgrade to Premium
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      style={{ ...styles.confirmButton, opacity: 0.6, cursor: 'not-allowed' }}
+                      disabled
+                    >
+                      Generate Resume
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -608,28 +670,38 @@ export default function ResumeDesigns() {
             {generating && (
               <div style={styles.progressContainer}>
                 <div style={styles.progressBarOuter}>
-                  <div style={{ ...styles.progressBarInner, width: `${progress}%` }} />
+                  <div style={{ ...styles.progressBarInner, width: `${Math.min(Math.max(Math.round(progress), 0), 100)}%` }} />
                 </div>
-                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, color: isDarkMode ? '#cbd5e1' : '#374151' }}>{progress}%</div>
+                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, color: isDarkMode ? '#cbd5e1' : '#374151' }}>
+                  {progressStatus ? `${progressStatus} (${Math.min(Math.max(Math.round(progress), 0), 100)}%)` : `${Math.min(Math.max(Math.round(progress), 0), 100)}%`}
+                </div>
               </div>
             )}
 
             {!generating && resumeUrl && (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>Resume ready</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <a href={resumeUrl} target="_blank" rel="noreferrer" style={styles.confirmButton}>View Resume</a>
-                  <button
-                    style={styles.cancelButton}
-                    onClick={() => {
-                      setShowPreview(false);
-                      setSelectedDesign(null);
-                      setProgress(0);
-                      setStep('confirm');
-                    }}
-                  >
-                    Close
-                  </button>
+                <div style={styles.resumeReadyCard}>
+                  <div style={styles.resumeReadyHeader}>
+                    <div style={styles.checkCircle}>✓</div>
+                    <div>
+                      <div style={styles.resumeReadyTitle}>Resume ready</div>
+                      <div style={styles.resumeReadySubtitle}>Your resume is ready to download.</div>
+                    </div>
+                  </div>
+                  <div style={styles.resumeReadyActions}>
+                    <a href={resumeUrl} target="_blank" rel="noreferrer" style={styles.viewButton}>View Resume</a>
+                    <button
+                      style={styles.closeButton}
+                      onClick={() => {
+                        setShowPreview(false);
+                        setSelectedDesign(null);
+                        setProgress(0);
+                        setStep('confirm');
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -840,6 +912,64 @@ const styles = {
   },
   progressContainer: {
     marginBottom: 16,
+  },
+  resumeReadyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 18,
+    boxShadow: '0 8px 30px rgba(2,6,23,0.18)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  resumeReadyHeader: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+  },
+  checkCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    background: 'linear-gradient(90deg,#6366f1,#8b5cf6)',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 800,
+    fontSize: 18,
+  },
+  resumeReadyTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+  },
+  resumeReadySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  resumeReadyActions: {
+    display: 'flex',
+    gap: 10,
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  viewButton: {
+    padding: '10px 18px',
+    borderRadius: 10,
+    background: 'linear-gradient(90deg,#6d28d9,#8b5cf6)',
+    color: '#fff',
+    textDecoration: 'none',
+    fontWeight: 700,
+  },
+  closeButton: {
+    padding: '10px 18px',
+    borderRadius: 10,
+    background: '#6b7280',
+    color: '#fff',
+    border: 'none',
+    fontWeight: 700,
+    cursor: 'pointer',
   },
   progressBarOuter: {
     width: '100%',

@@ -21,6 +21,7 @@ import PaymentRouter from './Routes/PaymentRouter.js';
 import InterviewRouter from './Routes/InterviewRouter.js';
 import Interview from './Model/InterviewSchema.js';
 import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
+import { initializeInterviewRoomSocket } from './Services/InterviewRoomSocket.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -298,6 +299,9 @@ io.on('connection', (socket) => {
     registerSocketUser(socket.userId, socket.id);
     console.log(`User ${socket.userId} registered with socket ${socket.id}`);
   });
+
+  // Initialize interview room socket handlers
+  initializeInterviewRoomSocket(io, socket);
 
   // Listen for notifications
   socket.on('notification', (data) => {

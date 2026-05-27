@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import VideoGrid from '../components/VideoGrid';
-import WaitingRoom from '../components/WaitingRoom';
-import InterviewControls from '../components/InterviewControls';
+import VideoGrid from './VideoGrid';
+import WaitingRoom from './WaitingRoom';
+import InterviewControls from './InterviewControls';
 import './InterviewRoom.css';
 
-export default function InterviewRoom() {
+const InterviewRoom = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const localVideoRef = useRef(null);
+  const peerConnectionsRef = useRef(new Map());
   const localStreamRef = useRef(null);
 
+  // State
   const [currentUser, setCurrentUser] = useState(null);
   const [isEmployer, setIsEmployer] = useState(false);
-  const [roomState, setRoomState] = useState('loading');
+  const [roomState, setRoomState] = useState('loading'); // loading, waiting, active, ended
   const [participants, setParticipants] = useState([]);
   const [waitingParticipants, setWaitingParticipants] = useState([]);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
@@ -26,6 +28,7 @@ export default function InterviewRoom() {
   const [error, setError] = useState(null);
   const [roomDetails, setRoomDetails] = useState(null);
 
+  // Initialize socket connection
   useEffect(() => {
     const socket = io(process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000', {
       reconnection: true,
@@ -35,16 +38,22 @@ export default function InterviewRoom() {
     });
 
     socketRef.current = socket;
+
+    // Get current user from localStorage
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     setCurrentUser(userData);
 
+    // Register user with socket
     socket.emit('register', userData._id);
+
+    // Join interview room
     socket.emit('interview-room:join', {
       roomId,
       userId: userData._id,
       role: userData.role === 'employer' ? 'employer' : 'applicant'
     });
 
+    // Socket event listeners
     socket.on('interview-room:state', (data) => {
       setRoomDetails(data);
       const userRole = userData.role === 'employer' ? 'employer' : 'applicant';
@@ -58,7 +67,11 @@ export default function InterviewRoom() {
 
     socket.on('interview-room:denied', () => {
       setError('Your request to join has been denied');
-      setTimeout(() => navigate('/employer/interviews'), 3000);
+      setTimeout(() => navigate('/interviews'), 3000);
+    });
+
+    socket.on('interview-room:participant-joined', (data) => {
+      setWaitingParticipants(prev => [...prev, data.participant]);
     });
 
     socket.on('interview-room:participant-admitted', (data) => {
@@ -70,13 +83,13 @@ export default function InterviewRoom() {
     });
 
     socket.on('interview-room:participant-left', (data) => {
-      setParticipants(prev => prev.filter(p => p.user?._id !== data.userId));
+      setParticipants(prev => prev.filter(p => p.user._id !== data.userId));
     });
 
     socket.on('interview-room:ended', () => {
       setRoomState('ended');
       setError('The interview has ended');
-      setTimeout(() => navigate('/employer/interviews'), 3000);
+      setTimeout(() => navigate('/interviews'), 3000);
     });
 
     socket.on('interview-room:error', (data) => {
@@ -87,6 +100,8 @@ export default function InterviewRoom() {
       socket.disconnect();
     };
   }, [roomId, navigate]);
+
+  // Initialize media devices
   useEffect(() => {
     const initializeMedia = async () => {
       try {
@@ -103,6 +118,7 @@ export default function InterviewRoom() {
           localVideoRef.current.srcObject = stream;
         }
 
+        // Set initial media tracks
         stream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
         stream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
       } catch (err) {
@@ -118,6 +134,7 @@ export default function InterviewRoom() {
     };
   }, []);
 
+  // Timer for call duration
   useEffect(() => {
     if (roomState !== 'active') return;
 
@@ -134,6 +151,7 @@ export default function InterviewRoom() {
     return () => clearInterval(interval);
   }, [roomState]);
 
+  // Handle audio toggle
   const handleToggleAudio = useCallback(() => {
     if (localStreamRef.current) {
       const enabled = !isAudioEnabled;
@@ -147,6 +165,7 @@ export default function InterviewRoom() {
     }
   }, [isAudioEnabled, roomId]);
 
+  // Handle video toggle
   const handleToggleVideo = useCallback(() => {
     if (localStreamRef.current) {
       const enabled = !isVideoEnabled;
@@ -160,8 +179,10 @@ export default function InterviewRoom() {
     }
   }, [isVideoEnabled, roomId]);
 
+  // Handle screen share
   const handleToggleScreenShare = useCallback(async () => {
     if (isScreenSharing) {
+      // Stop screen share
       localStreamRef.current?.getTracks().forEach(track => {
         if (track.kind === 'video' && track.getSettings().displaySurface) {
           track.stop();
@@ -174,9 +195,12 @@ export default function InterviewRoom() {
         isSharing: false
       });
     } else {
+      // Start screen share
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: { cursor: 'always' },
+          video: {
+            cursor: 'always'
+          },
           audio: false
         });
 
@@ -191,19 +215,23 @@ export default function InterviewRoom() {
     }
   }, [isScreenSharing, roomId]);
 
+  // Handle recording
   const handleToggleRecording = useCallback(() => {
     setIsRecording(!isRecording);
+    // Implement actual recording logic here
   }, [isRecording]);
 
+  // Handle end call
   const handleEndCall = useCallback(() => {
     if (isEmployer) {
       socketRef.current?.emit('interview-room:end', { roomId });
     } else {
       socketRef.current?.emit('interview-room:leave', { roomId });
-      navigate('/employer/interviews');
+      navigate('/interviews');
     }
   }, [isEmployer, roomId, navigate]);
 
+  // Handle admit participant
   const handleAdmitParticipant = (participantId) => {
     socketRef.current?.emit('interview-room:admit', {
       roomId,
@@ -211,6 +239,7 @@ export default function InterviewRoom() {
     });
   };
 
+  // Handle deny participant
   const handleDenyParticipant = (participantId) => {
     socketRef.current?.emit('interview-room:deny', {
       roomId,
@@ -218,6 +247,7 @@ export default function InterviewRoom() {
     });
   };
 
+  // Loading state
   if (roomState === 'loading') {
     return (
       <div className="interview-room loading">
@@ -240,6 +270,7 @@ export default function InterviewRoom() {
       )}
 
       <div className="interview-room-layout">
+        {/* Waiting room (if not admitted) */}
         {roomState === 'waiting' && !isEmployer ? (
           <div className="waiting-section">
             <WaitingRoom
@@ -250,6 +281,7 @@ export default function InterviewRoom() {
           </div>
         ) : (
           <>
+            {/* Main video area */}
             <div className="video-section">
               <VideoGrid
                 participants={participants}
@@ -267,6 +299,7 @@ export default function InterviewRoom() {
               />
             </div>
 
+            {/* Waiting room sidebar (employer only) */}
             {isEmployer && (
               <div className="waiting-room-sidebar">
                 <WaitingRoom
@@ -282,6 +315,7 @@ export default function InterviewRoom() {
         )}
       </div>
 
+      {/* Controls */}
       <InterviewControls
         isAudioEnabled={isAudioEnabled}
         isVideoEnabled={isVideoEnabled}
@@ -298,4 +332,6 @@ export default function InterviewRoom() {
       />
     </div>
   );
-}
+};
+
+export default InterviewRoom;

@@ -69,6 +69,25 @@ const JobIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const ChartIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M4 19V5" />
+    <path d="M10 19V11" />
+    <path d="M16 19V9" />
+    <path d="M22 19V13" />
+  </svg>
+);
+
 const HeartIcon = ({ size = 16 }) => (
   <svg
     width={size}
@@ -226,7 +245,6 @@ export default function Navbar() {
             {translate("nav.browseJobs")}
           </button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.companies")}</button>
-          <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.resources")}</button>
           {user?.role === "jobseeker" && (
             <button
               style={styles.linkButton}
@@ -238,14 +256,24 @@ export default function Navbar() {
             </button>
           )}
           {user?.role === "employer" && (
-            <button
-              style={styles.linkButton}
-              onClick={() => navigate("/employer/applicants")}
-              title={translate("nav.applicants")}
-            >
-              <JobIcon size={16} />
-              <span style={styles.navIconText}>{translate("nav.applicants")}</span>
-            </button>
+            <>
+              <button
+                style={styles.linkButton}
+                onClick={() => navigate("/employer/dashboard")}
+                title="Dashboard"
+              >
+                <ChartIcon size={16} />
+                <span style={styles.navIconText}>Dashboard</span>
+              </button>
+              <button
+                style={styles.linkButton}
+                onClick={() => navigate("/employer/applicants")}
+                title={translate("nav.applicants")}
+              >
+                <JobIcon size={16} />
+                <span style={styles.navIconText}>{translate("nav.applicants")}</span>
+              </button>
+            </>
           )}
         </div>
 

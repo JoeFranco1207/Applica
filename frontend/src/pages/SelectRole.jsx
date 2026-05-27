@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 export default function SelectRole() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const { isDarkMode } = useContext(ThemeContext);
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -50,18 +52,27 @@ export default function SelectRole() {
   };
 
   return (
-    <div className="page-container" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="page-container" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)' }}>
       <div style={{ padding: 28, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', width: 520, maxWidth: '92%' }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Select your role</h2>
-        <p style={{ marginTop: 0, marginBottom: 18 }}>Choose whether you'd like to use Applica as a Jobseeker or an Employer.</p>
+        <h2 style={{ marginTop: 0, marginBottom: 8, color: 'var(--text-h)' }}>Select your role</h2>
+        <p style={{ marginTop: 0, marginBottom: 18, color: 'var(--text)' }}>Choose whether you'd like to use Applica as a Jobseeker or an Employer.</p>
 
-        {error && <div style={{ color: '#b91c1c', marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: '#f87171', marginBottom: 12 }}>{error}</div>}
 
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <button
             onClick={() => chooseRole('jobseeker')}
             disabled={loading}
-            style={{ flex: 1, padding: '14px 18px', borderRadius: 10, cursor: 'pointer', border: '1px solid var(--border)', background: 'white', fontWeight: 700 }}
+            style={{
+              flex: 1,
+              padding: '14px 18px',
+              borderRadius: 10,
+              cursor: 'pointer',
+              border: '1px solid var(--border)',
+              background: isDarkMode ? 'var(--surface-alt)' : '#ffffff',
+              color: 'var(--text)',
+              fontWeight: 700,
+            }}
           >
             I'm a Jobseeker
           </button>
@@ -69,13 +80,22 @@ export default function SelectRole() {
           <button
             onClick={() => chooseRole('employer')}
             disabled={loading}
-            style={{ flex: 1, padding: '14px 18px', borderRadius: 10, cursor: 'pointer', border: '1px solid var(--border)', background: 'white', fontWeight: 700 }}
+            style={{
+              flex: 1,
+              padding: '14px 18px',
+              borderRadius: 10,
+              cursor: 'pointer',
+              border: '1px solid var(--border)',
+              background: isDarkMode ? 'var(--surface-alt)' : '#ffffff',
+              color: 'var(--text)',
+              fontWeight: 700,
+            }}
           >
             I'm an Employer
           </button>
         </div>
 
-        <p style={{ marginTop: 16, color: 'var(--text-muted)' }}>
+        <p style={{ marginTop: 16, color: 'var(--muted)' }}>
           You can only choose your role once. If you need to change it later, contact support.
         </p>
       </div>

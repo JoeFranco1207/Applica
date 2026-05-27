@@ -169,6 +169,14 @@ const CreateEmployerProfile = () => {
   };
 
   const computeCompletion = (data) => {
+    const isFilled = (v) => {
+      if (v == null) return false;
+      if (typeof v === "string") return v.trim().length > 0;
+      if (typeof v === "number") return !Number.isNaN(v);
+      if (typeof v === "boolean") return v;
+      return !!v;
+    };
+
     const fields = [
       data?.companyName,
       data?.companyDescription,
@@ -181,10 +189,11 @@ const CreateEmployerProfile = () => {
       data?.companyLocation?.city,
       data?.companyLocation?.barangay,
       data?.companyLocation?.otherDetails,
-      data?.companyLogo || existingCompanyLogo,
+      // include the in-component `companyLogo` state as well
+      companyLogo || existingCompanyLogo,
     ];
 
-    const filled = fields.reduce((c, v) => c + (!!v ? 1 : 0), 0);
+    const filled = fields.reduce((c, v) => c + (isFilled(v) ? 1 : 0), 0);
     return Math.round((filled / fields.length) * 100);
   };
 
@@ -368,17 +377,19 @@ const CreateEmployerProfile = () => {
             </p>
 
             <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: "#cbd5e1" }}>
-                  Profile Completion
-                </span>
-                <span style={{ fontSize: 13, color: "#cbd5e1" }}>
-                  {computeCompletion(formData)}%
-                </span>
-              </div>
-              <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#275791" }} />
-              </div>
+              {(() => {
+                const completion = computeCompletion(formData);
+                return (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: "#cbd5e1" }}>Profile Completion</span>
+                    </div>
+                    <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ height: 10, width: `${completion}%`, background: completion === 100 ? "#22c55e" : "#275791" }} />
+                    </div>
+                  </>
+                );
+              })() }
             </div>
             {message && (
               <div

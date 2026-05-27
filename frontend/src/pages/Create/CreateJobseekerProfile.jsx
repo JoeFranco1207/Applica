@@ -21,7 +21,7 @@ const CreateJobseekerProfile = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     bio: "",
-    citizenShip: "Filipino",
+    citizenShip: "",
     location: {
       region: "",
       city: "",
@@ -93,7 +93,7 @@ const CreateJobseekerProfile = () => {
 
           setFormData({
             bio: user.bio || "",
-            citizenShip: user.citizenShip || "Filipino",
+            citizenShip: user.citizenShip || "",
             location: {
               region: user.location?.region || "",
               city: user.location?.city || "",
@@ -283,6 +283,14 @@ const CreateJobseekerProfile = () => {
   };
 
   const computeCompletion = (data) => {
+    const isFilled = (v) => {
+      if (v == null) return false;
+      if (typeof v === "string") return v.trim().length > 0;
+      if (typeof v === "number") return !Number.isNaN(v);
+      if (typeof v === "boolean") return v;
+      return !!v;
+    };
+
     const fields = [
       data?.bio,
       data?.citizenShip,
@@ -292,11 +300,13 @@ const CreateJobseekerProfile = () => {
       data?.location?.city,
       data?.location?.barangay,
       data?.location?.otherDetails,
-      data?.profilePicture || existingProfilePicture,
+      // profilePicture is stored in separate state `profilePicture` (or existingProfilePicture)
+      profilePicture || existingProfilePicture,
+      // resume may be in form data or existing name
       data?.resume || existingResumeName,
     ];
 
-    const filled = fields.reduce((count, value) => count + (value ? 1 : 0), 0);
+    const filled = fields.reduce((count, value) => count + (isFilled(value) ? 1 : 0), 0);
     return Math.round((filled / fields.length) * 100);
   };
 
@@ -459,13 +469,28 @@ const CreateJobseekerProfile = () => {
           </div>
 
           <div style={{ marginTop: 24, marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 13, color: "#cbd5e1" }}>Profile Completion</span>
-              <span style={{ fontSize: 13, color: "#cbd5e1" }}>{computeCompletion(formData)}%</span>
-            </div>
-            <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", marginTop: 10 }}>
-              <div style={{ height: 10, width: `${computeCompletion(formData)}%`, background: computeCompletion(formData) === 100 ? "#22c55e" : "#275791" }} />
-            </div>
+            {(() => {
+              const completion = computeCompletion(formData);
+              // debug log to help identify why the percent might be 0
+              // eslint-disable-next-line no-console
+              console.debug("Profile completion computed:", completion, {
+                bio: formData.bio,
+                citizenShip: formData.citizenShip,
+                profilePicture: !!(profilePicture || existingProfilePicture),
+                resume: !!(formData.resume || existingResumeName),
+              });
+
+              return (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 13, color: "#cbd5e1" }}>Profile Completion</span>
+                  </div>
+                  <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden", marginTop: 10 }}>
+                    <div style={{ height: 10, width: `${completion}%`, background: completion === 100 ? "#22c55e" : "#275791" }} />
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {message && (
@@ -554,6 +579,7 @@ const CreateJobseekerProfile = () => {
                 style={styles.input}
                 disabled={!editable}
               >
+                <option value="">Select citizenship</option>
                 <option value="Filipino">Filipino</option>
                 <option value="Foreign">Foreign</option>
               </select>

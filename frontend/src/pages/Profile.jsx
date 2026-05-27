@@ -1349,13 +1349,13 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#1892aa",
+                  color: "var(--primary)",
                 }}>
                   Email
                 </label>
                 <p style={{
                   ...styles.detailValue,
-                  color: isDarkMode ? "#ccc" : "#333",
+                  color: "var(--text)",
                 }}>
                   {user?.email || "Not provided"}
                 </p>
@@ -1364,13 +1364,13 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#1892aa",
+                  color: "var(--primary)",
                 }}>
                   Account Type
                 </label>
                 <p style={{
                   ...styles.detailValue,
-                  color: isDarkMode ? "#ccc" : "#333",
+                  color: "var(--text)",
                 }}>
                   {user?.role === "employer"
                     ? "Employer"
@@ -1381,13 +1381,13 @@ export default function Profile() {
               <div style={styles.detailItem}>
                 <label style={{
                   ...styles.detailLabel,
-                  color: "#1892aa",
+                  color: "var(--primary)",
                 }}>
                   Member Since
                 </label>
                 <p style={{
                   ...styles.detailValue,
-                  color: isDarkMode ? "#ccc" : "#333",
+                  color: "var(--text)",
                 }}>
                   {user?.createdAt
                     ? new Date(user.createdAt).toLocaleDateString()
@@ -2106,12 +2106,6 @@ export default function Profile() {
                     }}
                   ></div>
                 </div>
-                <span style={{
-                  ...styles.statusValue,
-                  color: isDarkMode ? "#999" : "#666",
-                }}>
-                  {completion}% complete
-                </span>
               </div>
               )}
             </div>
@@ -2627,15 +2621,16 @@ const styles = {
   detailLabel: {
     fontSize: "12px",
     fontWeight: "700",
-    color: "#1892aa",
+    color: "var(--primary)",
     textTransform: "uppercase",
     marginBottom: "8px",
   },
 
   detailValue: {
     fontSize: "16px",
-    color: "#333",
+    color: "var(--text)",
     margin: 0,
+    lineHeight: 1.65,
   },
 
   profileImagePreview: {

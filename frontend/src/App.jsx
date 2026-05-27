@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import PostView from "./pages/PostView";
 import BrowseJob from "./pages/Browse/BrowseJob";
 import EmployerApplicants from "./pages/EmployerApplicants";
+import EmployerDashboard from "./pages/EmployerDashboard";
 import ResumeDesigns from "./pages/ResumeDesigns";
 import Chat from "./pages/Chat";
 import UserSessions from "./pages/Admin/UserSessions";
@@ -109,6 +110,7 @@ function App() {
           <Route path="/post/:id" element={<ProtectedRoute><PostView /></ProtectedRoute>} />
           <Route path="/resume-designs" element={<ProtectedRoute><ResumeDesigns /></ProtectedRoute>} />
           <Route path="/ai-premium" element={<ProtectedRoute><AIPremium /></ProtectedRoute>} />
+          <Route path="/employer/dashboard" element={<ProtectedRoute><EmployerDashboard /></ProtectedRoute>} />
           <Route path="/employer/applicants" element={<ProtectedRoute><EmployerApplicants /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/admin/users/:id/sessions" element={<ProtectedRoute><UserSessions /></ProtectedRoute>} />

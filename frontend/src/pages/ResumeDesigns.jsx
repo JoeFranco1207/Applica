@@ -668,12 +668,12 @@ export default function ResumeDesigns() {
 
             {/* Progress area */}
             {generating && (
-              <div style={styles.progressContainer}>
-                <div style={styles.progressBarOuter}>
-                  <div style={{ ...styles.progressBarInner, width: `${Math.min(Math.max(Math.round(progress), 0), 100)}%` }} />
-                </div>
-                <div style={{ marginTop: 8, textAlign: 'right', fontSize: 13, color: isDarkMode ? '#cbd5e1' : '#374151' }}>
-                  {progressStatus ? `${progressStatus} (${Math.min(Math.max(Math.round(progress), 0), 100)}%)` : `${Math.min(Math.max(Math.round(progress), 0), 100)}%`}
+              <div className="resume-loading-area">
+                <div className="resume-loading-bar-wrap">
+                  <div
+                    className="resume-loading-bar"
+                    style={{ width: `${Math.min(Math.max(Math.round(progress), 0), 100)}%` }}
+                  />
                 </div>
               </div>
             )}
@@ -911,7 +911,10 @@ const styles = {
     lineHeight: '1.6',
   },
   progressContainer: {
-    marginBottom: 16,
+    marginBottom: 22,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resumeReadyCard: {
     backgroundColor: '#fff',
@@ -983,6 +986,7 @@ const styles = {
     background: 'linear-gradient(90deg,#6366f1,#8b5cf6)',
     borderRadius: 8,
     transition: 'width 0.6s ease',
+    boxShadow: '0 0 16px rgba(99,102,241,0.4)',
   },
   modalActions: {
     display: 'flex',

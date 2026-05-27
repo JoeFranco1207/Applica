@@ -309,7 +309,7 @@ export const getJobById = async (jobId) => {
 };
 
 export const getEmployerJobs = async (employerId) => {
-  return Job.find({ createdBy: employerId })
+  const jobs = await Job.find({ createdBy: employerId })
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
@@ -317,18 +317,23 @@ export const getEmployerJobs = async (employerId) => {
     })
     .populate({
       path: "views",
-      match: { role: "jobseeker" },
       select: "_id firstName lastName email",
     })
     .populate({
       path: "likes",
-      match: { role: "jobseeker" },
       select: "_id firstName lastName email",
     })
     .populate({
       path: "applicants.user",
       select: "_id firstName lastName email phoneNumber bio citizenShip experience education resume location profilePicture",
     });
+  
+  // Debug log to verify data structure
+  jobs.forEach((job) => {
+    console.log(`Job: ${job.title}, Views: ${job.views.length}, Likes: ${job.likes.length}, Applicants: ${job.applicants.length}`);
+  });
+  
+  return jobs;
 };
 
 export const deleteEmployerJob = async (jobId, employerId) => {
@@ -378,12 +383,10 @@ export const removeApplicant = async (jobId, employerId, applicantId) => {
   });
   await job.populate({
     path: "views",
-    match: { role: "jobseeker" },
     select: "_id firstName lastName email",
   });
   await job.populate({
     path: "likes",
-    match: { role: "jobseeker" },
     select: "_id firstName lastName email",
   });
   await job.populate({

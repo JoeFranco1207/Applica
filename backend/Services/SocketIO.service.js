@@ -75,6 +75,15 @@ export const sendChatMessageToUser = (userId, message) => {
   }
 };
 
+export const sendInterviewInvite = (userId, interview) => {
+  if (!ioRef) return;
+  const socketId = userSockets.get(userId.toString());
+  if (socketId) {
+    ioRef.to(socketId).emit('interview:invited', interview);
+    console.log(`Interview invite sent to user ${userId}`);
+  }
+};
+
 export const sendChatMessageDeletedToUser = (userId, payload) => {
   if (!ioRef) return;
   const socketId = userSockets.get(userId.toString());

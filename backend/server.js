@@ -18,6 +18,8 @@ import PostRouter from './Routes/PostRouter.js';
 import NotificationRouter from './Routes/NotificationRouter.js';
 import ChatRouter from './Routes/ChatRouter.js';
 import PaymentRouter from './Routes/PaymentRouter.js';
+import InterviewRouter from './Routes/InterviewRouter.js';
+import Interview from './Model/InterviewSchema.js';
 import { getSocketIdByUser, registerSocketUser, unregisterSocketById, setIo, setUserPresence } from './Services/SocketIO.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +61,7 @@ app.use('/api/posts', PostRouter);
 app.use('/api/payments', PaymentRouter);
 app.use('/api/notifications', NotificationRouter);
 app.use('/api/chat', ChatRouter);
+app.use('/api/interviews', InterviewRouter);
 
 const translateText = async (text, source, target) => {
   const response = await axios.post(
@@ -354,6 +357,59 @@ io.on('connection', (socket) => {
         ...data,
         from: socket.userId,
       });
+    }
+  });
+
+  // Interview events: create via socket (alternative to HTTP endpoint)
+  socket.on('interview:create', async (data) => {
+    try {
+      const { employer, title, description, participants = [], scheduledAt, location } = data || {};
+      if (!employer || !scheduledAt || !participants.length) return;
+      const roomId = `interview_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const interview = await Interview.create({ employer, title, description, participants, scheduledAt: new Date(scheduledAt), location, roomId, status: 'scheduled' });
+
+      // notify participants via sockets
+      for (const p of participants) {
+        const userId = p.user || p;
+        const targetSocketId = getSocketIdByUser(userId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('interview:invited', {
+            _id: interview._id,
+            title: interview.title,
+            scheduledAt: interview.scheduledAt,
+            roomId: interview.roomId,
+            employer: interview.employer
+          });
+        }
+      }
+
+      // reply to creator
+      socket.emit('interview:created', interview);
+    } catch (err) {
+      console.error('Error creating interview via socket:', err?.message || err);
+      socket.emit('interview:error', { message: 'Unable to create interview' });
+    }
+  });
+
+  socket.on('interview:join', (data) => {
+    try {
+      const { roomId } = data || {};
+      if (!roomId) return;
+      socket.join(roomId);
+      io.to(roomId).emit('interview:participant-joined', { userId: socket.userId, roomId });
+    } catch (err) {
+      console.error('interview:join error', err?.message || err);
+    }
+  });
+
+  socket.on('interview:leave', (data) => {
+    try {
+      const { roomId } = data || {};
+      if (!roomId) return;
+      socket.leave(roomId);
+      io.to(roomId).emit('interview:participant-left', { userId: socket.userId, roomId });
+    } catch (err) {
+      console.error('interview:leave error', err?.message || err);
     }
   });
 

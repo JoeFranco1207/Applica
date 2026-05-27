@@ -173,7 +173,7 @@ export default function Profile() {
   const { id: profileId } = useParams();
   const location = useLocation();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { setPresence } = useNotification();
+  const { setPresence, createInterview } = useNotification();
   const storedUser = localStorage.getItem("user");
   const [authUser, setAuthUser] = useState(storedUser ? JSON.parse(storedUser) : null);
   const currentUserId = authUser?.id || authUser?._id || null;
@@ -558,6 +558,40 @@ export default function Profile() {
     } catch (error) {
       console.error("Error updating applicant status:", error);
       alert("Could not update applicant status. Please try again.");
+    }
+  };
+
+  const handleApplicantInterview = async (jobId, applicantId, applicantUser, jobTitle) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const payload = {
+        employer: authUser?._id || authUser?.id,
+        title: `Interview with ${applicantUser?.firstName || ''} ${applicantUser?.lastName || ''}`.trim() || 'Interview',
+        description: `Interview for ${jobTitle || 'application'}`,
+        participants: [
+          { user: applicantId, role: 'applicant' },
+          { user: authUser?._id || authUser?.id, role: 'employer' },
+        ],
+        scheduledAt: new Date().toISOString(),
+        location: 'Online',
+      };
+
+      const res = await createInterview(payload, false);
+      const interview = res?.data;
+      if (!interview?.roomId) {
+        throw new Error('Interview room was not created');
+      }
+
+      await handleApplicantStatusChange(jobId, applicantId, 'interview');
+      navigate(`/interview/${interview.roomId}`);
+    } catch (error) {
+      console.error('Error creating interview:', error);
+      alert('Could not create interview room. Please try again.');
     }
   };
 
@@ -1759,6 +1793,14 @@ export default function Profile() {
                                           {status === "reviewing" && (
                                             <button
                                               style={styles.statusButton}
+                                              onClick={() => handleApplicantInterview(job._id, user._id, user, job.title)}
+                                            >
+                                              Interview
+                                            </button>
+                                          )}
+                                          {status === "interview" && (
+                                            <button
+                                              style={styles.statusButton}
                                               onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
                                             >
                                               Accept
@@ -1830,6 +1872,14 @@ export default function Profile() {
                         </button>
                       )}
                       {selectedApplicant.status === 'reviewing' && (
+                        <button
+                          style={styles.statusButton}
+                          onClick={() => handleApplicantInterview(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, selectedApplicantInfo, selectedApplicant.jobTitle)}
+                        >
+                          Interview
+                        </button>
+                      )}
+                      {selectedApplicant.status === 'interview' && (
                         <button
                           style={styles.statusButton}
                           onClick={() => handleApplicantStatusChange(selectedApplicant.jobId, selectedApplicant.user?._id || selectedApplicant._id, 'accepted')}

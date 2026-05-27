@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useNotification } from '../contexts/NotificationContext';
 
 export default function EmployerApplicants() {
   const navigate = useNavigate();
+  const { createInterview } = useNotification();
   const token = localStorage.getItem("token");
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -111,6 +113,43 @@ export default function EmployerApplicants() {
     }
   };
 
+  const handleApplicantInterview = async (jobId, applicantId, applicantUser, jobTitle) => {
+    if (!token) {
+      navigate("/auth");
+      return;
+    }
+
+    setJobActionLoading(true);
+
+    try {
+      const payload = {
+        employer: user?._id,
+        title: `Interview with ${applicantUser?.firstName || ''} ${applicantUser?.lastName || ''}`.trim() || 'Interview',
+        description: `Interview for ${jobTitle || 'application'}`,
+        participants: [
+          { user: applicantId, role: 'applicant' },
+          { user: user?._id, role: 'employer' },
+        ],
+        scheduledAt: new Date().toISOString(),
+        location: 'Online',
+      };
+
+      const res = await createInterview(payload, false);
+      const interview = res?.data;
+      if (!interview?.roomId) {
+        throw new Error('Interview room was not created');
+      }
+
+      await handleApplicantStatusChange(jobId, applicantId, 'interview');
+      navigate(`/interview/${interview.roomId}`);
+    } catch (error) {
+      console.error('Error creating interview:', error);
+      alert('Could not create interview room. Please try again.');
+    } finally {
+      setJobActionLoading(false);
+    }
+  };
+
   const handleApplicantRemove = async (jobId, applicantId) => {
     if (!token) {
       navigate("/auth");
@@ -179,6 +218,7 @@ export default function EmployerApplicants() {
     const applicantsByStatus = {
       pending: [],
       reviewing: [],
+      interview: [],
       accepted: [],
       rejected: [],
     };
@@ -240,6 +280,7 @@ export default function EmployerApplicants() {
             {[
               { key: "pending", label: "Pending" },
               { key: "reviewing", label: "Reviewing" },
+              { key: "interview", label: "Interview" },
               { key: "accepted", label: "Accepted" },
               { key: "rejected", label: "Rejected" },
             ].map(({ key, label }) => (
@@ -320,6 +361,15 @@ export default function EmployerApplicants() {
                               </button>
                             )}
                             {activeTab === "reviewing" && (
+                              <button
+                                style={styles.actionPrimary}
+                                disabled={jobActionLoading}
+                                onClick={() => handleApplicantInterview(entry.jobId, entry.applicantUser._id, entry.applicantUser, entry.jobTitle)}
+                              >
+                                Interview
+                              </button>
+                            )}
+                            {activeTab === "interview" && (
                               <button
                                 style={styles.actionPrimary}
                                 disabled={jobActionLoading}
@@ -430,6 +480,15 @@ export default function EmployerApplicants() {
                           </button>
                         )}
                         {selectedApplicant.status === "reviewing" && (
+                          <button
+                            style={styles.acceptButton}
+                            disabled={jobActionLoading}
+                            onClick={() => handleApplicantInterview(selectedApplicant.jobId, selectedApplicantInfo?._id, selectedApplicantInfo, selectedApplicant.jobTitle)}
+                          >
+                            Interview
+                          </button>
+                        )}
+                        {selectedApplicant.status === "interview" && (
                           <button
                             style={styles.acceptButton}
                             disabled={jobActionLoading}

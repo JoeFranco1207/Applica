@@ -173,6 +173,47 @@ export const NotificationProvider = ({ children }) => {
         console.error('Socket.IO error:', error);
       });
 
+      // Interview invite events
+      newSocket.on('interview:invited', (payload) => {
+        try {
+          console.log('Received interview invite:', payload);
+          const ev = new CustomEvent('app:interviewInvited', { detail: payload });
+          window.dispatchEvent(ev);
+          // also add a lightweight notification so users see it in the UI
+          setNotifications((prev) => [
+            {
+              id: `interview_${payload._id}_${Date.now()}`,
+              type: 'interview:invited',
+              interview: payload,
+              read: false,
+              createdAt: new Date()
+            },
+            ...prev,
+          ]);
+          setUnreadCount((u) => u + 1);
+        } catch (err) {
+          console.error('Error handling interview invite:', err);
+        }
+      });
+
+      newSocket.on('interview:created', (payload) => {
+        try {
+          const ev = new CustomEvent('app:interviewCreated', { detail: payload });
+          window.dispatchEvent(ev);
+        } catch (err) {
+          console.error('Error handling interview created:', err);
+        }
+      });
+
+      newSocket.on('interview:participant-joined', (payload) => {
+        try {
+          const ev = new CustomEvent('app:interviewParticipantJoined', { detail: payload });
+          window.dispatchEvent(ev);
+        } catch (err) {
+          console.error('Error handling interview participant joined:', err);
+        }
+      });
+
       setSocket(newSocket);
 
       // Cleanup on unmount
@@ -193,6 +234,21 @@ export const NotificationProvider = ({ children }) => {
       window.dispatchEvent(evt);
     } catch (err) {
       console.error('Failed to set presence:', err);
+    }
+  };
+
+  const createInterview = async ({ employer, title, description, participants, scheduledAt, location }, useSocket = true) => {
+    const token = localStorage.getItem('token');
+    try {
+      if (useSocket && socket) {
+        socket.emit('interview:create', { employer, title, description, participants, scheduledAt, location });
+        return { ok: true };
+      }
+      const res = await axios.post('http://localhost:8000/api/interviews', { employer, title, description, participants, scheduledAt, location }, { headers: { Authorization: `Bearer ${token}` } });
+      return res.data;
+    } catch (err) {
+      console.error('Failed to create interview:', err?.response?.data || err.message || err);
+      return { ok: false, error: err };
     }
   };
 
@@ -269,6 +325,7 @@ export const NotificationProvider = ({ children }) => {
     deleteNotification,
     isConnected,
     setPresence,
+    createInterview,
   };
 
   return (

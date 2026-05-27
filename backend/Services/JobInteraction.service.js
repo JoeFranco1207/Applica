@@ -232,7 +232,7 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
     throw new AppError("Applicant not found", 404);
   }
 
-  const validStatuses = ["pending", "reviewing", "accepted", "rejected"];
+  const validStatuses = ["pending", "reviewing", "interview", "accepted", "rejected"];
   if (!validStatuses.includes(status)) {
     throw new AppError("Invalid status update", 400);
   }
@@ -265,6 +265,8 @@ export const updateApplicantStatus = async (jobId, employerId, applicantId, stat
       message = `Your application for ${job.title} has been rejected. You can reapply after 20 days.`;
     } else if (status === 'reviewing') {
       message = `Your application for ${job.title} is under review.`;
+    } else if (status === 'interview') {
+      message = `Your application for ${job.title} has been moved to interview scheduling.`;
     } else if (status === 'accepted') {
       message = `Your application for ${job.title} has been accepted.`;
     } else {

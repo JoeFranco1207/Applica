@@ -69,6 +69,15 @@ const JobIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const InterviewIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="7" width="18" height="10" rx="2" ry="2" />
+    <path d="M16 3v4" />
+    <path d="M8 3v4" />
+    <path d="M3 12h18" />
+  </svg>
+);
+
 const ChartIcon = ({ size = 18 }) => (
   <svg
     width={size}
@@ -258,24 +267,29 @@ export default function Navbar() {
           {user?.role === "employer" && (
             <>
               <button
-                style={styles.linkButton}
+                style={styles.iconButton}
                 onClick={() => navigate("/employer/dashboard")}
                 title="Dashboard"
               >
-                <ChartIcon size={16} />
-                <span style={styles.navIconText}>Dashboard</span>
+                <ChartIcon size={18} />
               </button>
               <button
-                style={styles.linkButton}
+                style={styles.iconButton}
                 onClick={() => navigate("/employer/applicants")}
                 title={translate("nav.applicants")}
               >
-                <JobIcon size={16} />
-                <span style={styles.navIconText}>{translate("nav.applicants")}</span>
+                <JobIcon size={18} />
+              </button>
+              <button
+                style={styles.iconButton}
+                onClick={() => navigate("/employer/interviews")}
+                title="Interviews"
+              >
+                <InterviewIcon size={18} />
               </button>
             </>
           )}
-        </div>
+          </div>
 
         <div style={styles.actions}>
           <select
@@ -623,6 +637,19 @@ const styles = {
     borderBottom: "1px solid rgba(0,0,0,0.04)",
     cursor: "pointer",
     fontSize: 14,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--surface)',
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: 'var(--text-h)'
   },
 };
 

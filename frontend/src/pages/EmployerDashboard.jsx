@@ -17,6 +17,7 @@ export default function EmployerDashboard() {
 
   const getCount = (value) => {
     if (Array.isArray(value)) return value.length;
+    if (value && typeof value === "object" && typeof value.length === "number") return value.length;
     if (typeof value === "number") return value;
     if (typeof value === "string" && value !== "" && !Number.isNaN(Number(value))) {
       return Number(value);
@@ -40,8 +41,46 @@ export default function EmployerDashboard() {
     return 0;
   };
 
+  const refreshAuthenticatedUser = async (currentToken) => {
+    if (!currentToken) return null;
+
+    try {
+      const response = await axios.get("http://localhost:8000/api/auth/profile", {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+      });
+
+      const freshUser = response.data?.data;
+      if (freshUser) {
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        setUser(freshUser);
+        return freshUser;
+      }
+    } catch (err) {
+      console.warn("EmployerDashboard: failed to refresh authenticated user", err?.response?.data || err.message);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/auth");
+      }
+    }
+
+    return null;
+  };
+
   const fetchJobs = async (currentToken, currentUser) => {
-    if (!currentToken || currentUser?.role !== "employer") return;
+    if (!currentToken) {
+      setError("Unable to load dashboard without authentication. Please log in again.");
+      setEmployerJobs([]);
+      return;
+    }
+
+    if (!currentUser || currentUser?.role !== "employer") {
+      setEmployerJobs([]);
+      setError("This dashboard is available for employer accounts only.");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -55,11 +94,11 @@ export default function EmployerDashboard() {
 
       const jobsPayload = response.data?.data || response.data?.jobs || [];
       if (!Array.isArray(jobsPayload)) {
-        console.warn("EmployerDashboard: unexpected job response shape", response.data);
+        console.error("EmployerDashboard: jobsPayload is not an array!", jobsPayload, "Response structure:", response.data);
       }
       setEmployerJobs(Array.isArray(jobsPayload) ? jobsPayload : []);
     } catch (fetchError) {
-      console.error("Error fetching employer jobs:", fetchError?.response?.data || fetchError);
+      console.error("Error fetching employer jobs:", fetchError?.response?.data || fetchError?.message);
       setError("Unable to load dashboard data. Please refresh the page.");
       setEmployerJobs([]);
     } finally {
@@ -68,19 +107,30 @@ export default function EmployerDashboard() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-    if (!user && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.warn("EmployerDashboard: failed to parse user from storage", err);
-      }
-    }
+    const initializeDashboard = async () => {
+      const token = localStorage.getItem("token");
+      let parsedUser = null;
+      const storedUser = localStorage.getItem("user");
 
-    const currentUser = user || (storedUser ? JSON.parse(storedUser) : null);
-    fetchJobs(token, currentUser);
-  }, [user]);
+      if (storedUser) {
+        try {
+          parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (err) {
+          console.warn("EmployerDashboard: failed to parse user from storage", err);
+          localStorage.removeItem("user");
+        }
+      }
+
+      if (!parsedUser && token) {
+        parsedUser = await refreshAuthenticatedUser(token);
+      }
+
+      await fetchJobs(token, parsedUser);
+    };
+
+    initializeDashboard();
+  }, []);
 
   const isEmployer = user?.role === "employer";
   const companyName = user?.companyName || "Your company";
@@ -161,12 +211,27 @@ export default function EmployerDashboard() {
             Track views, applicants, engagement, and job performance in one place.
           </p>
         </div>
-        <button style={styles.refreshButton} onClick={() => {
-          const token = localStorage.getItem("token");
-          const stored = localStorage.getItem("user");
-          const currentUser = stored ? JSON.parse(stored) : null;
-          fetchJobs(token, currentUser);
-        }}>
+        <button
+          style={styles.refreshButton}
+          onClick={async () => {
+            const token = localStorage.getItem("token");
+            let currentUser = null;
+            const stored = localStorage.getItem("user");
+            if (stored) {
+              try {
+                currentUser = JSON.parse(stored);
+              } catch {
+                currentUser = null;
+              }
+            }
+
+            if (!currentUser && token) {
+              currentUser = await refreshAuthenticatedUser(token);
+            }
+
+            fetchJobs(token, currentUser);
+          }}
+        >
           {loading ? "Refreshing..." : "Refresh metrics"}
         </button>
       </div>

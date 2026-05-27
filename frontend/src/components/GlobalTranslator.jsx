@@ -34,9 +34,13 @@ const shouldProcessTextNode = (node) => {
 };
 
 const translateTextNode = async (node, target) => {
-  const originalValue = node.__originalText__ ?? node.nodeValue;
-  if (node.__originalText__ === undefined) {
-    node.__originalText__ = originalValue;
+  const currentValue = node.nodeValue || "";
+  const isCurrentValueTranslated = node.__originalText__ !== undefined && node.__lastTranslatedText__ === currentValue;
+  const originalValue = isCurrentValueTranslated ? node.__originalText__ : currentValue;
+
+  // Update original text when content changes dynamically.
+  if (node.__originalText__ === undefined || !isCurrentValueTranslated) {
+    node.__originalText__ = currentValue;
   }
 
   const trimmed = originalValue.trim();
@@ -59,8 +63,10 @@ const translateTextNode = async (node, target) => {
 };
 
 const translateAttribute = async (element, attributeName, target) => {
-  const originalKey = `original-${attributeName}`;
-  const translatedKey = `translated-${attributeName}`;
+  // Convert attribute name to camelCase for dataset keys (e.g., "aria-label" -> "ariaLabel")
+  const camelCaseAttr = attributeName.replace(/-./g, x => x[1].toUpperCase());
+  const originalKey = `original${camelCaseAttr.charAt(0).toUpperCase()}${camelCaseAttr.slice(1)}`;
+  const translatedKey = `translated${camelCaseAttr.charAt(0).toUpperCase()}${camelCaseAttr.slice(1)}`;
   const currentValue = element.getAttribute(attributeName);
   if (!currentValue) return;
 

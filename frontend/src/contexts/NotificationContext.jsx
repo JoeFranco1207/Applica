@@ -82,11 +82,15 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     let userId = null;
+    let presenceMode = 'online';
+    
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
       userId = storedUser?._id || storedUser?.id || null;
+      presenceMode = storedUser?.presenceMode === 'dnd' ? 'dnd' : 'online';
     } catch (err) {
       userId = null;
+      presenceMode = 'online';
     }
 
     fetchUnreadCount();
@@ -113,13 +117,12 @@ export const NotificationProvider = ({ children }) => {
         console.log('Registered user:', userId);
 
         // Optimistically mark the current user online unless they are in DND.
-        const initialPresenceMode = storedUser?.presenceMode === 'dnd' ? 'dnd' : 'online';
         const selfPresenceEvent = new CustomEvent('app:userPresenceUpdated', {
           detail: {
             userId,
-            isOnline: initialPresenceMode === 'online',
+            isOnline: presenceMode === 'online',
             lastActive: null,
-            presenceMode: initialPresenceMode,
+            presenceMode: presenceMode,
           },
         });
         window.dispatchEvent(selfPresenceEvent);

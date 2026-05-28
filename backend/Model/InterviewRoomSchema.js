@@ -6,12 +6,14 @@ const ParticipantSessionSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   socketId: { type: String, required: true },
   role: { type: String, enum: ['employer', 'applicant'], default: 'applicant' },
-  status: { type: String, enum: ['waiting', 'in-room', 'left'], default: 'waiting' },
+  status: { type: String, enum: ['waiting', 'in-room', 'left', 'disconnected'], default: 'waiting' },
   isScreenSharing: { type: Boolean, default: false },
   audioEnabled: { type: Boolean, default: true },
   videoEnabled: { type: Boolean, default: true },
   joinedAt: { type: Date, default: Date.now },
-  leftAt: { type: Date }
+  leftAt: { type: Date },
+  disconnectedAt: { type: Date },
+  reconnectCount: { type: Number, default: 0 }
 }, { _id: false });
 
 const InterviewRoomSchema = new Schema({
@@ -19,9 +21,11 @@ const InterviewRoomSchema = new Schema({
   interview: { type: Schema.Types.ObjectId, ref: 'Interview', required: true },
   employer: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   participants: { type: [ParticipantSessionSchema], default: [] },
-  status: { type: String, enum: ['waiting', 'active', 'ended'], default: 'waiting' },
+  status: { type: String, enum: ['waiting', 'active', 'paused', 'ended'], default: 'waiting' },
   startedAt: { type: Date },
   endedAt: { type: Date },
+  pausedAt: { type: Date },
+  totalPausedMs: { type: Number, default: 0 },
   recordingUrl: { type: String },
   isRecording: { type: Boolean, default: false }
 }, { timestamps: true });

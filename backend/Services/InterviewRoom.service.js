@@ -35,13 +35,20 @@ class InterviewRoomService {
     const room = await InterviewRoom.findOne({ roomId });
     if (!room) return null;
 
+    const isEmployerParticipant = role === 'employer';
+    const participantStatus = isEmployerParticipant
+      ? 'in-room'
+      : room.status === 'waiting'
+        ? 'waiting'
+        : 'in-room';
+
     // Check if participant already exists
     const existingIndex = room.participants.findIndex(p => p.user.toString() === userId.toString());
     
     if (existingIndex >= 0) {
       // Update existing participant
       room.participants[existingIndex].socketId = socketId;
-      room.participants[existingIndex].status = 'in-room';
+      room.participants[existingIndex].status = participantStatus;
       room.participants[existingIndex].joinedAt = new Date();
     } else {
       // Add new participant
@@ -49,13 +56,13 @@ class InterviewRoomService {
         user: userId,
         socketId,
         role,
-        status: 'in-room',
+        status: participantStatus,
         joinedAt: new Date()
       });
     }
 
-    // Update status to active if not already
-    if (room.status === 'waiting' && room.participants.some(p => p.role === 'employer')) {
+    // Update status to active if employer is present and at least one participant is in-room
+    if (room.status === 'waiting' && room.participants.some(p => p.role === 'employer' && p.status === 'in-room')) {
       room.status = 'active';
       room.startedAt = new Date();
     }
@@ -208,6 +215,81 @@ class InterviewRoomService {
       status: 'ended',
       endedAt: { $lt: twentyFourHoursAgo }
     });
+  }
+
+  // Pause the interview room
+  async pauseRoom(roomId) {
+    const room = await InterviewRoom.findOne({ roomId });
+    if (!room || room.status !== 'active') return null;
+
+    room.status = 'paused';
+    room.pausedAt = new Date();
+    await room.save();
+    return room;
+  }
+
+  // Resume the interview room
+  async resumeRoom(roomId) {
+    const room = await InterviewRoom.findOne({ roomId });
+    if (!room || room.status !== 'paused') return null;
+
+    const pauseDuration = new Date() - room.pausedAt;
+    room.totalPausedMs += pauseDuration;
+    room.status = 'active';
+    room.pausedAt = null;
+    await room.save();
+    return room;
+  }
+
+  // Get elapsed time for the interview
+  async getElapsedTime(roomId) {
+    const room = await InterviewRoom.findOne({ roomId });
+    if (!room || !room.startedAt) return 0;
+
+    let elapsed = Date.now() - room.startedAt.getTime();
+    
+    // Subtract total paused time
+    elapsed -= room.totalPausedMs || 0;
+    
+    // Subtract current pause duration if paused
+    if (room.status === 'paused' && room.pausedAt) {
+      elapsed -= (Date.now() - room.pausedAt.getTime());
+    }
+
+    return Math.max(0, elapsed);
+  }
+
+  // Mark participant as disconnected
+  async markParticipantDisconnected(roomId, userId) {
+    const room = await InterviewRoom.findOne({ roomId });
+    if (!room) return null;
+
+    const participant = room.participants.find(p => p.user.toString() === userId.toString());
+    if (participant && participant.status === 'in-room') {
+      participant.status = 'disconnected';
+      participant.disconnectedAt = new Date();
+    }
+
+    await room.save();
+    return room;
+  }
+
+  // Reconnect participant (restore from disconnected state)
+  async reconnectParticipant(roomId, userId, socketId) {
+    const room = await InterviewRoom.findOne({ roomId });
+    if (!room) return null;
+
+    const participant = room.participants.find(p => p.user.toString() === userId.toString());
+    if (participant) {
+      participant.socketId = socketId;
+      participant.status = 'in-room';
+      participant.reconnectCount = (participant.reconnectCount || 0) + 1;
+      participant.disconnectedAt = null;
+    }
+
+    this.userSockets.set(userId, socketId);
+    await room.save();
+    return room;
   }
 }
 

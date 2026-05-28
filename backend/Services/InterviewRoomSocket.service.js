@@ -13,26 +13,42 @@ export const initializeInterviewRoomSocket = (io, socket) => {
       socket.join(roomId);
 
       // Initialize room if needed
-      const room = await InterviewRoomService.getRoom(roomId);
+      let room = await InterviewRoomService.getRoom(roomId);
       if (!room) {
         const interview = await Interview.findOne({ roomId });
         if (interview) {
           await InterviewRoomService.initializeRoom(roomId, interview._id, interview.employer);
+          room = await InterviewRoomService.getRoom(roomId);
         }
       }
 
+      if (!room) {
+        socket.emit('interview-room:error', { message: 'Interview room not found.' });
+        return;
+      }
+
       // Add participant to room
-      await InterviewRoomService.addParticipant(roomId, userId, socket.id, role);
+      const addedRoom = await InterviewRoomService.addParticipant(roomId, userId, socket.id, role);
+      if (!addedRoom) {
+        socket.emit('interview-room:error', { message: 'Unable to join the interview room.' });
+        return;
+      }
 
       // Get current room state
       const updatedRoom = await InterviewRoomService.getRoom(roomId);
+      if (!updatedRoom) {
+        socket.emit('interview-room:error', { message: 'Failed to load interview room state.' });
+        return;
+      }
 
       // Emit to room about new participant
+      const joinedParticipant = updatedRoom.participants.find((p) => p.user.toString() === userId.toString());
       io.to(roomId).emit('interview-room:participant-joined', {
         participant: {
           user: userId,
           role,
-          socketId: socket.id
+          socketId: socket.id,
+          status: joinedParticipant?.status || 'waiting'
         },
         roomState: {
           roomId,
@@ -315,6 +331,178 @@ export const initializeInterviewRoomSocket = (io, socket) => {
       socket.emit('interview-room:details', room);
     } catch (err) {
       console.error('Error getting room details:', err?.message);
+    }
+  });
+
+  // Pause interview room (employer action)
+  socket.on('interview-room:pause', async (data) => {
+    try {
+      const { roomId } = data;
+      if (!roomId) return;
+
+      const room = await InterviewRoomService.getRoom(roomId);
+      if (room.employer._id.toString() !== socket.userId) {
+        socket.emit('interview-room:error', { message: 'Unauthorized' });
+        return;
+      }
+
+      await InterviewRoomService.pauseRoom(roomId);
+      io.to(roomId).emit('interview-room:paused', {
+        roomId,
+        pausedAt: new Date().toISOString()
+      });
+
+      console.log(`Interview room ${roomId} paused by employer ${socket.userId}`);
+    } catch (err) {
+      console.error('Error pausing interview room:', err?.message);
+      socket.emit('interview-room:error', { message: 'Failed to pause interview' });
+    }
+  });
+
+  // Resume interview room (employer action)
+  socket.on('interview-room:resume', async (data) => {
+    try {
+      const { roomId } = data;
+      if (!roomId) return;
+
+      const room = await InterviewRoomService.getRoom(roomId);
+      if (room.employer._id.toString() !== socket.userId) {
+        socket.emit('interview-room:error', { message: 'Unauthorized' });
+        return;
+      }
+
+      await InterviewRoomService.resumeRoom(roomId);
+      io.to(roomId).emit('interview-room:resumed', {
+        roomId,
+        resumedAt: new Date().toISOString()
+      });
+
+      console.log(`Interview room ${roomId} resumed by employer ${socket.userId}`);
+    } catch (err) {
+      console.error('Error resuming interview room:', err?.message);
+      socket.emit('interview-room:error', { message: 'Failed to resume interview' });
+    }
+  });
+
+  // Get current elapsed time for the interview
+  socket.on('interview-room:get-elapsed-time', async (data) => {
+    try {
+      const { roomId } = data;
+      if (!roomId) return;
+
+      const elapsedMs = await InterviewRoomService.getElapsedTime(roomId);
+      socket.emit('interview-room:elapsed-time', {
+        roomId,
+        elapsedMs
+      });
+    } catch (err) {
+      console.error('Error getting elapsed time:', err?.message);
+    }
+  });
+
+  // Handle participant disconnect (grace period for reconnection)
+  const disconnectGraceMap = new Map(); // roomId -> { userId -> timeoutId }
+
+  socket.on('disconnect', async () => {
+    if (!socket.userId) return;
+
+    try {
+      // Find rooms the user is in
+      const rooms = socket.rooms;
+      for (const roomId of rooms) {
+        if (roomId === socket.id) continue; // Skip the socket's own room
+
+        const room = await InterviewRoomService.getRoom(roomId);
+        if (!room) continue;
+
+        // Mark participant as disconnected
+        await InterviewRoomService.markParticipantDisconnected(roomId, socket.userId);
+
+        // Notify other participants about disconnect
+        io.to(roomId).emit('interview-room:participant-disconnected', {
+          userId: socket.userId,
+          disconnectedAt: new Date().toISOString(),
+          message: 'Participant temporarily disconnected. Waiting for reconnection...'
+        });
+
+        // Set grace period (30 seconds) for reconnection before removing completely
+        if (!disconnectGraceMap.has(roomId)) {
+          disconnectGraceMap.set(roomId, new Map());
+        }
+
+        const gracePeriodTimeout = setTimeout(async () => {
+          const updatedRoom = await InterviewRoomService.getRoom(roomId);
+          const participant = updatedRoom?.participants.find(
+            p => p.user.toString() === socket.userId.toString() && p.status === 'disconnected'
+          );
+
+          if (participant) {
+            await InterviewRoomService.removeParticipant(roomId, socket.userId);
+            io.to(roomId).emit('interview-room:participant-left', {
+              userId: socket.userId,
+              reason: 'Did not reconnect within grace period'
+            });
+          }
+
+          disconnectGraceMap.get(roomId)?.delete(socket.userId);
+        }, 30000);
+
+        disconnectGraceMap.get(roomId)?.set(socket.userId, gracePeriodTimeout);
+
+        console.log(`User ${socket.userId} disconnected from room ${roomId}. Grace period started.`);
+      }
+    } catch (err) {
+      console.error('Error handling disconnect:', err?.message);
+    }
+  });
+
+  // Reconnect participant to room after unexpected disconnect
+  socket.on('interview-room:reconnect', async (data) => {
+    try {
+      const { roomId, userId } = data;
+      if (!roomId || !userId) return;
+
+      socket.userId = userId;
+      socket.join(roomId);
+
+      // Clear grace period timeout if it exists
+      if (disconnectGraceMap.has(roomId)) {
+        const timeout = disconnectGraceMap.get(roomId).get(userId);
+        if (timeout) {
+          clearTimeout(timeout);
+          disconnectGraceMap.get(roomId).delete(userId);
+        }
+      }
+
+      // Reconnect participant
+      const room = await InterviewRoomService.reconnectParticipant(roomId, userId, socket.id);
+
+      // Notify all participants about reconnection
+      const reconnectedParticipant = room.participants.find(p => p.user.toString() === userId.toString());
+      io.to(roomId).emit('interview-room:participant-reconnected', {
+        userId,
+        participant: {
+          user: userId,
+          role: reconnectedParticipant.role,
+          status: reconnectedParticipant.status,
+          socketId: socket.id,
+          reconnectCount: reconnectedParticipant.reconnectCount
+        }
+      });
+
+      // Send updated room state to the reconnected participant
+      socket.emit('interview-room:state', {
+        roomId,
+        participants: room.participants,
+        status: room.status,
+        employer: room.employer,
+        startedAt: room.startedAt
+      });
+
+      console.log(`User ${userId} reconnected to interview room ${roomId}`);
+    } catch (err) {
+      console.error('Error reconnecting to interview room:', err?.message);
+      socket.emit('interview-room:error', { message: 'Failed to reconnect to interview room' });
     }
   });
 };

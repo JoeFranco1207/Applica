@@ -57,8 +57,31 @@ const BellIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const InterviewIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="6" width="18" height="12" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M8 4h8v4H8z" />
+  </svg>
+);
+
+const CloseIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const ArrowRightIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M5 12h14" />
+    <path d="M13 6l6 6-6 6" />
+  </svg>
+);
+
 const NotificationPopup = () => {
   const { notifications, removeNotification } = useNotification();
+  const navigate = useNavigate();
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -75,6 +98,7 @@ const NotificationPopup = () => {
         return <RepostIcon size={18} />;
       case 'apply':
       case 'status':
+      case 'interview:invited':
         return <BriefcaseIcon size={18} />;
       default:
         return <BellIcon size={18} />;
@@ -96,7 +120,8 @@ const NotificationPopup = () => {
         return '#f39c12';
       case 'apply':
       case 'status':
-        return '#1892aa';
+      case 'interview:invited':
+        return '#0284c7';
       default:
         return '#616a85';
     }
@@ -147,12 +172,30 @@ const NotificationPopup = () => {
               {new Date(notification.createdAt).toLocaleTimeString()}
             </span>
           </div>
-          <button
-            className="notification-close"
-            onClick={() => removeNotification(notification.id)}
-          >
-            ✕
-          </button>
+          <div className="notification-actions">
+            {notification.type === 'interview:invited' && notification.interview?.roomId && (
+              <button
+                className="notification-join"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeNotification(notification.id);
+                  navigate(`/interview/${notification.interview.roomId}`);
+                }}
+              >
+                <ArrowRightIcon size={16} />
+                Join
+              </button>
+            )}
+            <button
+              className="notification-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeNotification(notification.id);
+              }}
+            >
+              <CloseIcon size={16} />
+            </button>
+          </div>
         </div>
       ))}
     </div>

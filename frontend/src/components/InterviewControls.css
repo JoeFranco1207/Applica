@@ -114,6 +114,18 @@
   color: #ef4444;
 }
 
+.control-button.paused {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.3), rgba(202, 138, 4, 0.3));
+  border-color: rgba(234, 179, 8, 0.6);
+  color: #eab308;
+}
+
+.control-button.paused:hover {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.5), rgba(202, 138, 4, 0.5));
+  border-color: rgba(234, 179, 8, 0.8);
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.3);
+}
+
 .control-icon {
   font-size: 20px;
 }

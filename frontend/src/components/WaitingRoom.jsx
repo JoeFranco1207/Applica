@@ -28,7 +28,7 @@ const WaitingRoom = ({
     <div className="waiting-room">
       <div className="waiting-room-header">
         <div className="header-content">
-          <h2 className="waiting-room-title">🕐 Waiting Room</h2>
+          <h2 className="waiting-room-title">Waiting Room</h2>
           <p className="waiting-room-subtitle">{interviewTitle}</p>
         </div>
         <div className="participant-count">
@@ -62,14 +62,14 @@ const WaitingRoom = ({
       <div className="waiting-room-list">
         {filteredParticipants.length === 0 ? (
           <div className="empty-waiting-room">
-            <div className="empty-icon">👥</div>
+            <div className="empty-icon"></div>
             <p>No participants in waiting room</p>
             <span className="empty-hint">Participants will appear here when they join</span>
           </div>
         ) : (
           filteredParticipants.map((participant) => (
             <div
-              key={participant.userId}
+              key={participant.userId || participant.id}
               className={`waiting-participant ${participant.status}`}
             >
               {/* Avatar */}
@@ -85,7 +85,7 @@ const WaitingRoom = ({
                 <h3 className="participant-name">{participant.name}</h3>
                 <p className="participant-email">{participant.email}</p>
                 <span className={`participant-status-badge ${participant.status}`}>
-                  {participant.status === 'waiting' ? '⏳ Waiting' : '✅ Admitted'}
+                  {participant.status === 'waiting' ? 'Waiting' : 'Admitted'}
                 </span>
               </div>
 
@@ -94,17 +94,17 @@ const WaitingRoom = ({
                 <div className="participant-actions">
                   <button
                     className="btn-admit"
-                    onClick={() => handleAdmit(participant.userId)}
+                    onClick={() => handleAdmit(participant.userId || participant.id)}
                     title="Admit to interview"
                   >
-                    ✓ Admit
+                    <span className="button-icon">✓</span> Admit
                   </button>
                   <button
                     className="btn-deny"
-                    onClick={() => handleDeny(participant.userId)}
+                    onClick={() => handleDeny(participant.userId || participant.id)}
                     title="Deny entry"
                   >
-                    ✕ Deny
+                    <span className="button-icon">×</span> Deny
                   </button>
                 </div>
               )}
@@ -123,7 +123,7 @@ const WaitingRoom = ({
       {/* Instructions for applicant */}
       {!isEmployer && waitingParticipants.some(p => p.userId === 'currentUser') && (
         <div className="waiting-instructions">
-          <div className="instruction-icon">ℹ️</div>
+          <div className="instruction-icon">i</div>
           <p>
             You're in the waiting room. The employer will admit you soon.
             Please check your audio and video settings while waiting.

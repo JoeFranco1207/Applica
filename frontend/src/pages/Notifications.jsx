@@ -56,6 +56,37 @@ const BellIcon = ({ size = 20 }) => (
   </svg>
 );
 
+const InterviewIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="6" width="18" height="12" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M8 4h8v4H8z" />
+  </svg>
+);
+
+const CheckIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const TrashIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4h6v2" />
+  </svg>
+);
+
+const ArrowRightIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M5 12h14" />
+    <path d="M13 6l6 6-6 6" />
+  </svg>
+);
+
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -189,6 +220,11 @@ const Notifications = () => {
       return;
     }
 
+    if (notification.type === 'interview:invited' && notification.interview?.roomId) {
+      navigate(`/interview/${notification.interview.roomId}`);
+      return;
+    }
+
     // route to actor profile when available
     const actorId = notification.actor?._id || notification.actorId || notification.actor?.id || notification.actor || null;
     if (actorId) {
@@ -212,6 +248,8 @@ const Notifications = () => {
         return <RepostIcon size={20} />;
       case 'apply':
         return <BriefcaseIcon size={20} />;
+      case 'interview:invited':
+        return <InterviewIcon size={20} />;
       default:
         return <BellIcon size={20} />;
     }
@@ -232,6 +270,8 @@ const Notifications = () => {
         return `${actorName} reposted your post`;
       case 'apply':
         return `${actorName} applied to your job`;
+      case 'interview:invited':
+        return `${actorName} invited you to an interview`;
       default:
         return `${actorName} interacted with you`;
     }
@@ -299,13 +339,25 @@ const Notifications = () => {
                 )}
               </div>
               <div className="notification-actions">
+                {notification.type === 'interview:invited' && notification.interview?.roomId && (
+                  <button
+                    className="action-btn join-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/interview/${notification.interview.roomId}`);
+                    }}
+                    title="Join interview"
+                  >
+                    <ArrowRightIcon size={16} />
+                  </button>
+                )}
                 {!notification.read && (
                   <button
                     className="action-btn read-btn"
                     onClick={(e) => { e.stopPropagation(); handleMarkAsRead(notification._id || notification.id); }}
                     title="Mark as read"
                   >
-                    ✓
+                    <CheckIcon size={16} />
                   </button>
                 )}
                 <button
@@ -313,7 +365,7 @@ const Notifications = () => {
                   onClick={(e) => { e.stopPropagation(); handleDelete(notification._id || notification.id); }}
                   title="Delete"
                 >
-                  ✕
+                  <TrashIcon size={16} />
                 </button>
               </div>
             </div>

@@ -30,7 +30,7 @@ const InterviewRoom = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000', {
+    const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000', {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,

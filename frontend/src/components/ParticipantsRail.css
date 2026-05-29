@@ -1,0 +1,100 @@
+.participants-rail {
+  width: 320px;
+  background: #0f1724;
+  color: #e6eef7;
+  border-left: 1px solid #16232f;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.rail-title {
+  display:flex;
+  gap:8px;
+  align-items:center;
+  font-weight:700;
+}
+
+.rail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.rail-toggle:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateX(-1px);
+}
+
+.rail-title svg { color:#9fe8ff; }
+.rail-count {
+  background:#04263a;
+  color:#9fe8ff;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:800;
+  border:1px solid #06354b;
+}
+
+.rail-list { margin-top:10px; display:flex; flex-direction:column; gap:10px; overflow:auto; padding-right:6px; }
+.rail-item { display:flex; gap:10px; align-items:center; padding:6px; border-radius:8px; }
+.rail-item.self { background: rgba(159,232,255,0.04); }
+.rail-item-info { display:flex; flex-direction:column; }
+.rail-item-name { font-weight:700; font-size:14px; }
+.rail-item-role { font-size:12px; color:#9fb6c6; }
+
+.rail-waiting { margin-top:12px; border-top:1px solid rgba(255,255,255,0.02); padding-top:8px; }
+.rail-waiting-title { font-weight:700; color:#9fe8ff; margin-bottom:8px; }
+.rail-waiting-item { display:flex; gap:8px; align-items:center; padding:6px 4px; }
+.rail-waiting-name { color:#a8cbdc; font-size:13px; }
+
+.participants-rail.collapsed {
+  width: 58px;
+  min-width: 58px;
+  padding: 10px 8px;
+  border-radius: 14px 0 0 14px;
+  overflow: hidden;
+}
+
+.participants-rail.collapsed .rail-header {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.participants-rail.collapsed .rail-title {
+  justify-content: center;
+}
+
+.participants-rail.collapsed .rail-title span,
+.participants-rail.collapsed .rail-count,
+.participants-rail.collapsed .rail-list,
+.participants-rail.collapsed .rail-waiting {
+  display: none;
+}
+
+/* hide rail in fullscreen */
+body.video-fullscreen .participants-rail { display: none !important; }

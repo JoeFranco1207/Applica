@@ -3,8 +3,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0f172a;
-  border-radius: 12px;
+  background: linear-gradient(135deg, #0a0e27 0%, #0f1220 50%, #0a0e27 100%);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -43,9 +43,9 @@
 .video-grid {
   flex: 1;
   display: grid;
-  gap: 12px;
-  padding: 12px;
-  background: #0f172a;
+  gap: 16px;
+  padding: 18px;
+  background: linear-gradient(135deg, #0a0e27 0%, #0f1220 50%, #0a0e27 100%);
   overflow-y: auto;
   width: 100%;
 }
@@ -59,23 +59,25 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
+
 .video-grid-four {
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
 }
 
 .video-grid-six {
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
 }
 
 .video-grid-nine {
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  gap: 16px;
 }
 
 .video-grid-many {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 /* Video participant */
@@ -83,16 +85,18 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #1e293b;
-  border: 2px solid rgba(2, 132, 199, 0.3);
-  transition: all 0.2s ease;
+  background: #111216;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+  box-shadow: 0 8px 20px rgba(2,6,23,0.6);
 }
 
 .video-participant:hover {
-  border-color: rgba(2, 132, 199, 0.6);
-  box-shadow: 0 0 12px rgba(2, 132, 199, 0.2);
+  border-color: rgba(66,133,244,0.7);
+  box-shadow: 0 12px 28px rgba(66,133,244,0.06);
+  transform: translateY(-4px);
 }
 
 .participant-video {
@@ -113,39 +117,47 @@
 }
 
 .participant-avatar img {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid rgba(2, 132, 199, 0.5);
+  border: 4px solid #0ea5e9;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
 }
 
 /* Participant info */
 .participant-info {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.7));
-  padding: 12px;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.6) 60%);
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  border-radius: 8px;
 }
 
 .participant-name {
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
+  color: #e6eef7;
+  font-size: 13px;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: rgba(3, 35, 50, 1);
+  padding: 6px 10px;
+  border-radius: 8px;
+  display: inline-block;
+  margin-left: 8px;
+  margin-bottom: 6px;
 }
 
 /* Status indicators */
 .participant-status {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -153,48 +165,59 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  font-size: 12px;
-  backdrop-filter: blur(4px);
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-size: 14px;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
 }
 
 .status-badge.audio-off {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.6);
 }
 
 .status-badge.video-off {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.6);
 }
 
 .status-badge.screen-sharing {
-  background: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.4);
+  border-color: rgba(34, 197, 94, 0.6);
 }
 
 .status-badge.recording {
-  background: rgba(239, 68, 68, 0.5);
-  animation: pulse 1s infinite;
+  background: rgba(239, 68, 68, 0.6);
+  border-color: rgba(239, 68, 68, 0.8);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
   }
   50% {
-    opacity: 0.6;
+    opacity: 0.7;
+  }
+  100% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
   }
 }
 
 /* Speaking indicator */
 .speaking-indicator {
   position: absolute;
-  inset: 2px;
-  border: 3px solid #22c55e;
-  border-radius: 6px;
+  inset: 3px;
+  border: 3px solid #10b981;
+  border-radius: 10px;
   pointer-events: none;
-  animation: speaking-glow 0.5s ease-in-out;
+  animation: speaking-glow 0.8s ease-in-out infinite;
+  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.35);
 }
 
 @keyframes speaking-glow {
@@ -204,6 +227,18 @@
   100% {
     box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.2);
   }
+}
+
+/* Highlight when speaking */
+.video-participant.active-speaking {
+  border: 3px solid #4285f4;
+  transform: translateY(-6px);
+  box-shadow: 0 30px 60px rgba(66,133,244,0.08);
+}
+
+/* When participant is screen sharing tile accent */
+.video-participant.screen-share-active {
+  border: 2px solid #22c55e;
 }
 
 /* Empty state */
@@ -234,20 +269,21 @@
 
 /* Scrollbar styling */
 .video-grid::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .video-grid::-webkit-scrollbar-track {
-  background: transparent;
+  background: linear-gradient(180deg, rgba(20, 24, 32, 0.3) 0%, rgba(15, 23, 42, 0.3) 100%);
 }
 
 .video-grid::-webkit-scrollbar-thumb {
-  background: rgba(2, 132, 199, 0.4);
-  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.5) 0%, rgba(3, 105, 161, 0.5) 100%);
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .video-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(2, 132, 199, 0.6);
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.8) 0%, rgba(3, 105, 161, 0.8) 100%);
 }
 
 /* Responsive design */
@@ -270,4 +306,30 @@
     height: 20px;
     font-size: 10px;
   }
+}
+
+/* Fullscreen styles for video container */
+.video-grid-container:fullscreen,
+.video-grid-container:-webkit-full-screen,
+.video-grid-container:-ms-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  background: #000;
+  padding: 0;
+}
+
+.video-grid-container:fullscreen .video-grid,
+.video-grid-container:-webkit-full-screen .video-grid {
+  height: 100%;
+  gap: 8px;
+  padding: 12px;
+}
+
+.video-grid-container:fullscreen .video-participant video,
+.video-grid-container:-webkit-full-screen .video-participant video {
+  object-fit: contain;
 }

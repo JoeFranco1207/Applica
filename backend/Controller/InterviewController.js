@@ -60,7 +60,10 @@ export const getInterviewsForUser = async (req, res, next) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ status: 'error', message: 'userId required' });
-    const interviews = await Interview.find({ 'participants.user': userId }).sort({ scheduledAt: -1 }).lean();
+    const interviews = await Interview.find({ 'participants.user': userId })
+      .populate('employer', 'firstName lastName profilePhoto email')
+      .sort({ scheduledAt: -1 })
+      .lean();
     return res.status(200).json({ status: 'success', data: interviews });
   } catch (err) {
     next(err);

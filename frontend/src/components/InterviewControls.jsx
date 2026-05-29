@@ -105,6 +105,15 @@ const EndCallIcon = ({ size = 20 }) => (
   </svg>
 );
 
+const FullscreenIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+    <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+    <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
 const InterviewControls = ({
   isAudioEnabled = true,
   isVideoEnabled = true,
@@ -122,7 +131,28 @@ const InterviewControls = ({
   participantCount = 0,
   timeElapsed = '00:00'
 }) => {
-  const [showMore, setShowMore] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+  const endLabel = isEmployer ? 'Remove' : 'Leave';
+  const endTitle = isEmployer ? 'Remove interview (Esc)' : 'Leave call (Esc)';
+
+    const toggleFullscreen = async () => {
+      try {
+        if (typeof onToggleVideoFullscreen === 'function') {
+          onToggleVideoFullscreen();
+          return;
+        }
+
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
+        } else {
+          await document.exitFullscreen();
+          setIsFullscreen(false);
+        }
+      } catch (err) {
+        console.warn('Fullscreen toggle failed', err);
+      }
+    };
 
   return (
     <div className="interview-controls">
@@ -189,6 +219,19 @@ const InterviewControls = ({
           </span>
         </button>
 
+        {/* Fullscreen button */}
+        <button
+          className={`control-button ${isFullscreen ? 'active' : ''}`}
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >
+          <span className="control-icon"><FullscreenIcon /></span>
+          <span className="control-label">
+            {isFullscreen ? 'Exit' : 'Full'}
+          </span>
+        </button>
+
         {/* Recording button (employer only) */}
         {isEmployer && (
           <button
@@ -219,56 +262,28 @@ const InterviewControls = ({
           </button>
         )}
 
-        {/* More options */}
-        <button
-          className="control-button more-button"
-          onClick={() => setShowMore(!showMore)}
-          title="More options"
-          aria-label="More options"
-        >
-          <span className="control-icon"><MoreIcon /></span>
-        </button>
+        {/* More options removed per UI request */}
 
         {/* End call button */}
         <button
           className="control-button end-call-button"
           onClick={onEndCall}
-          title="End call (Esc)"
-          aria-label="End call"
+          title={endTitle}
+          aria-label={endTitle}
         >
           <span className="control-icon"><EndCallIcon /></span>
-          <span className="control-label">End</span>
+          <span className="control-label">{endLabel}</span>
         </button>
       </div>
 
-      {/* More options menu */}
-      {showMore && (
-        <div className="controls-more">
-          <button className="more-option">
-            <span><ChatIcon /></span>
-            <span>Chat</span>
-          </button>
-          <button className="more-option">
-            <span><SettingsIcon /></span>
-            <span>Adjust audio</span>
-          </button>
-          <button className="more-option">
-            <span><SettingsIcon /></span>
-            <span>Settings</span>
-          </button>
-          <button className="more-option">
-            <span><HelpIcon /></span>
-            <span>Help</span>
-          </button>
-        </div>
-      )}
+      {/* Removed floating More options menu */}
 
-      {/* Keyboard shortcuts hint */}
-      <div className="controls-shortcuts">
-        <span className="shortcut"><kbd>M</kbd> Mute</span>
-        <span className="shortcut"><kbd>V</kbd> Video</span>
-        <span className="shortcut"><kbd>S</kbd> Share</span>
-        <span className="shortcut"><kbd>Esc</kbd> End</span>
+      {/* Bottom option cards */}
+      <div className="controls-options">
+        <button className="option-card"><ChatIcon /><span>Chat</span></button>
+        <button className="option-card"><SettingsIcon /><span>Adjust audio</span></button>
+        <button className="option-card"><SettingsIcon /><span>Settings</span></button>
+        <button className="option-card"><HelpIcon /><span>Help</span></button>
       </div>
     </div>
   );

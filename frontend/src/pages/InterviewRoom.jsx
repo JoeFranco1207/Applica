@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import axios from 'axios';
 import VideoGrid from '../components/VideoGrid';
 import WaitingRoom from '../components/WaitingRoom';
 import InterviewControls from '../components/InterviewControls';
+import ParticipantsRail from '../components/ParticipantsRail';
 import './InterviewRoom.css';
 
 const normalizeParticipant = (participant) => {
@@ -50,6 +52,12 @@ export default function InterviewRoom() {
   const [error, setError] = useState(null);
   const [roomDetails, setRoomDetails] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+
+  const joinLink = typeof window !== 'undefined'
+    ? `${window.location.origin}/interview/${roomId}`
+    : `/interview/${roomId}`;
 
   const buildParticipantList = useCallback((rawParticipants, selfId) => {
     const normalized = rawParticipants.map((item) => normalizeParticipant(item));
@@ -59,6 +67,68 @@ export default function InterviewRoom() {
     setWaitingParticipants(waiting);
     setParticipants(inRoom);
   }, []);
+
+  const videoSectionRef = useRef(null);
+
+  const handleToggleVideoFullscreen = useCallback(async () => {
+    try {
+      // Request fullscreen on the root document element so the entire app goes fullscreen
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+        else if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Video fullscreen toggle failed', err);
+    }
+  }, []);
+
+  const fullscreenTimerRef = useRef(null);
+  const mouseHandlerRef = useRef(null);
+
+  const enableFullscreenControls = useCallback(() => {
+    document.documentElement.classList.add('video-fullscreen');
+    document.documentElement.classList.add('show-controls');
+
+    const onMove = () => {
+      document.documentElement.classList.add('show-controls');
+      clearTimeout(fullscreenTimerRef.current);
+      fullscreenTimerRef.current = setTimeout(() => {
+        document.documentElement.classList.remove('show-controls');
+      }, 3000);
+    };
+
+    mouseHandlerRef.current = onMove;
+    document.addEventListener('mousemove', onMove);
+  }, []);
+
+  const disableFullscreenControls = useCallback(() => {
+    document.documentElement.classList.remove('video-fullscreen');
+    document.documentElement.classList.remove('show-controls');
+    clearTimeout(fullscreenTimerRef.current);
+    if (mouseHandlerRef.current) {
+      document.removeEventListener('mousemove', mouseHandlerRef.current);
+      mouseHandlerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (document.fullscreenElement) {
+        enableFullscreenControls();
+      } else {
+        disableFullscreenControls();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      disableFullscreenControls();
+    };
+  }, [enableFullscreenControls, disableFullscreenControls]);
 
   const addRemoteStream = useCallback((userId, stream) => {
     setParticipants((prev) => prev.map((p) => p.id === userId ? { ...p, stream } : p));
@@ -257,7 +327,7 @@ export default function InterviewRoom() {
 
     socket.on('interview-room:state', (data) => {
       console.log('[Interview] Received room state:', data);
-      setRoomDetails(data);
+      setRoomDetails((prev) => ({ ...prev, ...data }));
       setRoomState(data.status === 'waiting' ? 'waiting' : data.status === 'paused' ? 'paused' : 'active');
       buildParticipantList(data.participants || [], userId);
       setIsConnecting(false);
@@ -343,13 +413,13 @@ export default function InterviewRoom() {
     socket.on('interview-room:admitted', () => setRoomState('active'));
     socket.on('interview-room:denied', () => {
       setError('Your request to join has been denied');
-      setTimeout(() => navigate('/employer/interviews'), 3000);
+      setTimeout(() => navigate(isEmployer ? '/employer/interviews' : '/jobseeker/interviews'), 3000);
     });
 
     socket.on('interview-room:ended', () => {
       setRoomState('ended');
       setError('The interview has ended');
-      setTimeout(() => navigate('/employer/interviews'), 3000);
+      setTimeout(() => navigate(isEmployer ? '/employer/interviews' : '/jobseeker/interviews'), 3000);
     });
 
     socket.on('interview-room:error', (data) => {
@@ -363,7 +433,23 @@ export default function InterviewRoom() {
       clearTimeout(connectionTimeout);
       socket.disconnect();
     };
-  }, [buildParticipantList, handleIncomingAnswer, handleIncomingCandidate, handleIncomingOffer, navigate, roomId]);
+  }, [buildParticipantList, handleIncomingAnswer, handleIncomingCandidate, handleIncomingOffer, navigate, roomId, isEmployer]);
+
+  useEffect(() => {
+    const fetchRoomDetails = async () => {
+      try {
+        const res = await axios.get(`http://localhost:8000/api/interviews/room/${roomId}/details`);
+        const details = res.data?.data;
+        if (details) {
+          setRoomDetails((prev) => ({ ...prev, ...details }));
+        }
+      } catch (err) {
+        console.warn('[Interview] Failed to load interview details:', err?.response?.data || err.message || err);
+      }
+    };
+
+    fetchRoomDetails();
+  }, [roomId]);
 
   useEffect(() => {
     const initializeMedia = async () => {
@@ -494,9 +580,26 @@ export default function InterviewRoom() {
       socketRef.current?.emit('interview-room:end', { roomId });
     } else {
       socketRef.current?.emit('interview-room:leave', { roomId });
-      navigate('/employer/interviews');
+      navigate('/jobseeker/interviews');
     }
   }, [isEmployer, navigate, roomId]);
+
+  const handleCopyJoinLink = useCallback(async () => {
+    if (!navigator.clipboard) {
+      setCopyStatus('Clipboard API unavailable');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(joinLink);
+      setCopyStatus('Link copied!');
+      setTimeout(() => setCopyStatus(''), 2300);
+    } catch (err) {
+      console.error('Copy failed', err);
+      setCopyStatus('Unable to copy. Please copy manually.');
+      setTimeout(() => setCopyStatus(''), 3000);
+    }
+  }, [joinLink]);
 
   const handleAdmitParticipant = useCallback((participantId) => {
     socketRef.current?.emit('interview-room:admit', { roomId, userId: participantId });
@@ -528,9 +631,44 @@ export default function InterviewRoom() {
         </div>
       )}
 
-      <div className="interview-room-layout">
+      <div className="interview-room-header">
+        <div className="room-title-block">
+          <span className="room-badge">
+            {roomState === 'waiting' ? 'Waiting Room' : roomState === 'paused' ? 'Paused' : roomState === 'active' ? 'Live Interview' : 'Interview Room'}
+          </span>
+          <h1 className="room-title">{roomDetails?.interview?.title || 'Interview Room'}</h1>
+          <p className="room-subtitle">
+            {roomDetails?.interview?.description || 'Welcome to your interview room. Manage the session, share your screen, and stay connected.'}
+          </p>
+          {roomDetails?.interview?.scheduledAt && (
+            <p className="room-subtext">
+              Scheduled {new Date(roomDetails.interview.scheduledAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        <div className="room-meta-panel">
+          <span className="room-meta-pill">Room ID: {roomId}</span>
+          <span className="room-meta-pill">Location: {roomDetails?.interview?.location || 'Online'}</span>
+          <span className="room-meta-pill">Employer: {roomDetails?.interview?.employer?.firstName ? `${roomDetails.interview.employer.firstName} ${roomDetails.interview.employer.lastName || ''}`.trim() : 'Recruiter'}</span>
+        </div>
+      </div>
+
+      <div className={`interview-room-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {roomState === 'waiting' && !isEmployer ? (
           <div className="waiting-section">
+            {roomDetails?.interview && (
+              <div className="interview-request-panel">
+                <h2>{roomDetails.interview.title || 'Interview request'}</h2>
+                <p className="request-meta">
+                  Scheduled {new Date(roomDetails.interview.scheduledAt).toLocaleString()} • {roomDetails.interview.location || 'Online'}
+                </p>
+                <p>{roomDetails.interview.description || 'You have been invited to this interview by the employer.'}</p>
+                <p className="request-employer">
+                  From {roomDetails.interview.employer?.firstName ? `${roomDetails.interview.employer.firstName} ${roomDetails.interview.employer.lastName || ''}`.trim() : 'an employer'}
+                </p>
+              </div>
+            )}
             <WaitingRoom
               waitingParticipants={waitingParticipants}
               isEmployer={false}
@@ -539,7 +677,7 @@ export default function InterviewRoom() {
           </div>
         ) : (
           <>
-            <div className="video-section">
+            <div className="video-section" ref={videoSectionRef}>
               <VideoGrid
                 participants={participants}
                 currentUserVideo={{
@@ -556,38 +694,37 @@ export default function InterviewRoom() {
               />
             </div>
 
-            {isEmployer && (
-              <div className="waiting-room-sidebar">
-                <WaitingRoom
-                  waitingParticipants={waitingParticipants}
-                  isEmployer={true}
-                  onAdmit={handleAdmitParticipant}
-                  onDeny={handleDenyParticipant}
-                  interviewTitle={roomDetails?.interview?.title}
-                />
-              </div>
-            )}
+            <ParticipantsRail
+              participants={participants}
+              currentUser={currentUser}
+              waitingParticipants={waitingParticipants}
+              collapsed={isSidebarCollapsed}
+              onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+            />
           </>
         )}
       </div>
 
-      <InterviewControls
-        isAudioEnabled={isAudioEnabled}
-        isVideoEnabled={isVideoEnabled}
-        isScreenSharing={isScreenSharing}
-        isRecording={isRecording}
-        isPaused={isPaused}
-        isEmployer={isEmployer}
-        onToggleAudio={handleToggleAudio}
-        onToggleVideo={handleToggleVideo}
-        onToggleScreenShare={handleToggleScreenShare}
-        onToggleRecording={handleToggleRecording}
-        onPause={handlePauseInterview}
-        onResume={handleResumeInterview}
-        onEndCall={handleEndCall}
-        participantCount={participants.length + 1}
-        timeElapsed={timeElapsed}
-      />
+      <div className="controls-overlay">
+        <InterviewControls
+          isAudioEnabled={isAudioEnabled}
+          isVideoEnabled={isVideoEnabled}
+          isScreenSharing={isScreenSharing}
+          isRecording={isRecording}
+          isPaused={isPaused}
+          isEmployer={isEmployer}
+          onToggleAudio={handleToggleAudio}
+          onToggleVideo={handleToggleVideo}
+          onToggleScreenShare={handleToggleScreenShare}
+          onToggleVideoFullscreen={handleToggleVideoFullscreen}
+          onToggleRecording={handleToggleRecording}
+          onPause={handlePauseInterview}
+          onResume={handleResumeInterview}
+          onEndCall={handleEndCall}
+          participantCount={participants.length + 1}
+          timeElapsed={timeElapsed}
+        />
+      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ const ParticipantTile = ({ participant, isLocal }) => {
   }, [participant.stream]);
 
   return (
-    <div className="video-participant">
+    <div className={`video-participant ${participant.isSpeaking ? 'active-speaking' : ''} ${participant.isScreenSharing ? 'screen-share-active' : ''}`}>
       <video
         ref={videoRef}
         autoPlay
@@ -61,12 +61,19 @@ const ParticipantTile = ({ participant, isLocal }) => {
 
 const VideoGrid = ({ participants = [], currentUserVideo, screenShareStream, isScreenSharing }) => {
   const screenShareRef = useRef(null);
+  const activeShareParticipant = participants.find((p) => p.isScreenSharing && p.stream);
+  const displayScreenShareStream = screenShareStream || (activeShareParticipant?.stream || null);
+  const screenShareLabel = screenShareStream
+    ? 'Your screen'
+    : activeShareParticipant?.name
+      ? `${activeShareParticipant.name} is sharing`
+      : 'Screen Share';
 
   useEffect(() => {
     if (screenShareRef.current) {
-      screenShareRef.current.srcObject = screenShareStream || null;
+      screenShareRef.current.srcObject = displayScreenShareStream || null;
     }
-  }, [screenShareStream]);
+  }, [displayScreenShareStream]);
 
   const getGridClass = () => {
     const count = participants.length + (currentUserVideo ? 1 : 0);
@@ -85,7 +92,7 @@ const VideoGrid = ({ participants = [], currentUserVideo, screenShareStream, isS
 
   return (
     <div className="video-grid-container">
-      {isScreenSharing && screenShareStream && (
+      {displayScreenShareStream && (
         <div className="screen-share-section">
           <video
             ref={screenShareRef}
@@ -94,7 +101,7 @@ const VideoGrid = ({ participants = [], currentUserVideo, screenShareStream, isS
             muted={false}
             className="screen-share-video"
           />
-          <div className="screen-share-label">Screen Share</div>
+          <div className="screen-share-label">{screenShareLabel}</div>
         </div>
       )}
 

@@ -255,14 +255,23 @@ export default function Navbar() {
           </button>
           <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.companies")}</button>
           {user?.role === "jobseeker" && (
-            <button
-              style={styles.linkButton}
-              onClick={() => navigate("/resume-designs")}
-              title={translate("nav.resume")}
-            >
-              <HeartIcon size={16} />
-              <span style={styles.navIconText}>{translate("nav.resume")}</span>
-            </button>
+            <>
+              <button
+                style={styles.linkButton}
+                onClick={() => navigate("/resume-designs")}
+                title={translate("nav.resume")}
+              >
+                <HeartIcon size={16} />
+                <span style={styles.navIconText}>{translate("nav.resume")}</span>
+              </button>
+              <button
+                style={styles.iconButton}
+                onClick={() => navigate("/jobseeker/interviews")}
+                title="Interview Requests"
+              >
+                <InterviewIcon size={18} />
+              </button>
+            </>
           )}
           {user?.role === "employer" && (
             <>

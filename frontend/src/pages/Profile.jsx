@@ -12,6 +12,55 @@ const getUserId = (user) => {
   return typeof user === 'object' ? user._id || user.id || null : user;
 };
 
+const getSnippet = (text, max = 200) => {
+  if (!text) return '';
+  const normalized = text.trim().replace(/\s+/g, ' ');
+  return normalized.length <= max ? normalized : `${normalized.slice(0, max).trim()}...`;
+};
+
+const getTopRequirements = (requirements, max = 3) => {
+  if (!requirements) return [];
+  const lines = requirements
+    .split(/\r?\n|\.|;/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return lines.slice(0, max);
+};
+
+const getApplicantStatusStyle = (status) => {
+  const normalized = String(status || 'pending').toLowerCase();
+  const variants = {
+    pending: {
+      backgroundColor: '#fef3c7',
+      color: '#92400e',
+      border: '1px solid #fde68a',
+    },
+    reviewing: {
+      backgroundColor: '#dbeafe',
+      color: '#1d4ed8',
+      border: '1px solid #bfdbfe',
+    },
+    interview: {
+      backgroundColor: '#ede9fe',
+      color: '#5b21b6',
+      border: '1px solid #ddd6fe',
+    },
+    accepted: {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+      border: '1px solid #bbf7d0',
+    },
+    rejected: {
+      backgroundColor: '#fee2e2',
+      color: '#991b1b',
+      border: '1px solid #fecaca',
+    },
+  };
+
+  return variants[normalized] || variants.pending;
+};
+
 const HeartIcon = ({ filled = false, size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -73,6 +122,37 @@ const EyeIcon = ({ size = 16 }) => (
   </svg>
 );
 
+const CheckIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const XIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const TrashIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4h6v2" />
+  </svg>
+);
+
+const ReviewIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <path d="M8 9h8" />
+    <path d="M8 13h4" />
+  </svg>
+);
+
 const BriefcaseIcon = ({ size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -84,6 +164,22 @@ const ClockIcon = ({ size = 16 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" />
     <polyline points="12 7 12 12 15 15" />
+  </svg>
+);
+
+const LocationIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
+const SalaryIcon = ({ size = 16 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v2" />
+    <circle cx="12" cy="14" r="1" />
+    <path d="M12 11v6" />
   </svg>
 );
 
@@ -1612,9 +1708,7 @@ export default function Profile() {
                           >
                             {selectedJobId === job._id
                               ? "Hide details"
-                              : isOwnProfile
-                              ? "Manage applicants"
-                              : "View details"}
+                              : "View post"}
                           </button>
                           {isOwnProfile && (
                             <button
@@ -1625,6 +1719,93 @@ export default function Profile() {
                             </button>
                           )}
                         </div>
+                      </div>
+
+                      <div style={styles.jobOverview}>
+                        <div style={styles.jobMetaRow}>
+                          {job.location && (
+                            <span
+                              style={{
+                                ...styles.jobBadge,
+                                backgroundColor: isDarkMode
+                                  ? "rgba(255,255,255,0.08)"
+                                  : "#eef2ff",
+                                color: isDarkMode ? "#e2e8f0" : "#1e3a8a",
+                                border: isDarkMode
+                                  ? "1px solid rgba(255,255,255,0.1)"
+                                  : "1px solid #dbeafe",
+                              }}
+                            >
+                              {job.location}
+                            </span>
+                          )}
+                          {(job.salaryMin || job.salaryMax) && (
+                            <span
+                              style={{
+                                ...styles.jobBadge,
+                                backgroundColor: isDarkMode
+                                  ? "rgba(255,255,255,0.08)"
+                                  : "#eef2ff",
+                                color: isDarkMode ? "#e2e8f0" : "#1e3a8a",
+                                border: isDarkMode
+                                  ? "1px solid rgba(255,255,255,0.1)"
+                                  : "1px solid #dbeafe",
+                              }}
+                            >
+                              {job.salaryMin || job.salaryMax
+                                ? `${job.salaryMin || '₱0'} - ${job.salaryMax || '₱0'} ${job.salaryFrequency || ''}`.trim()
+                                : "Salary info"}
+                            </span>
+                          )}
+                          {job.salaryFrequency && (
+                            <span style={styles.jobBadge}>{job.salaryFrequency}</span>
+                          )}
+                          {job.employmentType && (
+                            <span style={styles.jobBadge}>{job.employmentType}</span>
+                          )}
+                        </div>
+
+                        {job.description && (
+                          <p
+                            style={{
+                              ...styles.jobDescription,
+                              color: isDarkMode ? "#d1d5db" : "#475569",
+                            }}
+                          >
+                            {getSnippet(job.description, 260)}
+                          </p>
+                        )}
+
+                        {job.requirements && (
+                          <div style={styles.jobReqList}>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 700,
+                                color: isDarkMode ? "#f8fafc" : "#1f2937",
+                              }}
+                            >
+                              Top requirements
+                            </p>
+                            {getTopRequirements(job.requirements, 3).map((line, index) => (
+                              <div key={index} style={styles.jobReqItem}>
+                                <span style={styles.jobReqBullet} />
+                                <span>{line}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {job.externalLink && (
+                          <a
+                            style={styles.jobExternalLink}
+                            href={job.externalLink}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            External application link
+                          </a>
+                        )}
                       </div>
 
                       <div
@@ -1680,156 +1861,162 @@ export default function Profile() {
                       </div>
 
                       {selectedJobId === job._id && (
-                        <div style={styles.interactionPanel}>
-                          <div style={styles.interactionGroup}>
-                            <p style={styles.interactionLabel}>Viewed</p>
-                            <p style={styles.interactionText}>{job.views?.length || 0} views</p>
+                        <div style={{
+                          ...styles.interactionPanel,
+                          backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
+                          border: isDarkMode ? "1px solid #1f2937" : "1px solid #e2e8f0",
+                        }}>
+                          <div style={styles.jobMetricGrid}>
+                            <div style={styles.interactionGroup}>
+                              <p style={{
+                                ...styles.interactionLabel,
+                                color: isDarkMode ? "#cbd5e1" : "#334155",
+                              }}>Viewed</p>
+                              <p style={{
+                                ...styles.interactionText,
+                                color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                              }}>{job.views?.length || 0} views</p>
+                            </div>
+                            <div style={styles.interactionGroup}>
+                              <p style={{
+                                ...styles.interactionLabel,
+                                color: isDarkMode ? "#cbd5e1" : "#334155",
+                              }}>Liked</p>
+                              <p style={{
+                                ...styles.interactionText,
+                                color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                              }}>{job.likes?.length || 0} likes</p>
+                            </div>
+                            {isOwnProfile && (
+                              <div style={styles.interactionGroup}>
+                                <p style={{
+                                  ...styles.interactionLabel,
+                                  color: isDarkMode ? "#cbd5e1" : "#334155",
+                                }}>Applicants</p>
+                                <p style={{
+                                  ...styles.interactionText,
+                                  color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                }}>{job.applicants?.length || 0} applications</p>
+                              </div>
+                            )}
+                            {isOwnProfile && (
+                              <div style={styles.interactionGroup}>
+                                <p style={{
+                                  ...styles.interactionLabel,
+                                  color: isDarkMode ? "#cbd5e1" : "#334155",
+                                }}>Pending</p>
+                                <p style={{
+                                  ...styles.interactionText,
+                                  color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                }}>{job.applicants?.filter((application) => (application.status || 'pending') === 'pending').length || 0} pending</p>
+                              </div>
+                            )}
                           </div>
 
-                          <div style={styles.interactionGroup}>
-                            <p style={styles.interactionLabel}>Liked</p>
-                            <p style={styles.interactionText}>{job.likes?.length || 0} likes</p>
+                          <div style={{
+                            ...styles.jobPreviewCard,
+                            backgroundColor: isDarkMode ? "#111827" : "#f8fafc",
+                            border: isDarkMode ? "1px solid #1f2937" : "1px solid #e2e8f0",
+                          }}>
+                            <div style={styles.jobPreviewHeader}>
+                              <div>
+                                <p style={{
+                                  ...styles.jobPreviewTitle,
+                                  color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                }}>{job.title}</p>
+                                <p style={{
+                                  ...styles.jobPreviewMeta,
+                                  color: isDarkMode ? "#94a3b8" : "#64748b",
+                                  display: "flex",
+                                  gap: "12px",
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                }}>
+                                  {job.location && (
+                                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                      <LocationIcon size={16} />
+                                      {job.location}
+                                    </span>
+                                  )}
+                                  {job.salary && (
+                                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                      <SalaryIcon size={16} />
+                                      {job.salary}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <div style={styles.jobPreviewStats}>
+                                <div style={styles.jobPreviewStat}>
+                                  <p style={{
+                                    ...styles.jobPreviewStatNumber,
+                                    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                  }}>{job.applicants?.length || 0}</p>
+                                  <p style={{
+                                    ...styles.jobPreviewStatLabel,
+                                    color: isDarkMode ? "#94a3b8" : "#64748b",
+                                  }}>Applicants</p>
+                                </div>
+                                <div style={styles.jobPreviewStat}>
+                                  <p style={{
+                                    ...styles.jobPreviewStatNumber,
+                                    color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                  }}>{job.views?.length || 0}</p>
+                                  <p style={{
+                                    ...styles.jobPreviewStatLabel,
+                                    color: isDarkMode ? "#94a3b8" : "#64748b",
+                                  }}>Views</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {job.description && (
+                              <div style={styles.jobPreviewContent}>
+                                <p style={{
+                                  ...styles.jobPreviewDesc,
+                                  color: isDarkMode ? "#cbd5e1" : "#475569",
+                                }}>{getSnippet(job.description, 220)}</p>
+                              </div>
+                            )}
+
+                            {job.requirements && (
+                              <div style={styles.jobPreviewRequirements}>
+                                <p style={{
+                                  ...styles.jobPreviewReqTitle,
+                                  color: isDarkMode ? "#e2e8f0" : "#0f172a",
+                                }}>Top requirements</p>
+                                {getTopRequirements(job.requirements, 3).map((req, idx) => (
+                                  <p key={idx} style={{
+                                    ...styles.jobPreviewReqItem,
+                                    color: isDarkMode ? "#ffffff" : "#000000",
+                                  }}>• {req}</p>
+                                ))}
+                              </div>
+                            )}
+
+                            {job.externalLink && (
+                              <a
+                                style={{
+                                  ...styles.jobExternalLink,
+                                  color: isDarkMode ? "#ffffff" : "#000000",
+                                }}
+                                href={job.externalLink}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                External application link
+                              </a>
+                            )}
+
+                            <div style={styles.jobPreviewFooter}>
+                              <button
+                                style={styles.jobPreviewButton}
+                                onClick={() => navigate(`/explore?jobId=${encodeURIComponent(job._id)}`, { state: { openJobId: job._id } })}
+                              >
+                                View post
+                              </button>
+                            </div>
                           </div>
-
-                          {!isOwnProfile ? (
-                            <>
-                              {job.description && (
-                                <div style={styles.interactionGroup}>
-                                  <p style={styles.interactionLabel}>Job description</p>
-                                  <p style={styles.interactionText}>{job.description}</p>
-                                </div>
-                              )}
-                              {job.requirements && (
-                                <div style={styles.interactionGroup}>
-                                  <p style={styles.interactionLabel}>Requirements</p>
-                                  <p style={styles.interactionText}>{job.requirements}</p>
-                                </div>
-                              )}
-                              <p style={styles.noteText}>Only the job owner can manage applicants. You can view job info and likes here.</p>
-                            </>
-                          ) : (
-                            <>
-                              <div style={styles.interactionGroup}>
-                                <p style={styles.interactionLabel}>Viewed by</p>
-                                {job.views?.length ? (
-                                  job.views.map((viewer) => (
-                                    <p key={viewer._id} style={styles.interactionText}>
-                                      {viewer.firstName} {viewer.lastName} • {viewer.email}
-                                    </p>
-                                  ))
-                                ) : (
-                                  <p style={styles.interactionText}>No jobseeker views yet.</p>
-                                )}
-                              </div>
-
-                              <div style={styles.interactionGroup}>
-                                <p style={styles.interactionLabel}>Liked by</p>
-                                {job.likes?.length ? (
-                                  job.likes.map((liker) => {
-                                    const likerInfo = typeof liker === 'object' ? liker : { _id: liker };
-                                    return (
-                                      <div key={likerInfo._id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                        <PresenceAvatar
-                                          userId={likerInfo._id}
-                                          src={likerInfo.profilePicture}
-                                          size={34}
-                                          presenceMode={likerInfo.presenceMode || (likerInfo.isOnline ? 'online' : 'offline')}
-                                          lastActive={likerInfo.lastActive}
-                                        />
-                                        <div>
-                                          <p style={styles.interactionText}>
-                                            {likerInfo.firstName ? `${likerInfo.firstName} ${likerInfo.lastName}` : 'Unknown user'}
-                                          </p>
-                                          <p style={{ ...styles.interactionText, marginTop: 0, fontSize: 12, opacity: 0.8 }}>
-                                            {likerInfo.email || 'Profile liked'}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <p style={styles.interactionText}>No likes yet.</p>
-                                )}
-                              </div>
-
-                              <div style={styles.interactionGroup}>
-                                <p style={styles.interactionLabel}>Applicants</p>
-                                {job.applicants?.length ? (
-                                  job.applicants.map((applicant) => {
-                                    const user = applicant.user || applicant;
-                                    const status = applicant.status || "pending";
-                                    return (
-                                      <div key={user._id} style={styles.applicantRow}>
-                                        <div style={styles.applicantDetails}>
-                                          {user.profilePicture && (
-                                            <img
-                                              src={user.profilePicture}
-                                              alt={`${user.firstName} avatar`}
-                                              style={styles.applicantAvatar}
-                                            />
-                                          )}
-                                          <div>
-                                            <p style={styles.interactionText}>
-                                              {user.firstName} {user.lastName} • {user.email}
-                                            </p>
-                                            <p style={styles.applicantStatus}>{status}</p>
-                                          </div>
-                                        </div>
-                                        <div style={styles.applicantActions}>
-                                          <button
-                                            style={styles.viewProfileButton}
-                                            onClick={() => openApplicantModal(applicant, job._id)}
-                                          >
-                                            View profile
-                                          </button>
-                                          {status === "pending" && (
-                                            <button
-                                              style={styles.statusButton}
-                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "reviewing")}
-                                            >
-                                              Review
-                                            </button>
-                                          )}
-                                          {status === "reviewing" && (
-                                            <button
-                                              style={styles.statusButton}
-                                              onClick={() => handleApplicantInterview(job._id, user._id, user, job.title)}
-                                            >
-                                              Interview
-                                            </button>
-                                          )}
-                                          {status === "interview" && (
-                                            <button
-                                              style={styles.statusButton}
-                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "accepted")}
-                                            >
-                                              Accept
-                                            </button>
-                                          )}
-                                          {status !== "rejected" && (
-                                            <button
-                                              style={styles.statusButtonSecondary}
-                                              onClick={() => handleApplicantStatusChange(job._id, user._id, "rejected")}
-                                            >
-                                              Reject
-                                            </button>
-                                          )}
-                                          <button
-                                            style={styles.statusButtonSecondary}
-                                            onClick={() => handleApplicantRemove(job._id, user._id)}
-                                          >
-                                            Remove
-                                          </button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <p style={styles.interactionText}>No applicants yet.</p>
-                                )}
-                              </div>
-                            </>
-                          )}
                         </div>
                       )}
                     </div>
@@ -2819,12 +3006,79 @@ const styles = {
     gap: "18px",
   },
 
+  jobOverview: {
+    display: "grid",
+    gap: "14px",
+    paddingBottom: "14px",
+    marginBottom: "18px",
+  },
+
+  jobMetaRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+
+  jobBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "700",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    color: "#e2e8f0",
+    border: "1px solid rgba(255,255,255,0.12)",
+  },
+
+  jobDescription: {
+    margin: 0,
+    fontSize: "14px",
+    lineHeight: "1.75",
+    color: "#d1d5db",
+  },
+
+  jobReqList: {
+    display: "grid",
+    gap: "10px",
+  },
+
+  jobReqItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    color: "#e2e8f0",
+    fontSize: "14px",
+  },
+
+  jobReqBullet: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "999px",
+    marginTop: "8px",
+    backgroundColor: "#38bdf8",
+    flexShrink: 0,
+  },
+
+  jobExternalLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#38bdf8",
+    textDecoration: "none",
+  },
+
   jobCard: {
-    backgroundColor: "#111827",
-    border: "1px solid #1f2937",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e5e7eb",
     borderRadius: "20px",
     padding: "22px",
-    color: "#f8fafc",
+    color: "#111827",
+    boxShadow: "0 20px 50px rgba(15, 23, 42, 0.08)",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
   },
 
   jobHeader: {
@@ -3082,25 +3336,138 @@ const styles = {
   applicantRow: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px",
-    padding: "12px 14px",
-    borderRadius: "14px",
-    backgroundColor: "#0f172a",
-    border: "1px solid #1f2937",
+    alignItems: "flex-start",
+    gap: "16px",
+    padding: "18px",
+    borderRadius: "22px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
     flexWrap: "wrap",
   },
 
+  jobPreviewCard: {
+    display: "grid",
+    gap: "16px",
+    padding: "20px",
+    borderRadius: "22px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
+  },
+
+  jobPreviewHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+  },
+
+  jobPreviewTitle: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+
+  jobPreviewMeta: {
+    margin: "8px 0 0",
+    fontSize: "13px",
+    color: "#64748b",
+  },
+
+  jobPreviewStats: {
+    display: "flex",
+    gap: "16px",
+  },
+
+  jobPreviewStat: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "4px",
+  },
+
+  jobPreviewStatNumber: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+
+  jobPreviewStatLabel: {
+    margin: 0,
+    fontSize: "12px",
+    color: "#64748b",
+  },
+
+  jobPreviewContent: {
+    display: "grid",
+    gap: "8px",
+  },
+
+  jobPreviewDesc: {
+    margin: 0,
+    fontSize: "14px",
+    color: "#475569",
+    lineHeight: "1.5",
+  },
+
+  jobPreviewRequirements: {
+    display: "grid",
+    gap: "8px",
+  },
+
+  jobPreviewReqTitle: {
+    margin: 0,
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#0f172a",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  },
+
+  jobPreviewReqItem: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#475569",
+  },
+
+  jobPreviewFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    paddingTop: "8px",
+  },
+
+  jobPreviewButton: {
+    padding: "12px 16px",
+    borderRadius: "16px",
+    backgroundColor: "#1892aa",
+    color: "#ffffff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "14px",
+    transition: "all 0.2s ease",
+  },
+
+  jobMetricGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gap: "16px",
+    marginBottom: "18px",
+  },
+
   applicantStatus: {
-    margin: "6px 0 0",
-    padding: "4px 10px",
+    margin: "8px 0 0",
+    padding: "6px 14px",
     borderRadius: "999px",
-    backgroundColor: "#1f2937",
-    color: "#e2e8f0",
     fontSize: "12px",
     fontWeight: "700",
     display: "inline-flex",
     alignItems: "center",
+    textTransform: "capitalize",
+    letterSpacing: "0.02em",
   },
 
   applicantActions: {
@@ -3108,12 +3475,44 @@ const styles = {
     flexWrap: "wrap",
     gap: "10px",
     alignItems: "center",
+    justifyContent: "flex-end",
   },
 
   applicantDetails: {
     display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: "8px",
+    flex: 1,
+    minWidth: "220px",
+  },
+
+  actionIconButton: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+    color: "#0f172a",
+    display: "inline-flex",
     alignItems: "center",
-    gap: "12px",
+    justifyContent: "center",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    boxShadow: "0 4px 10px rgba(15, 23, 42, 0.06)",
+  },
+
+  applicantText: {
+    margin: 0,
+    color: "#0f172a",
+    fontSize: "15px",
+    fontWeight: "700",
+  },
+
+  applicantMeta: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: "13px",
   },
 
   applicantAvatar: {
@@ -3163,8 +3562,8 @@ const styles = {
   viewProfileButton: {
     border: "1px solid #1892aa",
     borderRadius: "12px",
-    background: "#111827",
-    color: "#ffffff",
+    background: "transparent",
+    color: "#1892aa",
     cursor: "pointer",
     padding: "10px 14px",
     fontWeight: "700",

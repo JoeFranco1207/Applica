@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import PostCard from '../../components/PostCard';
 import CreatePost from '../../components/CreatePost';
+import PremiumAd from '../../components/PremiumAd';
 import './Feed.css';
 
 const Feed = () => {
@@ -104,6 +105,8 @@ const Feed = () => {
       </div>
 
       <CreatePost onPostCreated={handlePostCreated} />
+
+      <PremiumAd />
 
       {posts.length === 0 ? (
         <div className="no-posts">

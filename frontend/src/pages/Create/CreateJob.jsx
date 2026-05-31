@@ -73,6 +73,10 @@ const CreateJob = () => {
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
+  const [activeJobCount, setActiveJobCount] = useState(0);
+  const [descriptionWords, setDescriptionWords] = useState(0);
+  const [requirementsWords, setRequirementsWords] = useState(0);
 
   const showMessage = (text, type) => {
     setMessage(text);
@@ -99,6 +103,7 @@ const CreateJob = () => {
       if (freshUser) {
         localStorage.setItem("user", JSON.stringify(freshUser));
         setUserRole(freshUser.role);
+        setIsPremium(!!freshUser.premiumAIAccess);
       }
       return freshUser;
     } catch (error) {
@@ -119,6 +124,30 @@ const CreateJob = () => {
     }
   };
 
+  const getWordCount = (text = "") => {
+    return typeof text !== "string"
+      ? 0
+      : text
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+  };
+
+  const fetchEmployerJobCount = async (token) => {
+    try {
+      const response = await axios.get("http://localhost:8000/api/employer/my-jobs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const jobs = response.data?.data;
+      if (Array.isArray(jobs)) {
+        setActiveJobCount(jobs.length);
+      }
+    } catch (error) {
+      console.error("Unable to fetch employer job count", error);
+    }
+  };
+
   useEffect(() => {
     const initialize = async () => {
       const token = localStorage.getItem("token");
@@ -127,7 +156,11 @@ const CreateJob = () => {
         navigate("/auth");
         return;
       }
-      await refreshAuthenticatedUser(token);
+
+      const freshUser = await refreshAuthenticatedUser(token);
+      if (freshUser?.role === "employer") {
+        await fetchEmployerJobCount(token);
+      }
     };
     initialize();
   }, [navigate]);
@@ -194,6 +227,9 @@ const CreateJob = () => {
   };
 
   const isEmployer = !authChecking && userRole === "employer";
+  const descriptionWordLimit = isPremium ? 300 : 100;
+  const requirementsWordLimit = isPremium ? 150 : 60;
+  const activeJobLimitText = isPremium ? "Unlimited" : "3";
 
   const handleMediaUpload = (e) => {
     const file = e.target.files?.[0];
@@ -225,6 +261,13 @@ const CreateJob = () => {
       ? autoBulletText(value)
       : value;
 
+    if (name === "description") {
+      setDescriptionWords(getWordCount(formattedValue));
+    }
+    if (name === "requirements") {
+      setRequirementsWords(getWordCount(formattedValue));
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: formattedValue,
@@ -251,6 +294,24 @@ const CreateJob = () => {
       }
       if (freshUser.role !== "employer") {
         showMessage("Only employer accounts can create jobs.", "error");
+        setLoading(false);
+        return;
+      }
+
+      if (descriptionWords > descriptionWordLimit) {
+        showMessage(
+          `Job description may only contain up to ${descriptionWordLimit} words on your current plan.`,
+          "error"
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (requirementsWords > requirementsWordLimit) {
+        showMessage(
+          `Requirements may only contain up to ${requirementsWordLimit} words on your current plan.`,
+          "error"
+        );
         setLoading(false);
         return;
       }
@@ -322,6 +383,17 @@ const CreateJob = () => {
             </div>
           </div>
 
+          {!authChecking && isEmployer && (
+            <div style={styles.planBanner}>
+              <strong>{isPremium ? "Premium employer" : "Free employer"}</strong>
+              <span style={styles.planBannerText}>
+                {isPremium
+                  ? `Unlimited active jobs, up to ${descriptionWordLimit} words for job descriptions, and up to ${requirementsWordLimit} words for requirements.`
+                  : `Up to ${activeJobLimitText} active jobs (${activeJobCount} currently active). Free employers are limited to ${descriptionWordLimit} words in descriptions and ${requirementsWordLimit} words in requirements. Upgrade to Premium for higher limits.`}
+              </span>
+            </div>
+          )}
+
           {message && (
             <div
               style={{
@@ -382,6 +454,12 @@ const CreateJob = () => {
                 style={styles.textarea}
                 required
               />
+              <div style={styles.fieldHint}>
+                {descriptionWords}/{descriptionWordLimit} words
+                {descriptionWords > descriptionWordLimit && (
+                  <span style={styles.errorHint}> — too many words for your current plan.</span>
+                )}
+              </div>
             </div>
 
             <div style={styles.formGroup}>
@@ -394,6 +472,12 @@ const CreateJob = () => {
                 style={styles.textarea}
                 required
               />
+              <div style={styles.fieldHint}>
+                {requirementsWords}/{requirementsWordLimit} words
+                {requirementsWords > requirementsWordLimit && (
+                  <span style={styles.errorHint}> — too many words for your current plan.</span>
+                )}
+              </div>
             </div>
 
             <div style={styles.twoColumnGrid}>
@@ -785,6 +869,30 @@ const styles = {
     color: "var(--text-muted)",
     marginTop: "6px",
     maxWidth: "100%",
+  },
+  fieldHint: {
+    fontSize: "12px",
+    color: "var(--text-muted)",
+    marginTop: "6px",
+  },
+  errorHint: {
+    color: "#dc2626",
+    marginLeft: "6px",
+  },
+  planBanner: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "14px 18px",
+    borderRadius: "14px",
+    border: "1px solid rgba(59, 130, 246, 0.18)",
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    marginBottom: "18px",
+  },
+  planBannerText: {
+    fontSize: "13px",
+    color: "var(--text)",
+    lineHeight: 1.5,
   },
 
   twoColumnGrid: {

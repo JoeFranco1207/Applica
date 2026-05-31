@@ -5,6 +5,12 @@ const options = {
   timestamps: true,
 };
 
+const normalizePlan = (plan) => {
+  if (!plan) return '';
+  if (typeof plan !== 'string') plan = String(plan);
+  return plan.startsWith('employer_') ? plan.replace(/^employer_/, '') : plan;
+};
+
 const userSchema = new mongoose.Schema({
   //Basic User Information
     firstName: { type: String, required: true },
@@ -30,6 +36,23 @@ const userSchema = new mongoose.Schema({
     experience: { type: String, default: '' },
     education: { type: String, default: '' },
     resume: { type: String, default: '' },
+    skills: {
+      type: [String],
+      default: [],
+    },
+    certifications: {
+      type: [String],
+      default: [],
+    },
+    portfolioLinks: {
+      type: [String],
+      default: [],
+    },
+    socialLinks: {
+      github: { type: String, default: '' },
+      linkedin: { type: String, default: '' },
+      twitter: { type: String, default: '' },
+    },
     role: { type: String,
       enum: ['user', 'admin', 'employer', 'jobseeker'],
       default: 'user' },
@@ -105,6 +128,7 @@ const userSchema = new mongoose.Schema({
       type: String,
       enum: ['monthly', 'halfYearly', 'annual', ''],
       default: '',
+      set: (v) => normalizePlan(v),
     },
     // Transient: store the last created PayMongo source id for AI premium
     lastAIPaymentSource: {
@@ -122,6 +146,7 @@ const userSchema = new mongoose.Schema({
       enum: ['monthly', 'halfYearly', 'annual', ''],
       default: '',
       select: false,
+      set: (v) => normalizePlan(v),
     },
     forgotPasswordCode: {
       type: Number,

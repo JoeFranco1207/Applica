@@ -12,6 +12,63 @@ import { signupValidation, phoneNumberValidation } from '../validator/Validator.
 import {sendVerificationEmail, sendForgotPasswordEmail, sendLoginNotificationEmail} from '../Services/NodeMailer.js';
 import { createSystemNotificationService } from './Notification.service.js';
 
+// Helper to normalize legacy employer_ prefixed plan values
+const normalizePlanFields = (user) => {
+  if (user.premiumPlan && typeof user.premiumPlan === 'string' && user.premiumPlan.startsWith('employer_')) {
+    user.premiumPlan = user.premiumPlan.replace(/^employer_/, '');
+  }
+  if (user.lastAIPaymentPlan && typeof user.lastAIPaymentPlan === 'string' && user.lastAIPaymentPlan.startsWith('employer_')) {
+    user.lastAIPaymentPlan = user.lastAIPaymentPlan.replace(/^employer_/, '');
+  }
+};
+
+const getAcceptedJobDataForJobseeker = async (userId) => {
+  if (!userId) return null;
+
+  const acceptedJobs = await Job.find({
+    'applicants.user': userId,
+    'applicants.status': 'accepted',
+  })
+    .populate({ path: 'createdBy', select: 'companyName' })
+    .lean();
+
+  if (!acceptedJobs?.length) return null;
+
+  let bestMatch = null;
+
+  for (const job of acceptedJobs) {
+    const application = Array.isArray(job.applicants)
+      ? job.applicants.find((entry) => entry?.user?.toString() === userId.toString())
+      : null;
+
+    if (!application) continue;
+
+    const updatedAt = application.updatedAt ? new Date(application.updatedAt).getTime() : 0;
+
+    if (!bestMatch || updatedAt > bestMatch.updatedAt) {
+      bestMatch = {
+        employeeOf: job.createdBy?.companyName || job.companyName || '',
+        employeeJobTitle: job.title || '',
+        updatedAt,
+      };
+    }
+  }
+
+  return bestMatch;
+};
+
+const attachEmployeeTagToUser = async (user) => {
+  if (!user || user.role !== 'jobseeker') return user;
+  const userObj = user.toObject ? user.toObject() : { ...user };
+  const acceptedJob = await getAcceptedJobDataForJobseeker(userObj._id || userObj.id || user);
+  if (acceptedJob?.employeeOf) {
+    userObj.employeeOf = acceptedJob.employeeOf;
+    if (acceptedJob.employeeJobTitle) {
+      userObj.employeeJobTitle = acceptedJob.employeeJobTitle;
+    }
+  }
+  return userObj;
+};
 
 export const registerService = async (data) => { 
    const {firstName, lastName, email, password, phoneNumber} = data;
@@ -120,6 +177,9 @@ export const sendVerificationCodeService = async(email) =>{
   user.verificationCode = null;
   user.codeExpiration = null;
 
+  // Normalize legacy employer_ prefixed plan values before save
+  normalizePlanFields(user);
+
   await user.save();
 
   // generate token
@@ -217,6 +277,9 @@ export const loginService = async(email, password, deviceInfo) => {
           expires: expiresAt,
         });
 
+        // Normalize legacy employer_ prefixed plan values before save
+        normalizePlanFields(existingUser);
+
         await existingUser.save();
 
         return { token, user: safeUser };
@@ -256,8 +319,7 @@ export const getProfileService = async (userId) => {
     throw new AppError("User not found", 404);
   }
 
-
-  return user;
+  return await attachEmployeeTagToUser(user);
 };
 
 export const getUserByIdService = async (userId) => {
@@ -265,7 +327,7 @@ export const getUserByIdService = async (userId) => {
   if (!user) {
     throw new AppError('User not found', 404);
   }
-  return user;
+  return await attachEmployeeTagToUser(user);
 };
 
 export const deleteUserService = async (userId) => {

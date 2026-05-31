@@ -14,6 +14,18 @@ const hasLocationData = (location) => {
   return hasCoords || hasManualFields;
 };
 
+const normalizeArrayField = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === 'string') {
+    return value
+      .split(/[,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 export const jobseekerProfileService = async (userId, profileData = {}) => {
     const {
       citizenShip,
@@ -23,6 +35,13 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
       resume,
       profilePicture,
       bio,
+      skills,
+      certifications,
+      portfolioLinks,
+      socialLinks,
+      github,
+      linkedin,
+      twitter,
     } = profileData;
 
     const user = await User.findById(userId);
@@ -55,6 +74,11 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
       throw new AppError("Resume is required", 400);
     }
 
+    const normalizedSkills = normalizeArrayField(skills);
+    if (normalizedSkills.length === 0) {
+      throw new AppError("Skills are required", 400);
+    }
+
     if (user.jobseekerProfile) {
       throw new AppError("Jobseeker profile already exists", 400);
     }
@@ -66,6 +90,14 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
     user.resume = resume;
     user.profilePicture = profilePicture;
     user.bio = bio;
+    user.skills = normalizedSkills;
+    user.certifications = normalizeArrayField(certifications);
+    user.portfolioLinks = normalizeArrayField(portfolioLinks);
+    user.socialLinks = {
+      github: (socialLinks?.github || github || '').trim(),
+      linkedin: (socialLinks?.linkedin || linkedin || '').trim(),
+      twitter: (socialLinks?.twitter || twitter || '').trim(),
+    };
 
     await user.save();
     return user;
@@ -91,12 +123,25 @@ export const updateJobseekerProfileService = async (userId, profileData = {}) =>
     "resume",
     "profilePicture",
     "bio",
+    "skills",
+    "certifications",
+    "portfolioLinks",
+    "socialLinks",
   ];
 
   const updateData = {};
   for (const field of Object.keys(profileData)) {
     if (allowedFields.includes(field)) {
-      updateData[field] = profileData[field];
+      if (field === 'skills' || field === 'certifications' || field === 'portfolioLinks') {
+        updateData[field] = normalizeArrayField(profileData[field]);
+      } else if (field === 'socialLinks') {
+        updateData.socialLinks = {
+          ...(user.socialLinks || {}),
+          ...profileData.socialLinks,
+        };
+      } else {
+        updateData[field] = profileData[field];
+      }
     }
   }
 

@@ -208,28 +208,122 @@ const calculateEmployerProfileCompletion = (user) => {
   return Math.round((filledCount / fields.length) * 100);
 };
 
-const calculateJobseekerProfileCompletion = (user) => {
-  if (!user || user.role !== "jobseeker") return 0;
+const isFilled = (value) => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((item) => isFilled(item));
+  }
+  return typeof value === 'string' ? value.trim().length > 0 : !!value;
+};
 
-  const fields = [
-    user.bio,
-    user.citizenShip,
-    user.experience,
-    user.education,
-    user.resume,
-    user.profilePicture,
-    user.location?.region,
-    user.location?.city,
-    user.location?.barangay,
-    user.location?.otherDetails,
+const getProfileStrengthLabel = (percentage) => {
+  if (percentage >= 100) return 'Complete Profile';
+  if (percentage >= 90) return 'Strong Profile';
+  if (percentage >= 70) return 'Intermediate';
+  return 'Beginner';
+};
+
+const getProfileStrengthMessage = (percentage) => {
+  if (percentage >= 100) return 'Your profile is fully complete and ready for recruiters.';
+  if (percentage >= 90) return 'Your profile is stronger than 70% of applicants.';
+  if (percentage >= 70) return 'You are doing well — a few more updates will make your profile stand out.';
+  return 'Complete your profile to increase employer visibility and get more interviews.';
+};
+
+const getJobseekerProfileStrength = (user) => {
+  if (!user || user.role !== 'jobseeker') {
+    return {
+      percentage: 0,
+      label: 'Beginner',
+      message: 'Complete your profile to increase employer visibility.',
+      sections: [],
+      suggestions: [],
+    };
+  }
+
+  const sections = [
+    { key: 'profilePicture', label: 'Profile picture', completed: isFilled(user.profilePicture), weight: 10 },
+    { key: 'bio', label: 'Bio / About me', completed: isFilled(user.bio), weight: 10 },
+    { key: 'skills', label: 'Skills', completed: isFilled(user.skills), weight: 10 },
+    { key: 'education', label: 'Education', completed: isFilled(user.education), weight: 10 },
+    { key: 'experience', label: 'Experience', completed: isFilled(user.experience), weight: 10 },
+    { key: 'resume', label: 'Resume upload', completed: isFilled(user.resume), weight: 15 },
+    {
+      key: 'portfolio',
+      label: 'Portfolio links',
+      completed: isFilled(user.portfolioLinks) || isFilled(user.portfolio) || isFilled(user.website),
+      weight: 10,
+    },
+    {
+      key: 'certifications',
+      label: 'Certifications',
+      completed: isFilled(user.certifications) || isFilled(user.certification),
+      weight: 10,
+    },
+    {
+      key: 'contact',
+      label: 'Contact information',
+      completed: isFilled(user.phoneNumber) || isFilled(user.contactNumber),
+      weight: 10,
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      completed: isFilled(user.location?.region) || isFilled(user.location?.city) || isFilled(user.location?.barangay) || isFilled(user.location?.otherDetails),
+      weight: 10,
+    },
+    {
+      key: 'social',
+      label: 'Social links / GitHub',
+      completed: isFilled(user.socialLinks) || isFilled(user.github) || isFilled(user.linkedin) || isFilled(user.twitter),
+      weight: 5,
+    },
   ];
 
-  const filledCount = fields.reduce(
-    (count, value) => count + (!!value ? 1 : 0),
-    0
-  );
+  const totalWeight = sections.reduce((sum, section) => sum + section.weight, 0);
+  const earnedWeight = sections.reduce((sum, section) => sum + (section.completed ? section.weight : 0), 0);
+  const percentage = totalWeight ? Math.round((earnedWeight / totalWeight) * 100) : 0;
 
-  return Math.round((filledCount / fields.length) * 100);
+  const suggestions = sections
+    .filter((section) => !section.completed)
+    .map((section) => ({
+      key: section.key,
+      label: section.label,
+      suggestion:
+        section.key === 'profilePicture'
+          ? 'Add profile picture'
+          : section.key === 'bio'
+          ? 'Write a strong bio'
+          : section.key === 'skills'
+          ? 'Add skills'
+          : section.key === 'education'
+          ? 'Complete education history'
+          : section.key === 'experience'
+          ? 'Update experience details'
+          : section.key === 'resume'
+          ? 'Upload resume'
+          : section.key === 'portfolio'
+          ? 'Add portfolio projects or links'
+          : section.key === 'certifications'
+          ? 'Add certifications'
+          : section.key === 'contact'
+          ? 'Add phone or contact details'
+          : section.key === 'location'
+          ? 'Add your location'
+          : 'Add social or GitHub links',
+    }));
+
+  return {
+    percentage,
+    label: getProfileStrengthLabel(percentage),
+    message: getProfileStrengthMessage(percentage),
+    sections,
+    suggestions,
+  };
+};
+
+const calculateJobseekerProfileCompletion = (user) => {
+  return getJobseekerProfileStrength(user).percentage;
 };
 
 export default function Profile() {
@@ -1181,10 +1275,15 @@ export default function Profile() {
     );
   }
 
+  const profileStrength =
+    user?.role === "jobseeker"
+      ? getJobseekerProfileStrength(user)
+      : null;
+
   const completion =
     user?.role === "employer"
       ? calculateEmployerProfileCompletion(user)
-      : calculateJobseekerProfileCompletion(user);
+      : profileStrength?.percentage || 0;
 
   return (
     <div className="page-container" style={{
@@ -1259,6 +1358,15 @@ export default function Profile() {
               }}>
                 {user?.role === "employer" ? "Employer" : user?.role === "jobseeker" ? "Job Seeker" : "User"}
               </p>
+              {user?.employeeOf && (
+                <p style={{
+                  ...styles.profileEmployeeLabel,
+                  color: "rgba(255,255,255,0.92)",
+                }}>
+                  Employee of {user.employeeOf}
+                  {user.employeeJobTitle ? ` · ${user.employeeJobTitle}` : ""}
+                </p>
+              )}
               {isOwnProfile && (
                 <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ color: '#d1d5db', fontSize: 14 }}>Online status is automatic while Applica is open.</span>
@@ -1305,14 +1413,6 @@ export default function Profile() {
                       {requestSent ? 'Requested' : 'Connect'}
                     </button>
                   )}
-                  <button
-                    style={isFollowingProfile ? styles.followingButton : styles.followButton}
-                    onClick={handleToggleFollow}
-                    aria-label={isFollowingProfile ? "Unfollow user" : "Follow user"}
-                    title={isFollowingProfile ? "Following" : "Follow"}
-                  >
-                    <FollowIcon followed={isFollowingProfile} size={18} />
-                  </button>
                   <button
                     style={styles.reportButton}
                     onClick={handleReportUser}
@@ -2319,33 +2419,106 @@ export default function Profile() {
               ...styles.sectionTitle,
               color: isDarkMode ? "#ffffff" : "#000",
             }}>
-              Profile Status
+              Profile Strength
             </h2>
 
-            <div style={styles.statusContainer}>
-              {(completion < 100) && (
-              <div style={styles.statusItem}>
-                <span style={{
-                  ...styles.statusLabel,
-                  color: isDarkMode ? "#fff" : "#333",
-                }}>
-                  Profile Completion
-                </span>
-                <div style={{
-                  ...styles.progressBar,
-                  backgroundColor: isDarkMode ? "#333" : "#e0e0e0",
-                }}>
-                  <div
-                    style={{
-                      ...styles.progressFill,
-                      width: `${completion}%`,
-                      backgroundColor: completion === 100 ? "#22c55e" : "#275791",
-                    }}
-                  ></div>
+            {user?.role === 'jobseeker' ? (
+              <div style={styles.strengthWrapper}>
+                <div style={{ ...styles.strengthCard, backgroundColor: isDarkMode ? '#111827' : '#f9fafb' }}>
+                  <div style={styles.strengthBadgeRow}>
+                    <span style={styles.strengthBadge}>{profileStrength.label}</span>
+                    <span style={styles.strengthPercentLabel}>{profileStrength.percentage}%</span>
+                  </div>
+                  <div style={styles.strengthMeter}>
+                    <div
+                      style={{
+                        ...styles.strengthMeterFill,
+                        width: `${profileStrength.percentage}%`,
+                        backgroundColor: profileStrength.percentage >= 90 ? '#22c55e' : profileStrength.percentage >= 70 ? '#2563eb' : '#f59e0b',
+                      }}
+                    />
+                  </div>
+                  <p style={styles.strengthText}>{profileStrength.message}</p>
+                  <p style={styles.strengthSubtext}>
+                    {profileStrength.percentage >= 90
+                      ? 'Profiles with resumes get more interviews.'
+                      : 'Complete your profile to increase employer visibility.'}
+                  </p>
+                </div>
+
+                <div style={{ ...styles.strengthCard, backgroundColor: isDarkMode ? '#111827' : '#f9fafb' }}>
+                  <div style={styles.strengthChecklistHeader}>
+                    <span>Profile checklist</span>
+                    <span>{profileStrength.suggestions.length} improvement suggestions</span>
+                  </div>
+                  <div style={styles.strengthChecklist}>
+                    {profileStrength.sections.map((section) => (
+                      <div
+                        key={section.key}
+                        style={{
+                          ...styles.strengthChecklistItem,
+                          backgroundColor: section.completed
+                            ? isDarkMode
+                              ? '#082f39'
+                              : '#ecfdf5'
+                            : isDarkMode
+                            ? '#1f2937'
+                            : '#fff7ed',
+                          borderColor: section.completed ? 'transparent' : isDarkMode ? '#374151' : '#fbbf24',
+                        }}
+                      >
+                        <span style={styles.strengthChecklistIcon}>
+                          {section.completed ? '✓' : '○'}
+                        </span>
+                        <div>
+                          <div style={styles.strengthChecklistTitle}>{section.label}</div>
+                          {!section.completed && (
+                            <div style={styles.strengthChecklistNote}>
+                              {section.key === 'profilePicture' && 'Add profile picture'}
+                              {section.key === 'bio' && 'Write a strong bio'}
+                              {section.key === 'skills' && 'Add skills'}
+                              {section.key === 'education' && 'Complete education history'}
+                              {section.key === 'experience' && 'Update experience details'}
+                              {section.key === 'resume' && 'Upload resume'}
+                              {section.key === 'portfolio' && 'Add portfolio projects or links'}
+                              {section.key === 'certifications' && 'Add certifications'}
+                              {section.key === 'contact' && 'Add phone or contact details'}
+                              {section.key === 'location' && 'Add your location'}
+                              {section.key === 'social' && 'Add social or GitHub links'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              )}
-            </div>
+            ) : (
+              <div style={styles.statusContainer}>
+                {(completion < 100) && (
+                  <div style={styles.statusItem}>
+                    <span style={{
+                      ...styles.statusLabel,
+                      color: isDarkMode ? "#fff" : "#333",
+                    }}>
+                      Profile Completion
+                    </span>
+                    <div style={{
+                      ...styles.progressBar,
+                      backgroundColor: isDarkMode ? "#333" : "#e0e0e0",
+                    }}>
+                      <div
+                        style={{
+                          ...styles.progressFill,
+                          width: `${completion}%`,
+                          backgroundColor: completion === 100 ? "#22c55e" : "#275791",
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {myPosts.length > 0 && (
@@ -2665,6 +2838,12 @@ const styles = {
     opacity: 0.9,
   },
 
+  profileEmployeeLabel: {
+    fontSize: "14px",
+    margin: "0 0 0 0",
+    opacity: 0.9,
+  },
+
   profileRole: {
     fontSize: "14px",
     opacity: 0.8,
@@ -2977,6 +3156,117 @@ const styles = {
     background:
       "linear-gradient(90deg, #1892aa 0%, #275791 100%)",
     borderRadius: "4px",
+  },
+
+  strengthWrapper: {
+    display: "grid",
+    gap: "16px",
+    gridTemplateColumns: "1.2fr 1fr",
+    alignItems: "stretch",
+  },
+
+  strengthCard: {
+    borderRadius: "18px",
+    border: "1px solid rgba(148, 163, 184, 0.18)",
+    padding: "24px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+
+  strengthBadgeRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  strengthBadge: {
+    display: "inline-flex",
+    padding: "8px 14px",
+    borderRadius: "999px",
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+    color: "#1d4ed8",
+    fontWeight: 700,
+    fontSize: "14px",
+  },
+
+  strengthPercentLabel: {
+    fontSize: "22px",
+    fontWeight: 800,
+  },
+
+  strengthMeter: {
+    width: "100%",
+    height: "16px",
+    backgroundColor: "#e2e8f0",
+    borderRadius: "999px",
+    overflow: "hidden",
+  },
+
+  strengthMeterFill: {
+    height: "100%",
+    borderRadius: "999px",
+    transition: "width 0.4s ease",
+  },
+
+  strengthText: {
+    fontSize: "14px",
+    color: "#475569",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  strengthSubtext: {
+    fontSize: "14px",
+    color: "#64748b",
+    margin: 0,
+  },
+
+  strengthChecklistHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    alignItems: "center",
+    fontSize: "14px",
+    fontWeight: 700,
+    color: "#334155",
+  },
+
+  strengthChecklist: {
+    display: "grid",
+    gap: "12px",
+  },
+
+  strengthChecklistItem: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "flex-start",
+    padding: "14px",
+    borderRadius: "14px",
+    border: "1px solid transparent",
+  },
+
+  strengthChecklistIcon: {
+    fontSize: "16px",
+    lineHeight: 1,
+    minWidth: "24px",
+    minHeight: "24px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  strengthChecklistTitle: {
+    fontSize: "14px",
+    fontWeight: 700,
+    marginBottom: "4px",
+  },
+
+  strengthChecklistNote: {
+    fontSize: "13px",
+    color: "#64748b",
   },
 
   statusValue: {

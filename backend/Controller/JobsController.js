@@ -4,6 +4,7 @@ import {
   addJobView,
   toggleJobLike,
   applyToJob,
+  getJobseekerApplications,
   getEmployerJobs,
   getJobById,
   notifyApplicantResumeViewed,
@@ -82,6 +83,15 @@ export const applyToJobController = async (req, res, next) => {
     const coverLetter = typeof req.body.coverLetter === 'string' ? req.body.coverLetter.trim() : '';
     const updatedJob = await applyToJob(jobId, req.user.id, coverLetter);
     return res.success(new AppSuccessful("Application recorded", 200, updatedJob));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getJobseekerApplicationsController = async (req, res, next) => {
+  try {
+    const applications = await getJobseekerApplications(req.user.id);
+    return res.success(new AppSuccessful("Applications retrieved successfully", 200, applications));
   } catch (err) {
     next(err);
   }

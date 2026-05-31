@@ -90,6 +90,12 @@ const getPaymongoSourceType = (method) => {
   return sourceType;
 };
 
+const normalizePlan = (plan) => {
+  if (!plan) return '';
+  if (typeof plan !== 'string') plan = String(plan);
+  return plan.startsWith('employer_') ? plan.replace(/^employer_/, '') : plan;
+};
+
 export const createAIPremiumPaymentSource = async (userId, req) => {
   const user = await User.findById(userId);
   if (!user) {
@@ -218,9 +224,10 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
     }
 
     const attributes = source.attributes || {};
+    const normalizedPlan = normalizePlan(plan);
     await User.findByIdAndUpdate(userId, {
       lastAIPaymentSource: source.id,
-      lastAIPaymentPlan: plan,
+      lastAIPaymentPlan: normalizedPlan,
       lastAIPaymentMethod: paymentMethod,
     });
 
@@ -228,7 +235,7 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
       sourceId: source.id,
       status: attributes.status || 'pending',
       paymentMethod,
-      premiumPlan: plan,
+      premiumPlan: normalizedPlan,
       qrCode: attributes.qr_code || null,
       sourceAttributes: attributes,
       checkoutUrl: attributes.redirect?.checkout_url || null,
@@ -266,7 +273,7 @@ export const confirmPaymentBySourceId = async (sourceId) => {
   const status = source?.attributes?.status || source?.attributes?.payment_status || null;
   const normalizedStatus = String(status || '').toLowerCase();
   const metadata = source?.attributes?.metadata || {};
-  const planFromMetadata = metadata?.plan || metadata?.premiumPlan || null;
+  const planFromMetadata = normalizePlan(metadata?.plan || metadata?.premiumPlan || null);
 
   const paidStatuses = ['chargeable', 'captured', 'paid', 'consumed', 'succeeded'];
   if (!paidStatuses.includes(normalizedStatus)) {
@@ -304,7 +311,7 @@ export const verifyAIPremiumPaymentSource = async (userId, sourceId) => {
   const status = source?.attributes?.status || source?.attributes?.payment_status || null;
   const normalizedStatus = String(status || '').toLowerCase();
   const metadata = source?.attributes?.metadata || {};
-  const planFromMetadata = metadata?.plan || metadata?.premiumPlan || null;
+  const planFromMetadata = normalizePlan(metadata?.plan || metadata?.premiumPlan || null);
 
   const paidStatuses = ['chargeable', 'captured', 'paid', 'consumed', 'succeeded'];
   const failureStatuses = ['failed', 'cancelled', 'canceled', 'expired', 'voided'];

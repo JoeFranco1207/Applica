@@ -338,6 +338,44 @@ export const getEmployerJobs = async (employerId) => {
   return jobs;
 };
 
+export const getJobseekerApplications = async (userId) => {
+  const jobs = await Job.find({ 'applicants.user': userId })
+    .sort({ updatedAt: -1 })
+    .populate({
+      path: "createdBy",
+      select: "firstName lastName email companyName role profilePicture companyLogo",
+    });
+
+  return jobs.map((job) => {
+    const application = job.applicants.find((entry) => {
+      if (entry.user) {
+        return entry.user.toString() === userId.toString();
+      }
+      if (entry._id) {
+        return entry._id.toString() === userId.toString();
+      }
+      return entry.toString() === userId.toString();
+    });
+
+    return {
+      jobId: job._id,
+      title: job.title,
+      companyName: job.companyName,
+      location: job.location,
+      salary: job.salary,
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+      salaryFrequency: job.salaryFrequency,
+      status: application?.status || 'pending',
+      appliedAt: application?.appliedAt,
+      updatedAt: application?.updatedAt,
+      rejectedAt: application?.rejectedAt,
+      coverLetter: application?.coverLetter,
+      jobCreatedBy: job.createdBy,
+    };
+  });
+};
+
 export const deleteEmployerJob = async (jobId, employerId) => {
   const job = await Job.findById(jobId);
   if (!job) {

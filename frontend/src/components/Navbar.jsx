@@ -266,6 +266,13 @@ export default function Navbar() {
               </button>
               <button
                 style={styles.iconButton}
+                onClick={() => navigate("/jobseeker/applications")}
+                title={translate("nav.applications")}
+              >
+                <JobIcon size={18} />
+              </button>
+              <button
+                style={styles.iconButton}
                 onClick={() => navigate("/jobseeker/interviews")}
                 title="Interview Requests"
               >

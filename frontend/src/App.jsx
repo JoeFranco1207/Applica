@@ -20,6 +20,7 @@ import EmployerApplicants from "./pages/EmployerApplicants";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import EmployerInterviews from "./pages/EmployerInterviews";
 import JobseekerInterviews from "./pages/JobseekerInterviews";
+import JobseekerApplications from "./pages/JobseekerApplications";
 import InterviewRoom from "./pages/InterviewRoom";
 import ResumeDesigns from "./pages/ResumeDesigns";
 import Chat from "./pages/Chat";
@@ -117,6 +118,7 @@ function App() {
           <Route path="/employer/applicants" element={<ProtectedRoute><EmployerApplicants /></ProtectedRoute>} />
           <Route path="/employer/interviews" element={<ProtectedRoute><EmployerInterviews /></ProtectedRoute>} />
           <Route path="/jobseeker/interviews" element={<ProtectedRoute><JobseekerInterviews /></ProtectedRoute>} />
+          <Route path="/jobseeker/applications" element={<ProtectedRoute><JobseekerApplications /></ProtectedRoute>} />
           <Route path="/interview/:roomId" element={<ProtectedRoute><InterviewRoom /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/admin/users/:id/sessions" element={<ProtectedRoute><UserSessions /></ProtectedRoute>} />

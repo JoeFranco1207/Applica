@@ -60,6 +60,14 @@ const ProfileSelection = () => {
       education: "",
       citizenShip: "",
       resume: "",
+      skills: "",
+      certifications: "",
+      portfolioLinks: "",
+      socialLinks: {
+        github: "",
+        linkedin: "",
+        twitter: "",
+      },
       location: {
         region: "",
         city: "",
@@ -103,6 +111,7 @@ const ProfileSelection = () => {
           data.citizenShip,
           data.experience,
           data.education,
+          data.skills,
           data.resume,
           locationComplete,
         ];
@@ -185,6 +194,10 @@ const ProfileSelection = () => {
             citizenShip: profileData.citizenShip,
             location: profileData.location,
             resume: profileData.resume,
+            skills: profileData.skills,
+            certifications: profileData.certifications,
+            portfolioLinks: profileData.portfolioLinks,
+            socialLinks: profileData.socialLinks,
           };
 
       const profileResponse = await fetch(profileUrl, {
@@ -806,7 +819,13 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
     { key: 'location', label: 'Location', type: 'map' },
     { key: 'experience', label: 'Experience', type: 'text' },
     { key: 'education', label: 'Education', type: 'text' },
+    { key: 'skills', label: 'Skills', type: 'text' },
     { key: 'resume', label: 'Resume', type: 'file' },
+    { key: 'certifications', label: 'Certifications (optional)', type: 'textarea', optional: true },
+    { key: 'portfolioLinks', label: 'Portfolio Links (optional)', type: 'textarea', optional: true },
+    { key: 'socialLinks.github', label: 'GitHub Profile (optional)', type: 'text', optional: true },
+    { key: 'socialLinks.linkedin', label: 'LinkedIn Profile (optional)', type: 'text', optional: true },
+    { key: 'socialLinks.twitter', label: 'Twitter Handle (optional)', type: 'text', optional: true },
   ];
 
   const steps = isEmployer ? employerSteps : jobseekerSteps;
@@ -846,6 +865,10 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
 
     if (currentStep.type === 'companyIdentity') {
       return Boolean(getValue('companyLogo') && getValue('dateEstablished'));
+    }
+
+    if (currentStep.optional && !getValue(currentStep.key)) {
+      return true;
     }
 
     return Boolean(getValue(currentStep.key));

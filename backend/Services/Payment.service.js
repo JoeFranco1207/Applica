@@ -11,6 +11,13 @@ const PREMIUM_PLAN_AMOUNTS = {
   annual: 79900,
 };
 
+// Employer pricing is higher — values are in cents (PHP * 100)
+const EMPLOYER_PREMIUM_PLAN_AMOUNTS = {
+  monthly: 49900,
+  halfYearly: 249900,
+  annual: 499900,
+};
+
 const ALL_PAYMENT_METHODS = {
   qrph: {
     id: 'qrph',
@@ -59,8 +66,16 @@ const getPaymongoAuth = () => {
   };
 };
 
-const getPremiumAmountForPlan = (plan) => {
-  const amount = PREMIUM_PLAN_AMOUNTS[plan];
+const getPremiumAmountForPlan = (plan, role = 'jobseeker') => {
+  // normalize plan ids like 'employer_monthly' -> 'monthly'
+  let normalized = plan || '';
+  if (normalized.startsWith('employer_')) {
+    normalized = normalized.replace(/^employer_/, '');
+    role = 'employer';
+  }
+
+  const source = role === 'employer' ? EMPLOYER_PREMIUM_PLAN_AMOUNTS : PREMIUM_PLAN_AMOUNTS;
+  const amount = source[normalized];
   if (!amount) {
     throw new AppError('Invalid premium plan selected.', 400);
   }
@@ -83,6 +98,7 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
 
   const plan = (req?.body?.plan || req?.query?.plan || 'monthly').toString();
   const paymentMethod = (req?.body?.paymentMethod || req?.query?.paymentMethod || 'gcash').toString();
+  const role = (req?.body?.role || req?.query?.role || (user.role || 'user')).toString();
   if (!isPaymentMethodSupported(paymentMethod)) {
     throw new AppError(
       `The selected payment method '${paymentMethod}' is not available. Please choose one of: ${SUPPORTED_PAYMENT_METHOD_IDS.join(', ')}.`,
@@ -90,7 +106,7 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
     );
   }
 
-  const amount = getPremiumAmountForPlan(plan);
+  const amount = getPremiumAmountForPlan(plan, role === 'employer' ? 'employer' : 'jobseeker');
   const sourceType = getPaymongoSourceType(paymentMethod);
   const cardData = req?.body?.card || {};
 
@@ -149,6 +165,7 @@ export const createAIPremiumPaymentSource = async (userId, req) => {
         userId: String(user._id),
         plan,
         paymentMethod,
+        role: role || user.role || 'user',
       },
       redirect: {
         success: successUrl,

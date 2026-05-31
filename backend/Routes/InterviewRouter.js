@@ -8,11 +8,12 @@ import {
   getWaitingParticipants,
   getInterviewWithRoomStatus
 } from '../Controller/InterviewController.js';
+import { protection } from '../Controller/ProtectionController.js';
 
 const router = express.Router();
 
 // Interview management
-router.post('/', createInterview);
+router.post('/', protection, createInterview);
 router.get('/user/:userId', getInterviewsForUser);
 
 // Interview room endpoints

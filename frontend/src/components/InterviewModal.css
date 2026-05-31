@@ -165,3 +165,27 @@
   border-color: rgba(2, 132, 199, 0.8);
   box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
 }
+
+/* Animated premium gradient for upgrade CTAs */
+.primary-button.premium-gradient {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6, #ef4444);
+  background-size: 300% 300%;
+  animation: gradientShift 6s ease infinite;
+  color: white;
+  box-shadow: 0 6px 18px rgba(59,130,246,0.18);
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  padding: 12px 20px;
+}
+
+.primary-button.premium-gradient:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

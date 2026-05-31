@@ -96,6 +96,11 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    // Allow one free interview scheduling trial per account
+    interviewTrialUsed: {
+      type: Boolean,
+      default: false,
+    },
     premiumPlan: {
       type: String,
       enum: ['monthly', 'halfYearly', 'annual', ''],

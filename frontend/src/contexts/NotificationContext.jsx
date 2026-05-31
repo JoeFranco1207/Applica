@@ -241,14 +241,38 @@ export const NotificationProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     try {
       if (useSocket && socket) {
-        socket.emit('interview:create', { employer, title, description, participants, scheduledAt, location });
-        return { ok: true };
+        // Emit and wait for server ack or error
+        return await new Promise((resolve) => {
+          const payload = { employer, title, description, participants, scheduledAt, location };
+          const onCreated = (data) => {
+            socket.off('interview:error', onError);
+            resolve({ ok: true, data });
+          };
+          const onError = (errData) => {
+            socket.off('interview:created', onCreated);
+            resolve({ ok: false, status: 403, data: errData });
+          };
+          socket.once('interview:created', onCreated);
+          socket.once('interview:error', onError);
+          socket.emit('interview:create', payload);
+          // timeout fallback
+          setTimeout(() => {
+            socket.off('interview:created', onCreated);
+            socket.off('interview:error', onError);
+            resolve({ ok: false, error: 'timeout' });
+          }, 5000);
+        });
       }
       const res = await axios.post('http://localhost:8000/api/interviews', { employer, title, description, participants, scheduledAt, location }, { headers: { Authorization: `Bearer ${token}` } });
       return res.data;
     } catch (err) {
       console.error('Failed to create interview:', err?.response?.data || err.message || err);
-      return { ok: false, error: err };
+      return {
+        ok: false,
+        status: err?.response?.status || null,
+        data: err?.response?.data || null,
+        error: err
+      };
     }
   };
 

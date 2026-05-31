@@ -10,6 +10,7 @@ export default function AIPremium() {
   const t = useTranslate();
   const token = localStorage.getItem("token");
   const user = token ? JSON.parse(localStorage.getItem("user") || "{}") : null;
+  const isEmployer = user?.role === 'employer';
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
   const dispatchUserUpdatedEvent = () => {
     window.dispatchEvent(new Event('app:userUpdated'));
@@ -87,47 +88,89 @@ export default function AIPremium() {
     supported: methodLoading ? true : supportedMethods.includes(method.id),
   }));
 
-  const plans = [
-    {
-      id: "monthly",
-      name: "Monthly Plan",
-      price: "₱69",
-      duration: "1 Month",
-      features: [
-        "Unlimited AI-powered resume generation",
-        "Resume matching for best-fit jobs",
-        "AI-powered applicant filtering",
-        "Priority access to premium tools",
-      ],
-      popular: false,
-    },
-    {
-      id: "halfYearly",
-      name: "Half-Year Plan",
-      price: "₱450",
-      duration: "6 Months",
-      features: [
-        "Everything in Monthly Plan",
-        "Longer access at a lower rate",
-        "AI resume and job matching",
-        "Premium support and faster access",
-      ],
-      popular: true,
-    },
-    {
-      id: "annual",
-      name: "Annual Plan",
-      price: "₱799",
-      duration: "12 Months",
-      features: [
-        "Best value for long-term users",
-        "Unlimited AI resume generation",
-        "Resume matching and applicant filtering",
-        "Priority support and savings",
-      ],
-      popular: false,
-    },
-  ];
+  const plans = isEmployer
+    ? [
+        {
+          id: "employer_monthly",
+          name: "Employer Monthly",
+          price: "₱499",
+          duration: "1 Month",
+          features: [
+            "Expanded job posting limits and featured slots",
+            "Advanced applicant filtering and AI shortlisting",
+            "Priority placement in search results",
+            "Premium support for hiring teams",
+          ],
+          popular: false,
+        },
+        {
+          id: "employer_halfYearly",
+          name: "Employer Half-Year",
+          price: "₱2,499",
+          duration: "6 Months",
+          features: [
+            "Everything in Employer Monthly",
+            "Bulk posting and analytics exports",
+            "Dedicated account support",
+            "Discounted featured job credits",
+          ],
+          popular: true,
+        },
+        {
+          id: "employer_annual",
+          name: "Employer Annual",
+          price: "₱4,999",
+          duration: "12 Months",
+          features: [
+            "Best value for hiring at scale",
+            "Unlimited featured postings",
+            "Enterprise analytics and priority service",
+            "Custom integrations (where available)",
+          ],
+          popular: false,
+        },
+      ]
+    : [
+        {
+          id: "monthly",
+          name: "Monthly Plan",
+          price: "₱69",
+          duration: "1 Month",
+          features: [
+            "Unlimited AI-powered resume generation",
+            "Resume matching for best-fit jobs",
+            "AI-powered applicant filtering",
+            "Priority access to premium tools",
+          ],
+          popular: false,
+        },
+        {
+          id: "halfYearly",
+          name: "Half-Year Plan",
+          price: "₱450",
+          duration: "6 Months",
+          features: [
+            "Everything in Monthly Plan",
+            "Longer access at a lower rate",
+            "AI resume and job matching",
+            "Premium support and faster access",
+          ],
+          popular: true,
+        },
+        {
+          id: "annual",
+          name: "Annual Plan",
+          price: "₱799",
+          duration: "12 Months",
+          features: [
+            "Best value for long-term users",
+            "Unlimited AI resume generation",
+            "Resume matching and applicant filtering",
+            "Priority support and savings",
+          ],
+          popular: false,
+        },
+      ];
 
   const handleSelectPlan = (plan) => {
     if (!token) {
@@ -367,6 +410,7 @@ export default function AIPremium() {
         {
           plan: selectedPlan.id,
           paymentMethod: selectedMethod.id,
+          role: isEmployer ? 'employer' : 'jobseeker',
           card: selectedMethod.id === 'card' ? cardData : undefined,
         },
         {
@@ -816,11 +860,12 @@ export default function AIPremium() {
       </div>
 
       <div style={styles.header}>
-        <h1 style={styles.title}>AI Premium</h1>
-        <p style={styles.subtitle}>Unlock powerful AI features</p>
+        <h1 style={styles.title}>{isEmployer ? 'Employer Premium' : 'AI Premium'}</h1>
+        <p style={styles.subtitle}>{isEmployer ? 'Premium tools for hiring teams' : 'Unlock powerful AI features'}</p>
         <p style={styles.description}>
-          Get unlimited AI-powered resume generation, resume matching, and AI
-          applicant filtering to accelerate your job search or hiring process.
+          {isEmployer
+            ? 'Gain advanced hiring tools: expanded posting limits, featured job slots, AI shortlisting, and dedicated support for employers.'
+            : 'Get unlimited AI-powered resume generation, resume matching, and AI applicant filtering to accelerate your job search or hiring process.'}
         </p>
       </div>
 

@@ -2,12 +2,57 @@ import Interview from '../Model/InterviewSchema.js';
 import InterviewRoom from '../Model/InterviewRoomSchema.js';
 import InterviewRoomService from '../Services/InterviewRoom.service.js';
 import { sendNotificationToUser, sendInterviewInvite } from '../Services/SocketIO.service.js';
+import { verifyAIPremiumPaymentSource } from '../Services/Payment.service.js';
 
 export const createInterview = async (req, res, next) => {
   try {
     const { employer, title, description, participants = [], scheduledAt, location } = req.body;
     if (!employer || !scheduledAt || !participants.length) {
       return res.status(400).json({ status: 'error', message: 'employer, scheduledAt and participants are required' });
+    }
+
+    // Ensure requester is authenticated
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ status: 'error', message: 'Authentication required' });
+    }
+
+    // Enforce premium gating for scheduling interviews
+    // Allow one free trial per user if they haven't used it yet
+    const User = (await import('../Model/UserSchema.js')).default;
+    const user = await User.findById(requester.id || requester._id);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // Only employers are allowed to schedule interviews
+    if ((user.role || '').toString().trim().toLowerCase() !== 'employer') {
+      return res.status(403).json({ status: 'error', message: 'Only employers can schedule interviews.', errorCode: 'NOT_EMPLOYER' });
+    }
+
+    // If a user has a payment source but premium access flag is stale, re-verify it before blocking.
+    if (!user.premiumAIAccess && user.lastAIPaymentSource) {
+      try {
+        const verificationResult = await verifyAIPremiumPaymentSource(user._id.toString(), user.lastAIPaymentSource);
+        if (verificationResult?.premiumAIAccess) {
+          user.premiumAIAccess = true;
+          await user.save();
+          console.log(`Restored premium access for user ${user._id} from payment source verification.`);
+        }
+      } catch (err) {
+        console.warn(`Premium verification failed for user ${user._id}:`, err?.message || err);
+      }
+    }
+
+    const hasPremium = !!user.premiumAIAccess;
+    if (!hasPremium) {
+      if (user.interviewTrialUsed) {
+        return res.status(403).json({ status: 'error', message: 'Scheduling interviews requires Premium. You have used your one-time interview trial.', errorCode: 'INTERVIEW_TRIAL_EXPIRED' });
+      }
+      // mark trial used and allow this scheduling
+      user.interviewTrialUsed = true;
+      await user.save();
+      console.log(`Interview trial consumed for user ${user._id} (email=${user.email}) via REST`);
     }
 
     const roomId = `interview_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
@@ -60,7 +105,12 @@ export const getInterviewsForUser = async (req, res, next) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ status: 'error', message: 'userId required' });
-    const interviews = await Interview.find({ 'participants.user': userId })
+    const interviews = await Interview.find({
+      $or: [
+        { employer: userId },
+        { 'participants.user': userId }
+      ]
+    })
       .populate('employer', 'firstName lastName profilePhoto email')
       .sort({ scheduledAt: -1 })
       .lean();

@@ -385,12 +385,23 @@ const CreateJob = () => {
 
           {!authChecking && isEmployer && (
             <div style={styles.planBanner}>
-              <strong>{isPremium ? "Premium employer" : "Free employer"}</strong>
-              <span style={styles.planBannerText}>
-                {isPremium
-                  ? `Unlimited active jobs, up to ${descriptionWordLimit} words for job descriptions, and up to ${requirementsWordLimit} words for requirements.`
-                  : `Up to ${activeJobLimitText} active jobs (${activeJobCount} currently active). Free employers are limited to ${descriptionWordLimit} words in descriptions and ${requirementsWordLimit} words in requirements. Upgrade to Premium for higher limits.`}
-              </span>
+              <div>
+                <strong>{isPremium ? "Premium employer" : "Free employer"}</strong>
+                <p style={styles.planBannerText}>
+                  {isPremium
+                    ? `Unlimited active jobs, up to ${descriptionWordLimit} words for job descriptions, and up to ${requirementsWordLimit} words for requirements.`
+                    : `Up to ${activeJobLimitText} active jobs (${activeJobCount} currently active). Free employers are limited to ${descriptionWordLimit} words in descriptions and ${requirementsWordLimit} words in requirements.`}
+                </p>
+              </div>
+              {!isPremium && (
+                <button
+                  type="button"
+                  style={styles.upgradeBtn}
+                  onClick={() => navigate('/ai-premium')}
+                >
+                  Upgrade to Premium
+                </button>
+              )}
             </div>
           )}
 
@@ -893,6 +904,17 @@ const styles = {
     fontSize: "13px",
     color: "var(--text)",
     lineHeight: 1.5,
+    marginTop: "6px",
+  },
+  upgradeBtn: {
+    padding: "10px 16px",
+    borderRadius: "10px",
+    border: "none",
+    backgroundColor: "var(--primary)",
+    color: "var(--cta-text)",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "transform 0.2s, background-color 0.2s",
   },
 
   twoColumnGrid: {

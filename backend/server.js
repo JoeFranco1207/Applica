@@ -369,6 +369,44 @@ io.on('connection', (socket) => {
     try {
       const { employer, title, description, participants = [], scheduledAt, location } = data || {};
       if (!employer || !scheduledAt || !participants.length) return;
+      // Enforce premium/trial for socket-created interviews
+      try {
+        const User = (await import('./Model/UserSchema.js')).default;
+        const user = await User.findById(socket.userId);
+        if (!user) {
+          socket.emit('interview:error', { message: 'Authentication required' });
+          return;
+        }
+        // Only employers may schedule interviews
+        if ((user.role || '').toString().trim().toLowerCase() !== 'employer') {
+          socket.emit('interview:error', { message: 'Only employers can schedule interviews.' });
+          return;
+        }
+        if (!user.premiumAIAccess && user.lastAIPaymentSource) {
+          try {
+            const { verifyAIPremiumPaymentSource } = await import('./Services/Payment.service.js');
+            const verificationResult = await verifyAIPremiumPaymentSource(user._id.toString(), user.lastAIPaymentSource);
+            if (verificationResult?.premiumAIAccess) {
+              user.premiumAIAccess = true;
+              await user.save();
+              console.log(`Restored premium access for user ${user._id} from payment source verification via socket.`);
+            }
+          } catch (verifyErr) {
+            console.warn('Premium verification failed for socket interview create:', verifyErr?.message || verifyErr);
+          }
+        }
+        if (!user.premiumAIAccess) {
+          if (user.interviewTrialUsed) {
+            socket.emit('interview:error', { message: 'Scheduling interviews requires Premium. You have used your one-time interview trial.' });
+            return;
+          }
+          user.interviewTrialUsed = true;
+          await user.save();
+          console.log(`Interview trial consumed for user ${user._id} (email=${user.email}) via socket`);
+        }
+      } catch (err) {
+        console.error('Error checking user premium for socket interview create:', err);
+      }
       const roomId = `interview_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const interview = await Interview.create({ employer, title, description, participants, scheduledAt: new Date(scheduledAt), location, roomId, status: 'scheduled' });
 

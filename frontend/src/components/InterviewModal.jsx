@@ -15,6 +15,17 @@ export default function InterviewModal({ employerId, defaultParticipants = [], o
   const [error, setError] = useState(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
 
+  // derive stored user info for banners and CTA
+  let isEmployer = false;
+  let hasPremium = false;
+  try {
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    isEmployer = (storedUser?.role || '').toString().toLowerCase() === 'employer';
+    hasPremium = !!storedUser?.premiumAIAccess;
+  } catch (err) {
+    // ignore
+  }
+
   const parseParticipants = (input) => {
     return String(input || '')
       .split(',')
@@ -39,7 +50,12 @@ export default function InterviewModal({ employerId, defaultParticipants = [], o
       const res = await createInterview(payload, true);
       setLoading(false);
       if (res?.ok === false) {
-        setError('Failed to schedule interview. Please try again.');
+        // backend returns 403 and message when trial expired or premium required
+        if (res.status === 403 && res.data?.message) {
+          setError(res.data.message);
+        } else {
+          setError('Failed to schedule interview. Please try again.');
+        }
       } else {
         onClose && onClose();
       }
@@ -58,6 +74,29 @@ export default function InterviewModal({ employerId, defaultParticipants = [], o
             Create a shared interview room and invite applicants so your team can join smoothly.
           </p>
         </div>
+
+        {/* Trial banner: show if stored user indicates employer and trial available */}
+        {(() => {
+          try {
+            const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+            const isEmployer = (storedUser?.role || '').toString().toLowerCase() === 'employer';
+            const hasPremium = !!storedUser?.premiumAIAccess;
+            const trialUsed = !!storedUser?.interviewTrialUsed;
+            if (isEmployer && !hasPremium && !trialUsed) {
+              return (
+                <div className="trial-banner">You have one free interview scheduling trial available.</div>
+              );
+            }
+            if (isEmployer && !hasPremium && trialUsed) {
+              return (
+                <div className="trial-banner trial-used">Your one-time interview trial has been used. Upgrade for unlimited scheduling.</div>
+              );
+            }
+          } catch (err) {
+            return null;
+          }
+          return null;
+        })()}
 
         <div className="interview-form">
           <div className="form-field">
@@ -136,6 +175,13 @@ export default function InterviewModal({ employerId, defaultParticipants = [], o
           </div>
 
           {error && <div className="error-message">{error}</div>}
+
+          {/* If an error is shown and employer is not premium, show the upgrade CTA */}
+          {error && isEmployer && !hasPremium && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <a href="/ai-premium" className="primary-button premium-gradient" aria-label="Upgrade to Premium">Premium</a>
+            </div>
+          )}
 
           <div className="form-actions">
             <button type="button" className="secondary-button" onClick={onClose}>

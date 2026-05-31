@@ -158,6 +158,21 @@
   transform: scale(1.05);
 }
 
+.calendar-day.disabled-day,
+.calendar-day:disabled {
+  background: #f7f8fa;
+  color: #999;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.calendar-day.disabled-day:hover,
+.calendar-day:disabled:hover {
+  background: #f7f8fa;
+  transform: none;
+}
+
 .calendar-day.empty {
   background: transparent;
   border: none;

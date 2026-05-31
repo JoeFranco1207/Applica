@@ -3048,7 +3048,7 @@ const styles = {
     display: "flex",
     alignItems: "flex-start",
     gap: "10px",
-    color: "#e2e8f0",
+    color: "inherit",
     fontSize: "14px",
   },
 

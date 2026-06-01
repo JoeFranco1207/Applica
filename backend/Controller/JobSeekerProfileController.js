@@ -2,6 +2,9 @@ import { jobseekerProfileService, updateJobseekerProfileService } from "../Servi
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import { createResumeService } from "../Services/CreateResume.service.js";
 import AppError from '../Middleware/AppError.js';
+import path from 'path';
+import fs from 'fs';
+import User from '../Model/UserSchema.js';
 
 export const jobseekerProfile = async (req, res, next) => {
   try {
@@ -47,6 +50,29 @@ export const createResumeController = async (req, res, next) => {
       url: result.publicUrl,
     });
 
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const uploadResumeController = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError('No file uploaded', 400);
+    }
+
+    // Build public URL for stored resume
+    const publicUrlBase = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 8000}`;
+    const publicPath = `/uploads/resumes/${req.file.filename}`;
+    const publicUrl = `${publicUrlBase}${publicPath}`;
+
+    // Attach resume URL to user profile
+    const user = await User.findById(req.user.id);
+    if (!user) throw new AppError('User not found', 404);
+    user.resume = publicUrl;
+    await user.save();
+
+    return res.status(201).json({ ok: true, url: publicUrl, fileName: req.file.filename });
   } catch (err) {
     next(err);
   }

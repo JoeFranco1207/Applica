@@ -119,6 +119,26 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
+    suspensionReason: {
+      type: String,
+      default: '',
+    },
+    suspensionExpires: {
+      type: Date,
+      default: null,
+    },
+    refundHistory: [
+      {
+        amountCents: { type: Number, default: 0 },
+        reason: { type: String, default: '' },
+        admin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     // Allow one free interview scheduling trial per account
     interviewTrialUsed: {
       type: Boolean,

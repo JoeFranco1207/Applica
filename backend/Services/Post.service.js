@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 import Post from '../Model/PostSchema.js';
 import User from '../Model/UserSchema.js';
 import Notification from '../Model/NotificationSchema.js';
-import { createNotificationService } from './Notification.service.js';
+import { createNotificationService, createSystemNotificationService } from './Notification.service.js';
+import { moderateText } from './Moderation.service.js';
 
 export const createPostService = async (userId, postData = {}) => {
   const { content, tags, media, jobId, location } = postData;
@@ -41,6 +42,9 @@ export const createPostService = async (userId, postData = {}) => {
   const newPost = await Post.create({
     content: content.trim(),
     tags: sanitizedTags,
+    // moderation state (default: not restricted)
+    restricted: false,
+    restrictionReason: '',
     media: postMedia,
     location: postLocation,
     author: user._id,
@@ -53,6 +57,21 @@ export const createPostService = async (userId, postData = {}) => {
     jobId,
   });
 
+  // Run moderation check after creation to update status and notify user if necessary
+  try {
+    const mod = await moderateText(newPost.content || '');
+    if (mod.isFlagged) {
+      newPost.restricted = true;
+      newPost.restrictionReason = mod.matched.join(', ');
+      await newPost.save();
+
+      // Notify the author about the restriction
+      await createSystemNotificationService(user._id, `Your post was restricted because it contains disallowed content: ${mod.matched.join(', ')}`, 'moderation');
+    }
+  } catch (err) {
+    console.error('Moderation check failed:', err);
+  }
+
   return newPost;
 };
 
@@ -60,6 +79,7 @@ export const getAllPostsService = async (options = {}) => {
   const {
     author,
     includeArchived = false,
+    includeRestricted = false,
     limit,
     skip,
     includeTotal = false,
@@ -68,6 +88,7 @@ export const getAllPostsService = async (options = {}) => {
   const filter = {};
   if (author) filter.author = author;
   if (!includeArchived) filter.archived = { $ne: true };
+  if (!includeRestricted) filter.restricted = { $ne: true };
 
   let query = Post.find(filter).sort({ createdAt: -1 });
   if (typeof skip === 'number') query = query.skip(skip);
@@ -286,6 +307,27 @@ export const updatePostService = async (userId, postId, data = {}) => {
   if (archived !== undefined) post.archived = !!archived;
 
   await post.save();
+
+  // Run moderation check on updates and notify if newly restricted
+  try {
+    if (content !== undefined) {
+      const mod = await moderateText(post.content || '');
+      if (mod.isFlagged) {
+        post.restricted = true;
+        post.restrictionReason = mod.matched.join(', ');
+        await post.save();
+        await createSystemNotificationService(userId, `Your updated post was restricted because it contains disallowed content: ${mod.matched.join(', ')}`, 'moderation');
+      } else if (post.restricted) {
+        // If previously restricted and now clean, clear restriction and inform user
+        post.restricted = false;
+        post.restrictionReason = '';
+        await post.save();
+        await createSystemNotificationService(userId, 'Your post restriction was lifted after update.', 'moderation');
+      }
+    }
+  } catch (err) {
+    console.error('Moderation check (update) failed:', err);
+  }
   
   // Enrich with fresh user data
   const postObj = post.toObject();
@@ -316,12 +358,13 @@ export const deletePostService = async (userId, postId) => {
 };
 
 export const getPostsByAuthorService = async (authorId, options = {}) => {
-  const { includeArchived = false, limit = 10, skip = 0, includeTotal = true } = options;
+  const { includeArchived = false, includeRestricted = false, limit = 10, skip = 0, includeTotal = true } = options;
   const authorObjectId = mongoose.Types.ObjectId.isValid(authorId)
     ? new mongoose.Types.ObjectId(authorId)
     : authorId;
   const filter = { author: authorObjectId };
   if (!includeArchived) filter.archived = { $ne: true };
+  if (!includeRestricted) filter.restricted = { $ne: true };
 
   const [posts, total] = await Promise.all([
     Post.aggregate([

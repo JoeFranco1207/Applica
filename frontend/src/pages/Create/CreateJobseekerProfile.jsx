@@ -349,13 +349,37 @@ const CreateJobseekerProfile = () => {
         return;
       }
 
+      let resumeUrlToSave = existingResumeName || "";
+      // If user selected a new resume file, upload it first
+      if (resumeFile) {
+        try {
+          const fd = new FormData();
+          fd.append('resume', resumeFile);
+
+          const uploadResp = await axios.post('http://localhost:8000/api/jobseeker/upload-resume', fd, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+
+          resumeUrlToSave = uploadResp.data?.url || resumeUrlToSave || resumeFile.name;
+          setExistingResumeName(resumeUrlToSave);
+        } catch (err) {
+          console.error('Resume upload failed', err);
+          showMessage('Failed to upload resume. Please try again.', 'error');
+          setLoading(false);
+          return;
+        }
+      }
+
       const body = {
         bio: formData.bio,
         citizenShip: formData.citizenShip,
         location: formData.location,
         experience: formData.experience,
         education: formData.education,
-        resume: existingResumeName || resumeFile?.name || "",
+        resume: resumeUrlToSave,
         profilePicture: profilePicture || existingProfilePicture || "",
       };
 

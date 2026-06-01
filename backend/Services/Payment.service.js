@@ -405,3 +405,29 @@ export const confirmAIPremiumPaymentSource = async (userId, sourceId) => {
     throw err;
   }
 };
+
+export const getPremiumStats = async () => {
+  // compute simple stats from User documents
+  const users = await User.find({ premiumAIAccess: true }).select('premiumPlan lastAIPaymentPlan role createdAt');
+
+  const planCounts = { monthly: 0, halfYearly: 0, annual: 0, unknown: 0 };
+  let totalCents = 0;
+
+  users.forEach((u) => {
+    const plan = (u.premiumPlan || u.lastAIPaymentPlan || '').toString() || 'unknown';
+    const normalized = ['monthly', 'halfYearly', 'annual'].includes(plan) ? plan : 'unknown';
+    planCounts[normalized] = (planCounts[normalized] || 0) + 1;
+
+    const role = (u.role === 'employer') ? 'employer' : 'jobseeker';
+    if (normalized !== 'unknown') {
+      const amount = role === 'employer' ? EMPLOYER_PREMIUM_PLAN_AMOUNTS[normalized] : PREMIUM_PLAN_AMOUNTS[normalized];
+      totalCents += Number(amount || 0);
+    }
+  });
+
+  return {
+    totalRevenueCents: totalCents,
+    totalSubscribers: users.length,
+    planCounts,
+  };
+};

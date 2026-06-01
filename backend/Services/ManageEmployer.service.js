@@ -51,14 +51,15 @@ export const LoginAdmin = async (email, password) => {
 
   const token = jwt.sign(
     { id: admin._id, role: "admin" },
-    process.env.TOKEN_SECRET,
+    process.env.ADMIN_TOKEN_SECRET || process.env.TOKEN_SECRET,
     { expiresIn: "1d" }
   );
-  const {...adminSafe } = admin.toObject();
+  const { password: adminPassword, ...adminSafe } = admin.toObject();
+  adminSafe.role = 'admin';
 
   return {
-    admin : adminSafe,
-    token
+    admin: adminSafe,
+    token,
   };
 };
 

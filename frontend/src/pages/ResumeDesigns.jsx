@@ -119,6 +119,7 @@ export default function ResumeDesigns() {
   const [progressStatus, setProgressStatus] = useState('');
   const progressIntervalRef = useRef(null);
   const [resumeUrl, setResumeUrl] = useState(null);
+  const [replaceResumeConfirmed, setReplaceResumeConfirmed] = useState(false);
   
   // Additional info state
   const [references, setReferences] = useState([{ name: '', contact: '' }]);
@@ -126,6 +127,8 @@ export default function ResumeDesigns() {
 
   const token = localStorage.getItem('token');
   const user = token ? JSON.parse(localStorage.getItem('user') || '{}') : null;
+  const existingResumeUrl = user?.resume;
+  const hasExistingResume = Boolean(existingResumeUrl);
 
   // Load liked designs from localStorage
   useEffect(() => {
@@ -160,6 +163,7 @@ export default function ResumeDesigns() {
     setGenerating(false);
     setProgress(0);
     setResumeUrl(null);
+    setReplaceResumeConfirmed(false);
     // Reset form
     setReferences([{ name: '', contact: '' }]);
     setExtracurricular(['']);
@@ -199,6 +203,7 @@ export default function ResumeDesigns() {
 
   const handleBackStep = () => {
     setStep('info');
+    setReplaceResumeConfirmed(false);
   };
 
   const stopProgressAnimation = () => {
@@ -231,6 +236,9 @@ export default function ResumeDesigns() {
 
   const confirmGenerateResume = async () => {
     if (!selectedDesign) return;
+    if (hasExistingResume && !replaceResumeConfirmed) {
+      return;
+    }
     if (user?.role === 'jobseeker' && !user?.premiumAIAccess) {
       alert('This feature is available to AI Premium members only. Please upgrade to continue.');
       navigate('/ai-premium');
@@ -626,6 +634,59 @@ export default function ResumeDesigns() {
                   {selectedDesign.description}
                 </p>
 
+                {hasExistingResume && (
+                  <div
+                    style={{
+                      marginBottom: '22px',
+                      padding: '18px',
+                      borderRadius: '14px',
+                      border: '1px solid #f59e0b',
+                      backgroundColor: isDarkMode ? '#1f2937' : '#fffbeb',
+                      color: isDarkMode ? '#fbbf24' : '#92400e',
+                    }}
+                  >
+                    <p style={{ margin: 0, fontWeight: 700 }}>Existing resume detected</p>
+                    <p style={{ margin: '10px 0 0', lineHeight: 1.6 }}>
+                      Generating a new resume will replace the resume currently stored on your profile.
+                    </p>
+                    {existingResumeUrl && (
+                      <a
+                        href={existingResumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          marginTop: '10px',
+                          color: isDarkMode ? '#93c5fd' : '#1d4ed8',
+                          textDecoration: 'underline',
+                          fontWeight: 600,
+                        }}
+                      >
+                        View current resume
+                      </a>
+                    )}
+                    {!replaceResumeConfirmed ? (
+                      <button
+                        onClick={() => {
+                          setReplaceResumeConfirmed(true);
+                        }}
+                        style={{
+                          ...styles.confirmButton,
+                          marginTop: '16px',
+                          backgroundColor: '#f59e0b',
+                          color: '#111827',
+                        }}
+                      >
+                        Confirm Replace Current Resume
+                      </button>
+                    ) : (
+                      <p style={{ margin: '12px 0 0', color: isDarkMode ? '#d1d5db' : '#475569' }}>
+                        Replacement confirmed. Press Generate Resume to continue.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div style={styles.modalActions}>
                   <button
                     style={{
@@ -640,10 +701,15 @@ export default function ResumeDesigns() {
                   {user?.role === 'jobseeker' ? (
                     user?.premiumAIAccess ? (
                       <button
-                        style={styles.confirmButton}
+                        style={{
+                          ...styles.confirmButton,
+                          opacity: hasExistingResume && !replaceResumeConfirmed ? 0.6 : 1,
+                          cursor: hasExistingResume && !replaceResumeConfirmed ? 'not-allowed' : 'pointer',
+                        }}
                         onClick={confirmGenerateResume}
+                        disabled={hasExistingResume && !replaceResumeConfirmed}
                       >
-                        Generate Resume
+                        {hasExistingResume && !replaceResumeConfirmed ? 'Confirm replacement first' : 'Generate Resume'}
                       </button>
                     ) : (
                       <button

@@ -72,6 +72,14 @@ const postSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    restricted: {
+      type: Boolean,
+      default: false,
+    },
+    restrictionReason: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

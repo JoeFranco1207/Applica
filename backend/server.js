@@ -9,6 +9,7 @@ import axios from "axios";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
+import AppConfig from './Model/AppConfigSchema.js';
 import Job from "./Model/JobSchema.js";
 import JobseekerRouter from "./Routes/JobseekerRouter.js";
 import EmployerRouter from "./Routes/EmployerRouter.js";
@@ -37,6 +38,25 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+app.use(async (req, res, next) => {
+  try {
+    if (req.path.startsWith('/api/admin') || req.path.startsWith('/uploads')) {
+      return next();
+    }
+
+    const maintenance = await AppConfig.findOne({ key: 'maintenanceMode' }).lean();
+    if (maintenance?.value) {
+      return res.status(503).json({
+        status: 'error',
+        message: maintenance.metadata?.reason || 'Service temporarily unavailable for maintenance.',
+      });
+    }
+  } catch (err) {
+    console.error('Maintenance middleware error', err);
+  }
+  next();
+});
 
 // Serve uploaded files (resumes, images)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

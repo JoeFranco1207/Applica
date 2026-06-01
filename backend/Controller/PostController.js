@@ -1,4 +1,5 @@
 import AppSuccessful from '../Middleware/AppSuccessful.js';
+import AppError from '../Middleware/AppError.js';
 import {
   createPostService,
   getAllPostsService,
@@ -71,6 +72,16 @@ export const getPostsController = async (req, res, next) => {
 export const getPostController = async (req, res, next) => {
   try {
     const post = await getPostByIdService(req.params.id);
+    // If post is restricted, only the author or admins may view it
+    if (post.restricted) {
+      const requesterId = req.user?.id;
+      const requesterRole = req.user?.role;
+      const isAuthor = requesterId && (post.author && (post.author._id ? post.author._id.toString() === requesterId.toString() : post.author.toString() === requesterId.toString()));
+      const isAdmin = requesterRole === 'admin';
+      if (!isAuthor && !isAdmin) {
+        return next(new AppError('Post not found', 404));
+      }
+    }
     return res.status(200).json(new AppSuccessful('Post fetched', 200, post));
   } catch (err) {
     console.log(err);
@@ -117,8 +128,14 @@ export const getPostsByAuthorController = async (req, res, next) => {
     const skip = (page - 1) * limit;
     const includeTotal = page === 1;
 
+    // If the requester is the author or an admin, include restricted posts
+    const requesterId = req.user?.id;
+    const requesterRole = req.user?.role;
+    const includeRestricted = requesterRole === 'admin' || (requesterId && requesterId.toString() === req.params.authorId.toString());
+
     const data = await getPostsByAuthorService(req.params.authorId, {
       includeArchived: false,
+      includeRestricted,
       limit,
       skip,
       includeTotal,

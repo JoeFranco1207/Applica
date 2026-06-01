@@ -187,7 +187,8 @@ export const sendVerificationCodeService = async(email) =>{
     {
       email: user.email,
       id: user._id,
-      verified: user.isVerified
+      verified: user.isVerified,
+      role: "user"
     },
     process.env.TOKEN_SECRET,
     {
@@ -257,7 +258,8 @@ export const loginService = async(email, password, deviceInfo) => {
         const token = jwt.sign({
             email: existingUser.email,
             id: existingUser._id,
-            verified: existingUser.isVerified
+            verified: existingUser.isVerified,
+            role: "user"
         }, process.env.TOKEN_SECRET, {
             expiresIn: "8h"
         });

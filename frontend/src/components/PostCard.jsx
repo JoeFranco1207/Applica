@@ -437,6 +437,21 @@ const PostCard = ({ post, onUpdate }) => {
 
       {/* Post Content */}
       <div className="post-content">
+        {currentPost.restricted && (() => {
+          const storedUser = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch(e){ return {}; } })();
+          const isAuthor = (typeof currentPost.author === 'object' ? (currentPost.author._id || currentPost.author) : currentPost.author)?.toString() === (storedUser._id || storedUser.id || '').toString();
+          const isAdmin = storedUser?.role === 'admin';
+          if (isAuthor || isAdmin) {
+            return (
+              <div style={{ padding: '12px', borderRadius: 8, background: '#fff3f2', border: '1px solid #fecaca', marginBottom: 12 }}>
+                <strong style={{ color: '#b91c1c' }}>This post has been restricted</strong>
+                <div style={{ marginTop: 6, color: '#92400e' }}>{currentPost.restrictionReason || 'Contains disallowed content'}</div>
+                <div style={{ marginTop: 8, fontSize: 13, color: '#444' }}>Only you and administrators can see this post. Edit to remove disallowed content to restore visibility.</div>
+              </div>
+            );
+          }
+          return null;
+        })()}
         <p className="post-text">{translating ? (currentPost.content) : (translatedContent || currentPost.content)}</p>
         {currentPost.tags && currentPost.tags.length > 0 && (
           <div className="post-tags">

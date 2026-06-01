@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import GlobalTranslator from "./components/GlobalTranslator";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminLayout from "./components/AdminLayout";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
@@ -25,11 +26,20 @@ import InterviewRoom from "./pages/InterviewRoom";
 import ResumeDesigns from "./pages/ResumeDesigns";
 import Chat from "./pages/Chat";
 import UserSessions from "./pages/Admin/UserSessions";
+import Moderation from "./pages/Admin/Moderation";
+import AdminDashboard from "./pages/Admin/Dashboard";
+import AdminEmployers from "./pages/Admin/Employers";
+import AdminReports from "./pages/Admin/Reports";
+import AdminSubscriptions from "./pages/Admin/Subscriptions";
+import AdminNotifications from "./pages/Admin/Notifications";
+import AdminMaintenance from "./pages/Admin/Maintenance";
+import AdminTeam from "./pages/Admin/Team";
 import AIPaymentSuccess from "./pages/AIPaymentSuccess";
 import AIPremium from "./pages/AIPremium";
 import GCashPayment from './pages/Payment/GCashPayment';
 import QRPayment from './pages/Payment/QRPayment';
 import CardPayment from './pages/Payment/CardPayment';
+import AdminAccess from './pages/AdminAccess';
 
 function Layout() {
   const location = useLocation();
@@ -121,8 +131,22 @@ function App() {
           <Route path="/jobseeker/applications" element={<ProtectedRoute><JobseekerApplications /></ProtectedRoute>} />
           <Route path="/interview/:roomId" element={<ProtectedRoute><InterviewRoom /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        </Route>
+
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />
+          <Route path="/admin/employers" element={<ProtectedRoute><AdminEmployers /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
+          <Route path="/admin/subscriptions" element={<ProtectedRoute><AdminSubscriptions /></ProtectedRoute>} />
+          <Route path="/admin/notifications" element={<ProtectedRoute><AdminNotifications /></ProtectedRoute>} />
+          <Route path="/admin/maintenance" element={<ProtectedRoute><AdminMaintenance /></ProtectedRoute>} />
+          <Route path="/admin/team" element={<ProtectedRoute><AdminTeam /></ProtectedRoute>} />
           <Route path="/admin/users/:id/sessions" element={<ProtectedRoute><UserSessions /></ProtectedRoute>} />
         </Route>
+
+        <Route path="/admin-access" element={<AdminAccess />} />
+        <Route path="/admin-access/" element={<AdminAccess />} />
       </Routes>
     </NotificationProvider>
   );

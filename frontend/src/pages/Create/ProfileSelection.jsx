@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 const ProfileSelection = () => {
   const navigate = useNavigate();
+  const { isDarkMode } = useContext(ThemeContext);
   const safeGetStoredUser = () => {
     const raw = localStorage.getItem("user");
     if (!raw) return {};
@@ -412,20 +414,34 @@ const ProfileSelection = () => {
       </div>
 
       {showProfileModal && (
-            <div className="modal-overlay" style={styles.modalOverlay}>
+            <div
+              className="modal-overlay"
+              style={{
+                ...styles.modalOverlay,
+                backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(15, 23, 42, 0.08)',
+              }}
+            >
               <div
                 className="modal-card"
-                style={{ ...styles.modalContainer, width: 'min(920px, 95vw)', display: 'flex', gap: 24, alignItems: 'center' }}
+                style={{
+                  ...styles.modalContainer,
+                  width: 'min(920px, 95vw)',
+                  display: 'flex',
+                  gap: 24,
+                  alignItems: 'center',
+                  background: isDarkMode ? '#0f172a' : '#ffffff',
+                  border: isDarkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(15,23,42,0.08)',
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ flex: 1 }}>
-                  <h2 style={styles.modalHeading}>
+                  <h2 style={{ ...styles.modalHeading, color: isDarkMode ? '#fff' : '#111827' }}>
                     Set up your {selectedRole === "employer" ? "Employer" : "Jobseeker"} Profile
                   </h2>
                   <div style={styles.progressBarContainer}>
                     <div style={{ ...styles.progressBarFill, width: `${profileProgress}%` }} />
                   </div>
-                  <p style={styles.modalText}>
+                  <p style={{ ...styles.modalText, color: isDarkMode ? '#cbd5e1' : '#475569' }}>
                     Complete your profile to get the best experience. Progress: {profileProgress}%
                   </p>
                   {profileError && <p style={styles.errorText}>{profileError}</p>}
@@ -437,6 +453,7 @@ const ProfileSelection = () => {
                     key={selectedRole}
                     role={selectedRole}
                     data={profileData}
+                    isDarkMode={isDarkMode}
                     onChange={(next) => setProfileData(next)}
                     onClose={() => setShowProfileModal(false)}
                     onSave={handleSaveProfile}
@@ -792,7 +809,7 @@ backButton: {
 };
 
 // Inline stepper used inside the modal for compact single-field flow
-function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
+function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isDarkMode }) {
   // strictly use explicit role prop to decide employer vs jobseeker steps
   const isEmployer = role === 'employer';
   const [index, setIndex] = useState(0);
@@ -817,7 +834,7 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
     { key: 'bio', label: 'Bio', type: 'textarea' },
     { key: 'citizenShip', label: 'Citizenship', type: 'select', options: ['Filipino', 'Foreign'] },
     { key: 'location', label: 'Location', type: 'map' },
-    { key: 'experience', label: 'Experience', type: 'text' },
+    { key: 'experience', label: 'Experience', type: 'textarea' },
     { key: 'education', label: 'Education', type: 'text' },
     { key: 'skills', label: 'Skills', type: 'text' },
     { key: 'resume', label: 'Resume', type: 'file' },
@@ -836,6 +853,12 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
     if (!key.includes('.')) return data[key] || '';
     return key.split('.').reduce((acc, k) => (acc ? acc[k] : ''), data) || '';
   };
+
+  const getControlStyle = () => ({
+    background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+    border: isDarkMode ? '1px solid rgba(255,255,255,0.18)' : '1px solid #cbd5e1',
+    color: isDarkMode ? '#fff' : '#111827',
+  });
 
   const setValue = (key, value) => {
     const next = { ...data };
@@ -897,12 +920,24 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
         {step.type === 'textarea' ? (
           <div>
             <label style={styles.label}>{step.label}</label>
-            <textarea value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.textarea} />
+            <textarea
+              value={getValue(step.key) || ''}
+              onChange={(e) => setValue(step.key, e.target.value)}
+              style={{
+                ...styles.textarea,
+                ...getControlStyle(),
+                minHeight: step.key === 'experience' ? 220 : styles.textarea.minHeight,
+              }}
+            />
           </div>
         ) : step.type === 'select' ? (
           <div>
             <label style={styles.label}>{step.label}</label>
-            <select value={getValue(step.key) || ''} onChange={(e) => setValue(step.key, e.target.value)} style={styles.input}>
+            <select
+              value={getValue(step.key) || ''}
+              onChange={(e) => setValue(step.key, e.target.value)}
+              style={{ ...styles.input, ...getControlStyle() }}
+            >
               <option value="">Select {step.label}</option>
               {step.options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -968,7 +1003,12 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading }) {
                   const url = coords ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : 'https://www.google.com/maps';
                   window.open(url, '_blank');
                 }}
-                style={styles.secondaryButton}
+                style={{
+                  ...styles.secondaryButton,
+                  background: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                  color: isDarkMode ? '#fff' : '#111827',
+                  border: isDarkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1',
+                }}
               >
                 Open in Google Maps
               </button>

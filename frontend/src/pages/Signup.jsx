@@ -203,68 +203,98 @@ export default function Signup() {
       setLoading(true);
 
       const deviceInfo = `${navigator.platform} - ${navigator.userAgent}`;
-      const res = await axios.post(
-        "http://localhost:8000/api/auth/Login",
-        {
-          email: loginData.email,
-          password: loginData.password,
-          deviceInfo,
-        }
-      );
 
-      if (res.data.data?.token) {
-        localStorage.setItem(
-          "token",
-          res.data.data.token
+      // If admin access token was granted via /admin-access/:token, use admin login endpoint
+      const adminAccessToken = localStorage.getItem('adminAccessToken');
+      let res;
+      if (adminAccessToken) {
+        // Use admin login
+        res = await axios.post(
+          "http://localhost:8000/api/admin/login",
+          {
+            email: loginData.email,
+            password: loginData.password,
+          },
+          { headers: { 'X-Admin-Access': adminAccessToken } }
         );
 
-        // Store user data in localStorage
-        if (res.data.data.user) {
+        if (res.data.data?.token) {
+          localStorage.setItem('token', res.data.data.token);
+          if (res.data.data.admin) {
+            localStorage.setItem('user', JSON.stringify(res.data.data.admin));
+          }
+
+          showMessage(res.data.message || 'Admin login successful', 'success');
+          // clear admin access token after successful login
+          localStorage.removeItem('adminAccessToken');
+          setTimeout(() => navigate('/admin/moderation'), 800);
+        }
+
+      } else {
+        // Regular user login
+        res = await axios.post(
+          "http://localhost:8000/api/auth/Login",
+          {
+            email: loginData.email,
+            password: loginData.password,
+            deviceInfo,
+          }
+        );
+
+        if (res.data.data?.token) {
           localStorage.setItem(
-            "user",
-            JSON.stringify(res.data.data.user)
+            "token",
+            res.data.data.token
+          );
+
+          // Store user data in localStorage
+          if (res.data.data.user) {
+            localStorage.setItem(
+              "user",
+              JSON.stringify(res.data.data.user)
+            );
+          }
+
+          showMessage(
+            res.data.message ||
+              t("signup.loginSuccess"),
+            "success"
+          );
+
+          // If the user exists but is NOT verified, show the verification modal
+          const loggedUser = res.data.data.user;
+          if (loggedUser && !loggedUser.isVerified) {
+            setVerificationEmail(loggedUser.email || loginData.email);
+            setShowVerificationModal(true);
+            await handleSendVerificationCode(loggedUser.email || loginData.email);
+
+            // clear sensitive fields and stop further navigation so user can verify
+            setLoginData({ email: "", password: "" });
+            return;
+          }
+
+          setTimeout(() => {
+            const user = res.data.data.user;
+            // If user hasn't chosen a role (defaults to 'user'), send them to profile selection
+            if (!user || user.role === "user") {
+              navigate("/create");
+            } else {
+              navigate("/");
+            }
+          }, 1500);
+        } else {
+          setVerificationEmail(
+            loginData.email
+          );
+
+          setShowVerificationModal(
+            true
+          );
+
+          await handleSendVerificationCode(
+            loginData.email
           );
         }
-
-        showMessage(
-          res.data.message ||
-            t("signup.loginSuccess"),
-          "success"
-        );
-
-        // If the user exists but is NOT verified, show the verification modal
-        const loggedUser = res.data.data.user;
-        if (loggedUser && !loggedUser.isVerified) {
-          setVerificationEmail(loggedUser.email || loginData.email);
-          setShowVerificationModal(true);
-          await handleSendVerificationCode(loggedUser.email || loginData.email);
-
-          // clear sensitive fields and stop further navigation so user can verify
-          setLoginData({ email: "", password: "" });
-          return;
-        }
-
-        setTimeout(() => {
-          const user = res.data.data.user;
-          // If user hasn't chosen a role (defaults to 'user'), send them to profile selection
-          if (!user || user.role === "user") {
-            navigate("/create");
-          } else {
-            navigate("/");
-          }
-        }, 1500);
-      } else {
-        setVerificationEmail(
-          loginData.email
-        );
-
-        setShowVerificationModal(
-          true
-        );
-
-        await handleSendVerificationCode(
-          loginData.email
-        );
       }
 
       setLoginData({

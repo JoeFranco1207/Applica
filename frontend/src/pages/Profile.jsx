@@ -1663,24 +1663,31 @@ export default function Profile() {
                 </div>
                 <div style={styles.detailItem}>
                   <label style={styles.detailLabel}>Resume</label>
-                  {user?.resume ? (
-                    <a 
-                      href={user.resume} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{
-                        color: '#1892aa',
-                        textDecoration: 'none',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                        fontSize: 14
-                      }}
-                      onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-                      onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-                    >
-                      View Resume
-                    </a>
-                  ) : (
+                  {user?.resume ? (() => {
+                        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+                        const resumeRaw = user.resume || '';
+                        const resumeLink = /^https?:\/\//i.test(resumeRaw)
+                          ? resumeRaw
+                          : `${BACKEND_URL}${resumeRaw.startsWith('/') ? '' : '/'}${resumeRaw}`;
+                        return (
+                          <a
+                            href={resumeLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: '#1892aa',
+                              textDecoration: 'none',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              fontSize: 14
+                            }}
+                            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                          >
+                            View Resume
+                          </a>
+                        );
+                      })() : (
                     <p style={styles.detailValue}>Not provided</p>
                   )}
                 </div>

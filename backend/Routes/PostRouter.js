@@ -21,10 +21,10 @@ import {
 
 const router = express.Router();
 
-router.get('/', protection, getPostsController);
+router.get('/', getPostsController);
 router.post('/', protection, restrictTo('jobseeker', 'employer'), createPostController);
 
-router.get('/author/:authorId', protection, getPostsByAuthorController);
+router.get('/author/:authorId', getPostsByAuthorController);
 router.post('/:id/like', protection, togglePostLikeController);
 router.post('/:id/comment', protection, addCommentController);
 router.delete('/:id/comment/:commentId', protection, deleteCommentController);

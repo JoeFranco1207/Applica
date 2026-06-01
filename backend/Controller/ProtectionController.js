@@ -80,13 +80,15 @@ export const protection = async (req, res, next) => {
     // Debug: log the decoded id and stored role to help diagnose forbidden responses
     console.log('Protection: decoded id=', decoded.id, 'token role=', decodedRole, 'resolved subject=', subject);
 
-    const normalizedRole = (decodedRole || "").toString().trim().toLowerCase();
+    const normalizedRole = decodedRole === 'admin'
+      ? 'admin'
+      : (decodedUser.role || 'user').toString().trim().toLowerCase();
 
     req.user = {
       id: decodedUser._id.toString(),
       email: decodedUser.email,
       role: normalizedRole,
-      isVerified: decodedRole === 'admin' ? true : decodedUser.isVerified,
+      isVerified: normalizedRole === 'admin' ? true : decodedUser.isVerified,
     };
 
     next();

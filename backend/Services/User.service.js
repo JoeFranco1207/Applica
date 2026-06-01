@@ -188,7 +188,7 @@ export const sendVerificationCodeService = async(email) =>{
       email: user.email,
       id: user._id,
       verified: user.isVerified,
-      role: "user"
+      role: (user.role || 'user').toString().trim().toLowerCase(),
     },
     process.env.TOKEN_SECRET,
     {
@@ -259,7 +259,7 @@ export const loginService = async(email, password, deviceInfo) => {
             email: existingUser.email,
             id: existingUser._id,
             verified: existingUser.isVerified,
-            role: "user"
+            role: (existingUser.role || 'user').toString().trim().toLowerCase(),
         }, process.env.TOKEN_SECRET, {
             expiresIn: "8h"
         });

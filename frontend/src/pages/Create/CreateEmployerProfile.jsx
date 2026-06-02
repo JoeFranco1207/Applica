@@ -1,20 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
-const regions = [
-  "NCR",
-  "Calabarzon",
-  "Central Luzon",
-  "Central Visayas",
-  "Cordillera",
-  "Davao",
-  "Eastern Visayas",
-  "Ilocos",
-  "Mimaropa",
-  "Soccsksargen",
-  "Zamboanga",
-];
+import {
+  fetchAllRegions,
+  fetchProvincesByRegion,
+  fetchCitiesByRegion,
+  fetchBarangaysByCity,
+  getRegionDisplayName,
+  getCityDisplayName,
+  getBarangayDisplayName,
+} from "../../utils/psgcApi";
 
 const companySizes = [
   "1-10",
@@ -67,6 +62,7 @@ const CreateEmployerProfile = () => {
     companyDescription: "",
     companyLocation: {
       region: "",
+      province: "",
       city: "",
       barangay: "",
       otherDetails: "",
@@ -82,6 +78,10 @@ const CreateEmployerProfile = () => {
   const [companyLogoPreview, setCompanyLogoPreview] = useState("");
   const [existingCompanyLogo, setExistingCompanyLogo] = useState("");
 
+  const [companyPictures, setCompanyPictures] = useState([]);
+  const [companyPicturePreviews, setCompanyPicturePreviews] = useState([]);
+  const [existingCompanyPictures, setExistingCompanyPictures] = useState([]);
+
   const [companyPicture, setCompanyPicture] = useState("");
   const [companyPicturePreview, setCompanyPicturePreview] = useState("");
   const [existingCompanyPicture, setExistingCompanyPicture] = useState("");
@@ -91,6 +91,17 @@ const CreateEmployerProfile = () => {
   const [loading, setLoading] = useState(false);
 
   const [mapUrl, setMapUrl] = useState("");
+  const [regions, setRegions] = useState([]);
+  const [availableProvinces, setAvailableProvinces] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableBarangays, setAvailableBarangays] = useState([]);
+  const [loadingRegions, setLoadingRegions] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingBarangays, setLoadingBarangays] = useState(false);
+  const previousRegionRef = useRef("");
+  const previousProvinceRef = useRef("");
+  const previousCityRef = useRef("");
 
   // Check authorization on mount
   useEffect(() => {
@@ -100,11 +111,177 @@ const CreateEmployerProfile = () => {
     }
   }, [navigate]);
 
+  // Fetch all regions on mount
+  useEffect(() => {
+    const loadRegions = async () => {
+      try {
+        setLoadingRegions(true);
+        const regionsData = await fetchAllRegions();
+        setRegions(regionsData);
+      } catch (error) {
+        console.error("Failed to load regions:", error);
+        showMessage("Error loading regions. Please refresh the page.", "error");
+      } finally {
+        setLoadingRegions(false);
+      }
+    };
+
+    loadRegions();
+  }, []);
+
+  // Update available provinces and cities when region changes
+  useEffect(() => {
+    const selectedRegion = regions.find(
+      (region) => region.name === formData.companyLocation.region
+    );
+
+    if (selectedRegion) {
+      const loadLocationData = async () => {
+        try {
+          setLoadingProvinces(true);
+          setLoadingCities(true);
+
+          const [provincesData, citiesData] = await Promise.all([
+            fetchProvincesByRegion(selectedRegion.code),
+            fetchCitiesByRegion(selectedRegion.code),
+          ]);
+
+          setAvailableProvinces(provincesData);
+          setAvailableCities(citiesData);
+          setAvailableBarangays([]);
+
+          if (
+            previousRegionRef.current &&
+            previousRegionRef.current !== formData.companyLocation.region
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              companyLocation: {
+                ...prev.companyLocation,
+                province: "",
+                city: "",
+                barangay: "",
+              },
+            }));
+          }
+
+          previousRegionRef.current = formData.companyLocation.region;
+        } catch (error) {
+          console.error("Failed to load provinces or cities:", error);
+          showMessage("Error loading location data. Please try again.", "error");
+        } finally {
+          setLoadingProvinces(false);
+          setLoadingCities(false);
+        }
+      };
+
+      loadLocationData();
+    } else {
+      setAvailableProvinces([]);
+      setAvailableCities([]);
+      setAvailableBarangays([]);
+    }
+  }, [formData.companyLocation.region, regions]);
+
+  useEffect(() => {
+    if (!formData.companyLocation.province) {
+      if (
+        previousProvinceRef.current &&
+        previousProvinceRef.current !== formData.companyLocation.province
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          companyLocation: {
+            ...prev.companyLocation,
+            city: "",
+            barangay: "",
+          },
+        }));
+        setAvailableBarangays([]);
+      }
+      previousProvinceRef.current = formData.companyLocation.province;
+      return;
+    }
+
+    if (availableProvinces.length > 0) {
+      if (
+        previousProvinceRef.current &&
+        previousProvinceRef.current !== formData.companyLocation.province
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          companyLocation: {
+            ...prev.companyLocation,
+            city: "",
+            barangay: "",
+          },
+        }));
+        setAvailableBarangays([]);
+      }
+    }
+    previousProvinceRef.current = formData.companyLocation.province;
+  }, [formData.companyLocation.province, availableProvinces]);
+
+  // Update available barangays when city changes
+  useEffect(() => {
+    if (
+      formData.companyLocation.city &&
+      formData.companyLocation.region &&
+      availableCities.length > 0
+    ) {
+      const selectedProvince = availableProvinces.find(
+        (province) => province.name === formData.companyLocation.province
+      );
+      const filteredCities = selectedProvince
+        ? availableCities.filter(
+            (city) => city.provinceCode === selectedProvince.code
+          )
+        : availableCities;
+
+      const selectedCity = filteredCities.find(
+        (c) => c.name === formData.companyLocation.city
+      );
+
+      if (selectedCity) {
+        const loadBarangays = async () => {
+          try {
+            setLoadingBarangays(true);
+            const barangaysData = await fetchBarangaysByCity(selectedCity.code);
+            setAvailableBarangays(barangaysData);
+
+            if (
+              previousCityRef.current &&
+              previousCityRef.current !== formData.companyLocation.city
+            ) {
+              setFormData((prev) => ({
+                ...prev,
+                companyLocation: {
+                  ...prev.companyLocation,
+                  barangay: "",
+                },
+              }));
+            }
+          } catch (error) {
+            console.error("Failed to load barangays:", error);
+            showMessage("Error loading barangays. Please try again.", "error");
+          } finally {
+            setLoadingBarangays(false);
+          }
+        };
+
+        loadBarangays();
+      }
+    } else {
+      setAvailableBarangays([]);
+    }
+  }, [formData.companyLocation.city, availableCities, formData.companyLocation.region, formData.companyLocation.province, availableProvinces]);
+
   useEffect(() => {
     const location = `
       ${formData.companyLocation.otherDetails}
       ${formData.companyLocation.barangay}
       ${formData.companyLocation.city}
+      ${formData.companyLocation.province}
       ${formData.companyLocation.region}
     `;
 
@@ -168,10 +345,21 @@ const CreateEmployerProfile = () => {
               setExistingCompanyLogo(existing.companyLogo);
               setCompanyLogoPreview(existing.companyLogo);
             }
-            if (existing.companyPicture) {
+
+            const picturesFromBackend = Array.isArray(existing.companyPictures)
+              ? existing.companyPictures
+              : existing.companyPicture
+              ? [existing.companyPicture]
+              : [];
+
+            if (picturesFromBackend.length) {
+              setExistingCompanyPictures(picturesFromBackend);
+              setCompanyPicturePreviews(picturesFromBackend);
+            } else if (existing.companyPicture) {
               setExistingCompanyPicture(existing.companyPicture);
               setCompanyPicturePreview(existing.companyPicture);
             }
+
             setIsEditing(hasEmployerData);
             setEditable(!hasEmployerData);
           }
@@ -212,6 +400,7 @@ const CreateEmployerProfile = () => {
       data?.contactNumber,
       data?.dateEstablished,
       data?.companyLocation?.region,
+      data?.companyLocation?.province,
       data?.companyLocation?.city,
       data?.companyLocation?.barangay,
       data?.companyLocation?.otherDetails,
@@ -261,18 +450,30 @@ const CreateEmployerProfile = () => {
   };
 
   const handleCompanyPictureChange = (e) => {
-    const file = e.target.files[0];
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setCompanyPicture(reader.result);
-        setCompanyPicturePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      showMessage("Please select a valid image file", "error");
+    const invalidFile = files.find((file) => !file.type.startsWith("image/"));
+    if (invalidFile) {
+      showMessage("Please select only image files", "error");
+      return;
     }
+
+    const readers = files.map((file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(readers).then((results) => {
+      setCompanyPictures((prev) => [...prev, ...results]);
+      setCompanyPicturePreviews((prev) => [...prev, ...results]);
+      // keep existingCompanyPictures intact so new photos are added, not replaced
+      setCompanyPicture("");
+      setCompanyPicturePreview("");
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -299,6 +500,13 @@ const CreateEmployerProfile = () => {
         contactNumber: formData.contactNumber,
         dateEstablished: formData.dateEstablished,
         companyLogo: companyLogo || existingCompanyLogo || "",
+        companyPictures: companyPictures.length
+          ? companyPictures
+          : existingCompanyPictures.length
+          ? existingCompanyPictures
+          : companyPicture
+          ? [companyPicture]
+          : [],
         companyPicture: companyPicture || existingCompanyPicture || "",
       };
 
@@ -343,7 +551,19 @@ const CreateEmployerProfile = () => {
         setExistingCompanyLogo(updatedProfile.companyLogo);
         setCompanyLogoPreview(updatedProfile.companyLogo);
       }
-      if (updatedProfile.companyPicture) {
+
+      const savedPictures = Array.isArray(updatedProfile.companyPictures)
+        ? updatedProfile.companyPictures
+        : updatedProfile.companyPicture
+        ? [updatedProfile.companyPicture]
+        : [];
+
+      if (savedPictures.length) {
+        setExistingCompanyPictures(savedPictures);
+        setCompanyPicturePreviews(savedPictures);
+        setExistingCompanyPicture("");
+        setCompanyPicturePreview("");
+      } else if (updatedProfile.companyPicture) {
         setExistingCompanyPicture(updatedProfile.companyPicture);
         setCompanyPicturePreview(updatedProfile.companyPicture);
       }
@@ -371,6 +591,16 @@ const CreateEmployerProfile = () => {
       setLoading(false);
     }
   };
+
+  const selectedProvince = availableProvinces.find(
+    (province) => province.name === formData.companyLocation.province
+  );
+
+  const filteredCities = selectedProvince
+    ? availableCities.filter(
+        (city) => city.provinceCode === selectedProvince.code
+      )
+    : availableCities;
 
   return (
     <div className="page-container" style={styles.container}>
@@ -506,7 +736,12 @@ const CreateEmployerProfile = () => {
                     />
                   ) : (
                     <div style={styles.uploadPlaceholder}>
-                      <span style={styles.uploadIcon}>📷</span>
+                      <span style={styles.uploadIcon} aria-hidden>
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ width: 28, height: 28 }}>
+                          <path d="M4 7h3l2-2h6l2 2h3v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </span>
                       <span style={styles.uploadText}>
                         Click to upload
                       </span>
@@ -525,6 +760,7 @@ const CreateEmployerProfile = () => {
                   id="employerCompanyPictureInput"
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleCompanyPictureChange}
                   style={styles.hiddenInput}
                   disabled={!editable}
@@ -534,21 +770,53 @@ const CreateEmployerProfile = () => {
                   htmlFor="employerCompanyPictureInput"
                   style={styles.imageUploadRectangle}
                 >
-                  {(companyPicturePreview || existingCompanyPicture) ? (
-                    <img
-                      src={companyPicturePreview || existingCompanyPicture}
-                      alt="Company picture preview"
-                      style={styles.imageUploadPreview}
-                    />
+                  {(companyPicturePreviews.length || existingCompanyPictures.length) ? (
+                    <div style={styles.imageUploadGalleryPlaceholder}>
+                      <span style={styles.uploadIcon} aria-hidden>
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ width: 28, height: 28 }}>
+                          <path d="M3 7h3l2-2h6l2 2h3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </span>
+                      <span style={styles.uploadText}>
+                        Add more photos
+                      </span>
+                    </div>
                   ) : (
                     <div style={styles.uploadPlaceholder}>
-                      <span style={styles.uploadIcon}>🏢</span>
+                      <span style={styles.uploadIcon} aria-hidden>
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ width: 28, height: 28 }}>
+                          <path d="M4 21V3h10v18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          <path d="M14 7h4v4h-4zM14 13h4v4h-4zM6 11h2v2H6zM6 7h2v2H6z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </span>
                       <span style={styles.uploadText}>
-                        Click to upload building photo
+                        Upload photos
                       </span>
                     </div>
                   )}
                 </label>
+
+                {(companyPicturePreviews.length > 0 || existingCompanyPictures.length > 0) && (
+                  <div style={styles.imageGallery}>
+                    {([...(existingCompanyPictures || []), ...(companyPicturePreviews || [])]).map((pictureSrc, index) => (
+                      <div key={index} style={styles.imageThumbnailWrapper}>
+                        <img
+                          src={pictureSrc}
+                          alt={`Company picture ${index + 1}`}
+                          style={styles.imageThumbnail}
+                        />
+                        <button
+                          type="button"
+                          style={styles.imageViewButton}
+                          onClick={() => window.open(pictureSrc, '_blank', 'noopener')}
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Description */}
@@ -693,18 +961,18 @@ const CreateEmployerProfile = () => {
                     }
                     onChange={handleInputChange}
                     style={{ ...styles.input, ...styles.selectInput }}
-                    disabled={!editable}
+                    disabled={!editable || loadingRegions}
                   >
                     <option value="">
-                      Select Region
+                      {loadingRegions ? "Loading regions..." : "Select Region"}
                     </option>
 
                     {regions.map((region) => (
                       <option
-                        key={region}
-                        value={region}
+                        key={region.code}
+                        value={region.name}
                       >
-                        {region}
+                        {region.name}
                       </option>
                     ))}
                   </select>
@@ -712,43 +980,92 @@ const CreateEmployerProfile = () => {
 
                 <div style={styles.formGroup}>
                   <label style={styles.label}>
-                    City
+                    Province
                   </label>
 
-                  <input
-                    type="text"
-                    name="companyLocation.city"
-                    value={
-                      formData.companyLocation.city
-                    }
+                  <select
+                    name="companyLocation.province"
+                    value={formData.companyLocation.province}
                     onChange={handleInputChange}
-                    placeholder="City"
-                    style={styles.input}
-                    disabled={!editable}
-                  />
+                    style={{ ...styles.input, ...styles.selectInput }}
+                    disabled={!editable || !formData.companyLocation.region || loadingProvinces}
+                  >
+                    <option value="">
+                      {loadingProvinces
+                        ? "Loading provinces..."
+                        : formData.companyLocation.region
+                        ? "Select Province"
+                        : "Please select a region first"}
+                    </option>
+
+                    {availableProvinces.map((province) => (
+                      <option key={province.code} value={province.name}>
+                        {province.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div style={styles.grid}>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>
+                    City
+                  </label>
+
+                  <select
+                    name="companyLocation.city"
+                    value={formData.companyLocation.city}
+                    onChange={handleInputChange}
+                    style={{ ...styles.input, ...styles.selectInput }}
+                    disabled={!editable || !formData.companyLocation.region || loadingCities}
+                  >
+                    <option value="">
+                      {loadingCities
+                        ? "Loading cities..."
+                        : formData.companyLocation.region
+                        ? "Select City"
+                        : "Please select a region first"}
+                    </option>
+
+                    {filteredCities.map((city) => (
+                      <option key={city.code} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>
                     Barangay
                   </label>
 
-                  <input
-                    type="text"
+                  <select
                     name="companyLocation.barangay"
-                    value={
-                      formData.companyLocation
-                        .barangay
-                    }
+                    value={formData.companyLocation.barangay}
                     onChange={handleInputChange}
-                    placeholder="Barangay"
-                    style={styles.input}
-                    disabled={!editable}
-                  />
-                </div>
+                    style={{ ...styles.input, ...styles.selectInput }}
+                    disabled={!editable || !formData.companyLocation.city || loadingBarangays}
+                  >
+                    <option value="">
+                      {loadingBarangays
+                        ? "Loading barangays..."
+                        : formData.companyLocation.city
+                        ? "Select Barangay"
+                        : "Please select a city first"}
+                    </option>
 
+                    {availableBarangays.map((barangay) => (
+                      <option key={barangay.code} value={barangay.name}>
+                        {barangay.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={styles.grid}>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>
                     Other Details
@@ -1055,6 +1372,54 @@ const styles = {
   imagePreview: {
     width: "100%",
     display: "block",
+  },
+
+  imageGallery: {
+    marginTop: "16px",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "12px",
+    gridAutoRows: "160px",
+  },
+
+  imageThumbnailWrapper: {
+    position: "relative",
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+
+  imageThumbnail: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+
+  imageViewButton: {
+    position: "absolute",
+    bottom: "8px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "6px 12px",
+    borderRadius: "999px",
+    backgroundColor: "rgba(0,0,0,0.65)",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "0.85rem",
+  },
+
+  imageUploadGalleryPlaceholder: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    color: "#94a3b8",
+    fontSize: "0.95rem",
+    textAlign: "center",
   },
 
   message: {

@@ -484,6 +484,12 @@ export default function Profile() {
     setModalJob(null);
   };
 
+  const profilePictures = Array.isArray(user?.companyPictures)
+    ? user.companyPictures.filter(Boolean)
+    : user?.companyPicture
+    ? [user.companyPicture]
+    : [];
+
   useEffect(() => {
     const fetchEmployerJobs = async () => {
       if (!user?.role || user.role !== "employer") return;
@@ -1756,7 +1762,7 @@ export default function Profile() {
               </div>
 
               {/* Company Picture Gallery */}
-              {user.companyPicture && (
+              {profilePictures.length > 0 && (
                 <div style={{
                   marginTop: 24,
                   paddingTop: 24,
@@ -1770,23 +1776,23 @@ export default function Profile() {
                   }}>
                     Company Building & Location
                   </h3>
-                  <div style={{
-                    width: "100%",
-                    maxWidth: "500px",
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  }}>
-                    <img
-                      src={user.companyPicture}
-                      alt="Company building"
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        display: "block",
-                        objectFit: "cover",
-                      }}
-                    />
+                  <div style={styles.companyGalleryGrid}>
+                    {profilePictures.map((pictureSrc, index) => (
+                      <a
+                        key={`company-picture-${index}`}
+                        href={pictureSrc}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        style={styles.companyGalleryItem}
+                      >
+                        <img
+                          src={pictureSrc}
+                          alt={`Company view ${index + 1}`}
+                          style={styles.companyGalleryImage}
+                        />
+                        <span style={styles.companyGalleryOverlay}>View full size</span>
+                      </a>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2757,6 +2763,44 @@ const styles = {
     color: "#666",
     fontWeight: "600",
     fontSize: "14px",
+  },
+
+  companyGalleryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+  },
+
+  companyGalleryItem: {
+    position: "relative",
+    display: "block",
+    overflow: "hidden",
+    borderRadius: "16px",
+    minHeight: "140px",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+  },
+
+  companyGalleryImage: {
+    width: "100%",
+    height: "100%",
+    minHeight: "140px",
+    objectFit: "cover",
+    display: "block",
+  },
+
+  companyGalleryOverlay: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    padding: "12px",
+    background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    opacity: 1,
   },
 
   navActions: {

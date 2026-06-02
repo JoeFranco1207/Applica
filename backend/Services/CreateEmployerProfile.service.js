@@ -12,6 +12,7 @@ export const employerProfileService = async (userId, profileData) => {
     contactNumber,
     companyLogo,
     companyPicture,
+    companyPictures,
     dateEstablished,
   } = profileData;
 
@@ -35,6 +36,7 @@ export const employerProfileService = async (userId, profileData) => {
   if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
   if (companyLogo !== undefined) updateData.companyLogo = companyLogo;
   if (companyPicture !== undefined) updateData.companyPicture = companyPicture;
+  if (companyPictures !== undefined) updateData.companyPictures = companyPictures;
   if (dateEstablished !== undefined) updateData.dateEstablished = dateEstablished;
 
   if (companyLocation !== undefined) {

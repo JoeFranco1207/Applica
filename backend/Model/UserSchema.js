@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema({
     citizenShip: { type: String, default: '' },
     location: {
       region: { type: String, default: '' },
+      province: { type: String, default: '' },
       city: { type: String, default: '' },
       barangay: { type: String, default: '' },
       otherDetails: { type: String, default: '' },

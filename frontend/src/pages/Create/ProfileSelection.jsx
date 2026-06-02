@@ -1,6 +1,12 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from '../../contexts/ThemeContext';
+import {
+  fetchAllRegions,
+  fetchProvincesByRegion,
+  fetchCitiesByRegion,
+  fetchBarangaysByCity,
+} from '../../utils/psgcApi';
 
 const ProfileSelection = () => {
   const navigate = useNavigate();
@@ -51,6 +57,18 @@ const ProfileSelection = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileData, setProfileData] = useState({});
 
+  // Location dropdown states
+  const [regions, setRegions] = useState([]);
+  const [availableProvinces, setAvailableProvinces] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableBarangays, setAvailableBarangays] = useState([]);
+  const [loadingRegions, setLoadingRegions] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingBarangays, setLoadingBarangays] = useState(false);
+  const [selectedRegionCode, setSelectedRegionCode] = useState('');
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+
   useEffect(() => {
     // Check if user already has a role
     const user = safeGetStoredUser();
@@ -64,6 +82,107 @@ const ProfileSelection = () => {
     }
   }, [navigate]);
 
+  // Load regions when modal opens
+  useEffect(() => {
+    if (showProfileModal) {
+      const loadRegions = async () => {
+        try {
+          setLoadingRegions(true);
+          const regionsData = await fetchAllRegions();
+          setRegions(regionsData);
+        } catch (error) {
+          console.error("Failed to load regions:", error);
+        } finally {
+          setLoadingRegions(false);
+        }
+      };
+      loadRegions();
+    }
+  }, [showProfileModal]);
+
+  // Update available provinces and cities when region changes
+  useEffect(() => {
+    if (selectedRegionCode) {
+      const loadLocationData = async () => {
+        try {
+          setLoadingProvinces(true);
+          setLoadingCities(true);
+
+          const [provincesData, citiesData] = await Promise.all([
+            fetchProvincesByRegion(selectedRegionCode),
+            fetchCitiesByRegion(selectedRegionCode),
+          ]);
+
+          setAvailableProvinces(provincesData);
+          setAvailableCities(citiesData);
+          setSelectedProvinceCode('');
+          resetProfileLocationFields(['province', 'city', 'barangay']);
+          setAvailableBarangays([]);
+        } catch (error) {
+          console.error("Failed to load provinces or cities:", error);
+        } finally {
+          setLoadingProvinces(false);
+          setLoadingCities(false);
+        }
+      };
+      loadLocationData();
+    } else {
+      setAvailableProvinces([]);
+      setAvailableCities([]);
+      setAvailableBarangays([]);
+    }
+  }, [selectedRegionCode]);
+
+  // Update available barangays when city changes
+  useEffect(() => {
+    if (profileData.location?.city && profileData.location?.region && availableCities.length > 0) {
+      const selectedCity = availableCities.find(c => c.name === profileData.location.city);
+      if (selectedCity) {
+        const loadBarangays = async () => {
+          try {
+            setLoadingBarangays(true);
+            const barangaysData = await fetchBarangaysByCity(selectedCity.code);
+            setAvailableBarangays(barangaysData);
+            // Reset barangay
+            setProfileLocationField('barangay', '');
+          } catch (error) {
+            console.error("Failed to load barangays:", error);
+          } finally {
+            setLoadingBarangays(false);
+          }
+        };
+        loadBarangays();
+      }
+    } else {
+      setAvailableBarangays([]);
+    }
+  }, [profileData.location?.city, availableCities]);
+
+  const setProfileLocationField = (field, value) => {
+    setProfileData((prev) => {
+      const next = { ...prev };
+      if (!next.location) next.location = {};
+      next.location = {
+        ...next.location,
+        [field]: value,
+      };
+      return next;
+    });
+  };
+
+  const resetProfileLocationFields = (fields = []) => {
+    setProfileData((prev) => {
+      const next = { ...prev };
+      next.location = {
+        ...next.location,
+      };
+      fields.forEach((field) => {
+        next.location[field] = "";
+      });
+      return next;
+    });
+  };
+
   const getInitialProfileData = (role) => {
     if (role === "employer") {
       return {
@@ -75,6 +194,7 @@ const ProfileSelection = () => {
         companyLogo: "",
         location: {
           region: "",
+          province: "",
           city: "",
           barangay: "",
           otherDetails: "",
@@ -101,6 +221,7 @@ const ProfileSelection = () => {
       },
       location: {
         region: "",
+        province: "",
         city: "",
         barangay: "",
         otherDetails: "",
@@ -492,6 +613,18 @@ const ProfileSelection = () => {
                     onClose={() => setShowProfileModal(false)}
                     onSave={handleSaveProfile}
                     loading={profileLoading}
+                    regions={regions}
+                    availableCities={availableCities}
+                    availableBarangays={availableBarangays}
+                    loadingRegions={loadingRegions}
+                    loadingProvinces={loadingProvinces}
+                    loadingCities={loadingCities}
+                    loadingBarangays={loadingBarangays}
+                    availableProvinces={availableProvinces}
+                    selectedRegionCode={selectedRegionCode}
+                    selectedProvinceCode={selectedProvinceCode}
+                    setSelectedRegionCode={setSelectedRegionCode}
+                    setSelectedProvinceCode={setSelectedProvinceCode}
                   />
                 </div>
               </div>
@@ -836,7 +969,27 @@ backButton: {
 };
 
 // Inline stepper used inside the modal for compact single-field flow
-function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isDarkMode }) {
+function ModalStepper({
+  role,
+  data = {},
+  onChange,
+  onClose,
+  onSave,
+  loading,
+  isDarkMode,
+  regions = [],
+  availableProvinces = [],
+  availableCities = [],
+  availableBarangays = [],
+  loadingRegions = false,
+  loadingProvinces = false,
+  loadingCities = false,
+  loadingBarangays = false,
+  selectedRegionCode = '',
+  selectedProvinceCode = '',
+  setSelectedRegionCode,
+  setSelectedProvinceCode,
+}) {
   // strictly use explicit role prop to decide employer vs jobseeker steps
   const isEmployer = role === 'employer';
   const [index, setIndex] = useState(0);
@@ -992,10 +1145,22 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
             <select
               value={getValue(step.key) || ''}
               onChange={(e) => setValue(step.key, e.target.value)}
-              style={{ ...styles.input, ...getControlStyle() }}
+              style={{
+                ...styles.input,
+                ...getControlStyle(),
+                color: getValue(step.key)
+                  ? step.key === 'industry'
+                    ? '#fff'
+                    : '#000'
+                  : '#6b7280',
+              }}
             >
-              <option value="">Select {step.label}</option>
-              {step.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              <option value="" hidden>Select {step.label}</option>
+              {step.options.map((o) => (
+                <option key={o} value={o} style={{ color: '#000' }}>
+                  {o}
+                </option>
+              ))}
             </select>
           </div>
         ) : step.type === 'map' ? (
@@ -1086,30 +1251,115 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
                 <div style={{ marginBottom: 12, color: '#f87171' }}>{locationError}</div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <input
-                  type="text"
+                              <select
                   name="location.region"
                   value={getValue('location.region') || ''}
-                  onChange={(e) => setValue('location.region', e.target.value)}
-                  placeholder="Region"
-                  style={styles.input}
-                />
-                <input
-                  type="text"
+                  onChange={(e) => {
+                    const regionName = e.target.value;
+                    const region = regions.find(r => r.name === regionName);
+                    if (setSelectedRegionCode) {
+                      setSelectedRegionCode(region ? region.code : '');
+                    }
+                    setValue('location', {
+                      ...data.location,
+                      region: regionName,
+                      province: '',
+                      city: '',
+                      barangay: '',
+                    });
+                    setSelectedProvinceCode('');
+                  }}
+                  style={{ ...styles.input, appearance: 'none', paddingRight: '44px', backgroundImage: 'linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%)', backgroundPosition: 'calc(100% - 20px) calc(50% - 6px), calc(100% - 14px) calc(50% - 6px)', backgroundSize: '8px 8px, 8px 8px', backgroundRepeat: 'no-repeat' }}
+                >
+                  <option value="">
+                    {loadingRegions ? "Loading regions..." : "Select Region"}
+                  </option>
+                  {regions.map((region) => (
+                    <option key={region.code} value={region.name}>
+                      {region.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  name="location.province"
+                  value={getValue('location.province') || ''}
+                  onChange={(e) => {
+                    const provinceName = e.target.value;
+                    const province = availableProvinces.find((p) => p.name === provinceName);
+                    const code = province ? province.code : '';
+                    setSelectedProvinceCode(code);
+                    setValue('location', {
+                      ...data.location,
+                      province: provinceName,
+                      city: '',
+                      barangay: '',
+                    });
+                  }}
+                  disabled={!getValue('location.region') || loadingProvinces}
+                  style={{ ...styles.input, appearance: 'none', paddingRight: '44px', backgroundImage: 'linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%)', backgroundPosition: 'calc(100% - 20px) calc(50% - 6px), calc(100% - 14px) calc(50% - 6px)', backgroundSize: '8px 8px, 8px 8px', backgroundRepeat: 'no-repeat', opacity: !getValue('location.region') ? 0.5 : 1, cursor: !getValue('location.region') ? 'not-allowed' : 'pointer' }}
+                >
+                  <option value="">
+                    {loadingProvinces
+                      ? "Loading provinces..."
+                      : getValue('location.region')
+                      ? "Select Province"
+                      : "Please select a region first"}
+                  </option>
+                  {availableProvinces.map((province) => (
+                    <option key={province.code} value={province.name}>
+                      {province.name}
+                    </option>
+                  ))}
+                </select>
+                <select
                   name="location.city"
                   value={getValue('location.city') || ''}
-                  onChange={(e) => setValue('location.city', e.target.value)}
-                  placeholder="City"
-                  style={styles.input}
-                />
-                <input
-                  type="text"
+                  onChange={(e) => {
+                    const cityName = e.target.value;
+                    setValue('location', {
+                      ...data.location,
+                      city: cityName,
+                      barangay: '',
+                    });
+                  }}
+                  disabled={!getValue('location.province') || loadingCities}
+                  style={{ ...styles.input, appearance: 'none', paddingRight: '44px', backgroundImage: 'linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%)', backgroundPosition: 'calc(100% - 20px) calc(50% - 6px), calc(100% - 14px) calc(50% - 6px)', backgroundSize: '8px 8px, 8px 8px', backgroundRepeat: 'no-repeat', opacity: !getValue('location.province') ? 0.5 : 1, cursor: !getValue('location.province') ? 'not-allowed' : 'pointer' }}
+                >
+                  <option value="">
+                    {loadingCities
+                      ? "Loading cities..."
+                      : getValue('location.province')
+                      ? "Select City"
+                      : "Please select a province first"}
+                  </option>
+                  {availableCities
+                    .filter((city) => city.provinceCode === selectedProvinceCode)
+                    .map((city) => (
+                      <option key={city.code} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                </select>
+                <select
                   name="location.barangay"
                   value={getValue('location.barangay') || ''}
                   onChange={(e) => setValue('location.barangay', e.target.value)}
-                  placeholder="Barangay"
-                  style={styles.input}
-                />
+                  disabled={!getValue('location.city') || loadingBarangays}
+                  style={{ ...styles.input, appearance: 'none', paddingRight: '44px', backgroundImage: 'linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%)', backgroundPosition: 'calc(100% - 20px) calc(50% - 6px), calc(100% - 14px) calc(50% - 6px)', backgroundSize: '8px 8px, 8px 8px', backgroundRepeat: 'no-repeat', opacity: !getValue('location.city') ? 0.5 : 1, cursor: !getValue('location.city') ? 'not-allowed' : 'pointer' }}
+                >
+                  <option value="">
+                    {loadingBarangays
+                      ? "Loading barangays..."
+                      : getValue('location.city')
+                      ? "Select Barangay"
+                      : "Please select a city first"}
+                  </option>
+                  {availableBarangays.map((barangay) => (
+                    <option key={barangay.code} value={barangay.name}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   name="location.otherDetails"

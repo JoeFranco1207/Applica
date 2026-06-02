@@ -10,6 +10,7 @@ export const employerSchema = new mongoose.Schema({
             type: String,
             required: function() { return !this.coords; }
         },
+        province: String,
         city: {
             type: String,
             required: function() { return !this.coords; }
@@ -33,6 +34,10 @@ export const employerSchema = new mongoose.Schema({
     contactNumber: String,
     companyLogo: String,
     companyPicture: String,
+    companyPictures: {
+      type: [String],
+      default: [],
+    },
     dateEstablished: Date,
     dateOfApproval: Date,
     approvalStatus: {

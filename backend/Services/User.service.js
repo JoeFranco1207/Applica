@@ -345,6 +345,112 @@ export const getUserByIdService = async (userId) => {
   return await attachEmployeeTagToUser(user);
 };
 
+export const searchUsersByNameService = async (query, requesterId) => {
+  const normalizedQuery = String(query || '').trim();
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
+  const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const queryRegex = new RegExp(escapedQuery, 'i');
+  const queryParts = normalizedQuery.split(/\s+/);
+
+  const searchConditions = [
+    { firstName: queryRegex },
+    { lastName: queryRegex },
+    { companyName: queryRegex },
+    { role: queryRegex },
+    { bio: queryRegex },
+    { experience: queryRegex },
+    { education: queryRegex },
+    { skills: queryRegex },
+    { 'location.region': queryRegex },
+    { 'location.city': queryRegex },
+    { 'location.barangay': queryRegex },
+  ];
+
+  if (queryParts.length >= 2) {
+    searchConditions.push({
+      firstName: new RegExp(queryParts[0], 'i'),
+      lastName: new RegExp(queryParts.slice(1).join(' '), 'i'),
+    });
+    searchConditions.push({
+      companyName: new RegExp(queryParts.join(' '), 'i'),
+    });
+    searchConditions.push({
+      bio: new RegExp(queryParts.join(' '), 'i'),
+    });
+  }
+
+  const filter = {
+    showProfileInSearch: { $ne: false },
+    $or: searchConditions,
+  };
+
+  if (requesterId) {
+    filter._id = { $ne: requesterId };
+  }
+
+  const users = await User.find(filter)
+    .select('firstName lastName profilePicture companyLogo role companyName')
+    .limit(12)
+    .lean();
+
+  return users.map((user) => ({
+    _id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profilePicture: user.profilePicture || user.companyLogo || '',
+    role: user.role,
+    companyName: user.companyName || '',
+  }));
+};
+
+// Recommendation service: simple personalized recommendations based on user profile
+export const getRecommendationsForUser = async (userId, limit = 6) => {
+  if (!userId) return { jobs: [], companies: [], skills: [] };
+
+  const user = await User.findById(userId).lean();
+  if (!user) return { jobs: [], companies: [], skills: [] };
+
+  const skills = (user.skills || []).slice(0, 6);
+
+  // Use savedSearches as prioritized recommendations
+  const saved = (user.savedSearches || []).slice(0, 6);
+
+  // Jobs: find recent jobs matching user's skills or saved searches
+  const jobQuery = [];
+  if (skills.length) jobQuery.push({ title: { $in: skills.map(s => new RegExp(s, 'i')) } });
+  if (saved.length) jobQuery.push({ title: { $in: saved.map(s => new RegExp(s, 'i')) } });
+
+  let jobs = [];
+  if (jobQuery.length) {
+    jobs = await Job.find({ $or: jobQuery }).select('title companyName location').sort({ createdAt: -1 }).limit(limit).lean();
+  } else {
+    jobs = await Job.find({}).select('title companyName location').sort({ createdAt: -1 }).limit(limit).lean();
+  }
+
+  // Companies: top companies from user's accepted jobs or companyName fields in user's network
+  const companies = [];
+  if (user.employeeOf) companies.push({ name: user.employeeOf });
+  // add companies from user's connections (if any)
+  if (Array.isArray(user.connections) && user.connections.length) {
+    const connUsers = await User.find({ _id: { $in: user.connections } }).select('companyName').lean();
+    connUsers.forEach((c) => { if (c.companyName) companies.push({ name: c.companyName }); });
+  }
+
+  // Deduplicate companies
+  const uniqueCompanies = [];
+  const seen = new Set();
+  companies.forEach((c) => {
+    const n = (c.name || '').trim();
+    if (!n) return;
+    if (!seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); uniqueCompanies.push({ name: n }); }
+  });
+
+  return { jobs, companies: uniqueCompanies.slice(0, limit), skills };
+};
+
 export const deleteUserService = async (userId) => {
   const user = await User.findById(userId);
   if (!user) {
@@ -364,4 +470,53 @@ export const deleteUserService = async (userId) => {
 
   await User.deleteOne({ _id: userId });
   return { message: 'User deleted successfully' };
+};
+
+export const getRecommendationsService = async (userId) => {
+  if (!userId) throw new AppError('User id required', 400);
+
+  const user = await User.findById(userId).lean();
+  if (!user) throw new AppError('User not found', 404);
+
+  // Recommended skills: user's top skills or popular skills in same city
+  let recommendedSkills = (user.skills || []).slice(0, 6);
+  if (!recommendedSkills.length) {
+    const skillsAgg = await User.aggregate([
+      { $match: { 'skills.0': { $exists: true } } },
+      { $unwind: '$skills' },
+      { $group: { _id: '$skills', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 6 },
+    ]);
+    recommendedSkills = skillsAgg.map((s) => s._id);
+  }
+
+  // Recommended companies: companies from connections or popular nearby
+  const match = { companyName: { $exists: true, $ne: '' } };
+  if (user.location?.city) match['location.city'] = user.location.city;
+  const companiesAgg = await User.aggregate([
+    { $match: { ...match, _id: { $ne: user._id } } },
+    { $group: { _id: '$companyName', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 8 },
+  ]);
+  const recommendedCompanies = companiesAgg.map((c) => c._id).filter(Boolean);
+
+  // Recommended jobs: derive job titles from user's skills or generic popular titles
+  let recommendedJobs = [];
+  if (user.skills && user.skills.length) {
+    recommendedJobs = user.skills.slice(0, 6).map((s) => `${s} Specialist`);
+  } else {
+    recommendedJobs = ['Frontend Engineer', 'Backend Engineer', 'Product Designer', 'Data Analyst'];
+  }
+
+  // Saved searches: use stored savedSearches or derive from skills
+  const savedSearches = (user.savedSearches && user.savedSearches.length) ? user.savedSearches.slice(0,6) : (user.skills || []).slice(0,6).map(s => `${s}`);
+
+  return {
+    recommendedCompanies,
+    recommendedJobs,
+    recommendedSkills,
+    savedSearches,
+  };
 };

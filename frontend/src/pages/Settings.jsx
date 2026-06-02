@@ -157,7 +157,6 @@ const Settings = () => {
     location: "",
     profileVisibility: "public",
     showActivityStatus: true,
-    allowMessages: true,
     showProfileInSearch: true,
     jobAlerts: true,
     applicationUpdates: true,
@@ -188,6 +187,167 @@ const Settings = () => {
     }
     return "";
   };
+
+  const hasActiveSubscription = Boolean(
+    billingHistory?.length > 0 ||
+    user?.premiumAIAccess ||
+    (billingPlan && billingPlan !== "free")
+  );
+
+  const normalizePlanKey = (plan) => {
+    if (!plan) return "free";
+    if (plan.startsWith("employer_")) return plan;
+    if (["monthly", "halfYearly", "annual"].includes(plan)) {
+      if (user?.role === "employer") {
+        return `employer_${plan}`;
+      }
+      return plan;
+    }
+    return plan;
+  };
+
+  const isEmployer = user?.role === 'employer';
+
+  const normalizeEmployerPlanKey = (planKey) => {
+    if (!planKey) return 'free';
+    if (planKey.startsWith('employer_')) return planKey;
+    if (isEmployer && ['monthly', 'halfYearly', 'annual'].includes(planKey)) {
+      return `employer_${planKey}`;
+    }
+    return planKey;
+  };
+
+  const getPlanInfo = (planKey) => {
+    const normalizedKey = normalizeEmployerPlanKey(planKey);
+    const map = {
+      free: { name: 'Free Plan', priceLabel: '₱0 / month', durationLabel: 'month' },
+      monthly: { name: 'Premium', priceLabel: '₱69 / month', durationLabel: 'month' },
+      halfYearly: { name: 'Premium Plus', priceLabel: '₱450 / 6 months', durationLabel: '6 months' },
+      annual: { name: 'Premium Plus', priceLabel: '₱799 / year', durationLabel: '12 months' },
+      employer_monthly: { name: 'Employer Monthly', priceLabel: '₱499 / month', durationLabel: 'month' },
+      employer_halfYearly: { name: 'Employer Half-Year', priceLabel: '₱2,499 / 6 months', durationLabel: '6 months' },
+      employer_annual: { name: 'Employer Annual', priceLabel: '₱4,999 / year', durationLabel: '12 months' },
+    };
+    return map[normalizedKey] || map.free;
+  };
+
+  const getPremiumAmountCents = (planKey) => {
+    const normalizedKey = normalizeEmployerPlanKey(planKey);
+    const amounts = {
+      monthly: 6900,
+      halfYearly: 45000,
+      annual: 79900,
+      employer_monthly: 49900,
+      employer_halfYearly: 249900,
+      employer_annual: 499900,
+    };
+    return amounts[normalizedKey] || 0;
+  };
+
+  const getActivePlanKey = () => {
+    if (billingHistory?.length > 0) {
+      return normalizeEmployerPlanKey(billingHistory[billingHistory.length - 1].plan);
+    }
+    if (billingPlan && billingPlan !== 'free') {
+      return normalizeEmployerPlanKey(billingPlan);
+    }
+    if (user?.premiumAIAccess) {
+      return normalizeEmployerPlanKey(user?.premiumPlan || user?.lastAIPaymentPlan || 'monthly');
+    }
+    return 'free';
+  };
+
+  const getCurrentPlanName = () => getPlanInfo(getActivePlanKey()).name;
+
+  const getCurrentPlanPriceLabel = () => {
+    if (billingHistory?.length > 0) {
+      const latest = billingHistory[billingHistory.length - 1];
+      const planInfo = getPlanInfo(normalizeEmployerPlanKey(latest.plan));
+      return `${formatPeso(latest.amountCents)} / ${planInfo.durationLabel}`;
+    }
+    return getPlanInfo(getActivePlanKey()).priceLabel;
+  };
+
+  const effectiveBillingHistory = billingHistory?.length > 0
+    ? billingHistory
+    : (user?.premiumAIAccess && getActivePlanKey() !== 'free'
+      ? [{
+          plan: user?.premiumPlan || user?.lastAIPaymentPlan || getActivePlanKey(),
+          amountCents: getPremiumAmountCents(getActivePlanKey()),
+          currency: 'PHP',
+          status: 'completed',
+          createdAt: new Date(),
+        }]
+      : []);
+
+  const jobseekerUpgradePlans = [
+    {
+      key: 'monthly',
+      title: 'Premium',
+      priceLabel: '₱9.99 / month',
+      features: [
+        'Unlimited job applications',
+        'Priority profile visibility',
+        'Interview prep tools',
+        'Premium support',
+      ],
+      featured: false,
+    },
+    {
+      key: 'halfYearly',
+      title: 'Premium Plus',
+      priceLabel: '₱19.99 / month',
+      features: [
+        'Everything in Premium',
+        'AI Resume Review',
+        'Profile optimization',
+        'Dedicated account manager',
+      ],
+      featured: true,
+    },
+  ];
+
+  const employerUpgradePlans = [
+    {
+      key: 'employer_monthly',
+      title: 'Employer Monthly',
+      priceLabel: '₱499 / month',
+      features: [
+        'Expanded job posting limits and featured slots',
+        'Advanced applicant filtering and AI shortlisting',
+        'Priority placement in search results',
+        'Premium support for hiring teams',
+      ],
+      featured: false,
+    },
+    {
+      key: 'employer_halfYearly',
+      title: 'Employer Half-Year',
+      priceLabel: '₱2,499 / 6 months',
+      features: [
+        'Everything in Employer Monthly',
+        'Bulk posting and analytics exports',
+        'Dedicated account support',
+        'Discounted featured job credits',
+      ],
+      featured: true,
+    },
+    {
+      key: 'employer_annual',
+      title: 'Employer Annual',
+      priceLabel: '₱4,999 / year',
+      features: [
+        'Best value for hiring at scale',
+        'Unlimited featured postings',
+        'Enterprise analytics and priority service',
+        'Custom integrations (where available)',
+      ],
+      featured: false,
+    },
+  ];
+
+  const availableUpgradePlans = (isEmployer ? employerUpgradePlans : jobseekerUpgradePlans)
+    .filter((plan) => plan.key !== getActivePlanKey());
 
   const splitFullName = (fullName = "") => {
     const name = String(fullName || "").trim();
@@ -220,7 +380,6 @@ const Settings = () => {
           location: formattedLocation || "",
           profileVisibility: storedUser.profileVisibility || "public",
           showActivityStatus: storedUser.showActivityStatus !== false,
-          allowMessages: storedUser.allowMessages !== false,
           showProfileInSearch: storedUser.showProfileInSearch !== false,
           jobAlerts: storedUser.jobAlerts !== false,
           applicationUpdates: storedUser.applicationUpdates !== false,
@@ -278,7 +437,7 @@ const Settings = () => {
           google: storedUser.connectedAccounts?.google || false,
           facebook: storedUser.connectedAccounts?.facebook || false,
         });
-        setBillingPlan(storedUser.premiumPlan || "free");
+        setBillingPlan(storedUser.premiumPlan || storedUser.lastAIPaymentPlan || "free");
         setBillingHistory(storedUser.billingHistory || []);
         setResumes(storedUser.resumes || (storedUser.resume ? [{
           id: storedUser.resume,
@@ -315,7 +474,6 @@ const Settings = () => {
                 location: apiFormattedLocation || prev.location,
                 profileVisibility: userData.profileVisibility || prev.profileVisibility,
                 showActivityStatus: userData.showActivityStatus !== false,
-                allowMessages: userData.allowMessages !== false,
                 showProfileInSearch: userData.showProfileInSearch !== false,
                 jobAlerts: userData.jobAlerts !== false,
                 applicationUpdates: userData.applicationUpdates !== false,
@@ -371,7 +529,7 @@ const Settings = () => {
                 google: userData.connectedAccounts?.google || false,
                 facebook: userData.connectedAccounts?.facebook || false,
               });
-              setBillingPlan(userData.premiumPlan || "free");
+              setBillingPlan(userData.premiumPlan || userData.lastAIPaymentPlan || "free");
               setBillingHistory(userData.billingHistory || []);
               setResumes(userData.resumes || (userData.resume ? [{
                 id: userData.resume,
@@ -391,7 +549,6 @@ const Settings = () => {
               setOriginalPrivacyData({
                 profileVisibility: userData.profileVisibility || "public",
                 showActivityStatus: userData.showActivityStatus !== false,
-                allowMessages: userData.allowMessages !== false,
                 showProfileInSearch: userData.showProfileInSearch !== false,
                 jobAlerts: userData.jobAlerts !== false,
                 applicationUpdates: userData.applicationUpdates !== false,
@@ -414,6 +571,18 @@ const Settings = () => {
     };
 
     fetchUserData();
+  }, []);
+
+  useEffect(() => {
+    const handleUserUpdated = () => {
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(storedUser);
+      setBillingPlan(storedUser.premiumPlan || "free");
+      setBillingHistory(storedUser.billingHistory || []);
+    };
+
+    window.addEventListener("app:userUpdated", handleUserUpdated);
+    return () => window.removeEventListener("app:userUpdated", handleUserUpdated);
   }, []);
 
   const handleInputChange = (e) => {
@@ -443,7 +612,6 @@ const Settings = () => {
       const privacyFields = [
         "profileVisibility",
         "showActivityStatus",
-        "allowMessages",
         "showProfileInSearch",
         "jobAlerts",
         "applicationUpdates",
@@ -491,7 +659,6 @@ const Settings = () => {
       const privacyData = {
         profileVisibility: formData.profileVisibility,
         showActivityStatus: formData.showActivityStatus,
-        allowMessages: formData.allowMessages,
         // Jobseekers should never appear in employer searches via this toggle
         showProfileInSearch: user?.role === 'jobseeker' ? false : formData.showProfileInSearch,
         jobAlerts: formData.jobAlerts,
@@ -510,7 +677,6 @@ const Settings = () => {
       setOriginalPrivacyData({
         profileVisibility: formData.profileVisibility,
         showActivityStatus: formData.showActivityStatus,
-        allowMessages: formData.allowMessages,
         showProfileInSearch: formData.showProfileInSearch,
         jobAlerts: formData.jobAlerts,
         applicationUpdates: formData.applicationUpdates,
@@ -549,7 +715,6 @@ const Settings = () => {
       const privacyFields = [
         "profileVisibility",
         "showActivityStatus",
-        "allowMessages",
         "showProfileInSearch",
         "jobAlerts",
         "applicationUpdates",
@@ -754,9 +919,13 @@ const Settings = () => {
     try {
       setSavingBilling(true);
       const token = localStorage.getItem('token');
+      const selectedPlanKey = normalizePlanKey(billingPlan || (user?.premiumAIAccess ? 'monthly' : 'free'));
       const response = await axios.put(
         `${API_BASE}/api/auth/billing`,
-        { premiumPlan: billingPlan, amountCents: billingPlan === 'monthly' ? 999 : billingPlan === 'annual' ? 1999 : 0 },
+        {
+          premiumPlan: billingPlan,
+          amountCents: getPremiumAmountCents(selectedPlanKey),
+        },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -816,7 +985,6 @@ const Settings = () => {
         location: formData.location,
         profileVisibility: formData.profileVisibility,
         showActivityStatus: formData.showActivityStatus,
-        allowMessages: formData.allowMessages,
         showProfileInSearch: formData.showProfileInSearch,
         jobAlerts: formData.jobAlerts,
         applicationUpdates: formData.applicationUpdates,
@@ -1010,15 +1178,7 @@ const Settings = () => {
   // Resume & Support handlers are defined above with API-backed implementations.
 
   const getMenuItems = () => {
-    // Jobseekers should only see Resume & Documents in settings
-    if (user?.role === 'jobseeker') {
-      return [
-        { id: 'resume', label: 'Resume & Documents', icon: <FileIcon /> },
-      ];
-    }
-
-    // Employers and other roles see the full settings menu (without resume)
-    return [
+    const commonItems = [
       { id: 'account', label: 'Account Settings', icon: <AccountIcon /> },
       { id: 'privacy', label: 'Privacy & Security', icon: <SecurityIcon /> },
       { id: 'notifications', label: 'Notifications', icon: <BellIcon /> },
@@ -1028,6 +1188,15 @@ const Settings = () => {
       { id: 'billing', label: 'Billing & Subscription', icon: <CreditCardIcon /> },
       { id: 'help', label: 'Help & Support', icon: <HelpIcon /> },
     ];
+
+    if (user?.role === 'jobseeker') {
+      return [
+        ...commonItems,
+        { id: 'resume', label: 'Resume & Documents', icon: <FileIcon /> },
+      ];
+    }
+
+    return commonItems;
   };
 
   return (
@@ -1185,21 +1354,6 @@ const Settings = () => {
                       type="checkbox"
                       checked={formData.showActivityStatus}
                       onChange={() => handleToggle("showActivityStatus")}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-label">
-                    <h4>Allow Messages</h4>
-                    <p>Allow recruiters and companies to message you</p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowMessages}
-                      onChange={() => handleToggle("allowMessages")}
                     />
                     <span className="toggle-slider"></span>
                   </label>
@@ -1932,13 +2086,13 @@ const Settings = () => {
 
               <div className="settings-section">
                 <h3>Current Plan</h3>
-                {billingHistory && billingHistory.length > 0 ? (
+                {hasActiveSubscription ? (
                   <>
                     <p>You have an active subscription.</p>
                     <div className="subscription-card">
                       <div className="plan-details">
-                        <h4>{billingPlan === 'free' ? 'Premium' : billingPlan}</h4>
-                        <p>{formatPeso(billingHistory[billingHistory.length - 1].amountCents)} / month</p>
+                        <h4>{getCurrentPlanName()}</h4>
+                        <p>{getCurrentPlanPriceLabel()}</p>
                         <ul>
                           <li>Browse all jobs</li>
                           <li>Unlimited applications (premium)</li>
@@ -1978,39 +2132,56 @@ const Settings = () => {
                 <p>Get unlimited access and premium features.</p>
 
                 <div className="plans-grid">
-                  <div className="plan-card">
-                    <h4>Premium</h4>
-                    <p className="price">{formatPeso(999)} / month</p>
-                    <ul>
-                      <li>Unlimited job applications</li>
-                      <li>Priority profile visibility</li>
-                      <li>Interview prep tools</li>
-                      <li>Premium support</li>
-                    </ul>
-                    <button className="btn-primary" onClick={() => navigate('/ai-premium')}>Upgrade Now</button>
-                  </div>
-
-                  <div className="plan-card featured">
-                    <div className="featured-badge">Most Popular</div>
-                    <h4>Premium Plus</h4>
-                    <p className="price">{formatPeso(1999)} / month</p>
-                    <ul>
-                      <li>Everything in Premium</li>
-                      <li>AI Resume Review</li>
-                      <li>Profile optimization</li>
-                      <li>Dedicated account manager</li>
-                    </ul>
-                    <button className="btn-primary" onClick={() => navigate('/ai-premium')}>Upgrade Now</button>
-                  </div>
+                  {availableUpgradePlans.length > 0 ? (
+                    availableUpgradePlans.map((plan) => (
+                      <div key={plan.title} className={`plan-card${plan.featured ? ' featured' : ''}`}>
+                        {plan.featured && <div className="featured-badge">Most Popular</div>}
+                        <h4>{plan.title}</h4>
+                        <p className="price">{plan.priceLabel}</p>
+                        <ul>
+                          {plan.features.map((feature) => (
+                            <li key={feature}>{feature}</li>
+                          ))}
+                        </ul>
+                        <button className="btn-primary" onClick={() => navigate('/ai-premium')}>
+                          Upgrade Now
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="settings-section">
+                      <p>You are already on the active plan. Upgrade options will appear when your current plan expires.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="settings-section">
                 <h3>Billing History</h3>
                 <p>View your past transactions.</p>
-                <p style={{ marginTop: "12px", color: "var(--text)" }}>
-                  No billing history yet.
-                </p>
+                {effectiveBillingHistory && effectiveBillingHistory.length > 0 ? (
+                  <div className="billing-history-list">
+                    {effectiveBillingHistory.map((entry, index) => {
+                      const entryPlanInfo = getPlanInfo(normalizeEmployerPlanKey(entry.plan || user?.premiumPlan || user?.lastAIPaymentPlan || getActivePlanKey()));
+                      return (
+                        <div key={`${entry.id || index}-${entry.plan || index}`} className="billing-history-item">
+                          <div>
+                            <h4>{entryPlanInfo.name}</h4>
+                            <p>{entryPlanInfo.priceLabel}</p>
+                          </div>
+                          <div>
+                            <p>{new Date(entry.date || entry.createdAt || Date.now()).toLocaleDateString()}</p>
+                            <span className="billing-status-text">Paid</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ marginTop: "12px", color: "var(--text)" }}>
+                    No billing history yet.
+                  </p>
+                )}
               </div>
             </>
           )}

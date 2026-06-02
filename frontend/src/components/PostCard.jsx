@@ -396,6 +396,7 @@ const PostCard = ({ post, onUpdate }) => {
               presenceMode={authorPresenceMode}
               initialIsOnline={!!(currentPost.authorIsOnline || currentPost.author?.isOnline)}
               lastActive={authorLastActive}
+              showPresence={currentPost.authorShowActivityStatus !== false}
               size={48}
               style={{ width: '100%', height: '100%', cursor: currentPost.author ? 'pointer' : 'default' }}
               showLastActive={false}
@@ -492,35 +493,36 @@ const PostCard = ({ post, onUpdate }) => {
           onClick={handleLike}
           title={translate('browse.likePostTitle')}
         >
-          ❤️ <span onClick={(e) => { e.stopPropagation(); openLikesModal(e); }} style={{ cursor: 'pointer' }}>{currentPost.likes?.length || 0}</span>
+          <IconLike />
+          <span onClick={(e) => { e.stopPropagation(); openLikesModal(e); }} style={{ cursor: 'pointer', marginLeft: 8 }}>{currentPost.likes?.length || 0}</span>
         </button>
         <button
           className="action-btn"
           onClick={() => setShowCommentModal(true)}
           title={translate('browse.commentPostTitle')}
         >
-          💬 {currentPost.comments?.length || 0}
+          <IconComment /> <span style={{ marginLeft: 8 }}>{currentPost.comments?.length || 0}</span>
         </button>
         <button
           className="action-btn"
           onClick={handleView}
           title={translate('browse.viewPostTitle')}
         >
-          👁️ {currentPost.views?.length || 0}
+          <IconView /> <span style={{ marginLeft: 8 }}>{currentPost.views?.length || 0}</span>
         </button>
         <button
           className="action-btn"
           onClick={handleShare}
           title={translate('browse.sharePostTitle')}
         >
-          🔗 {currentPost.shares?.length || 0}
+          <IconShare /> <span style={{ marginLeft: 8 }}>{currentPost.shares?.length || 0}</span>
         </button>
         <button
           className={`action-btn ${isReposted ? 'reposted' : ''}`}
           onClick={handleRepost}
           title={translate('browse.repostPostTitle')}
         >
-          🔄 {currentPost.reposts?.length || 0}
+          <IconRepost /> <span style={{ marginLeft: 8 }}>{currentPost.reposts?.length || 0}</span>
         </button>
       </div>
 
@@ -685,13 +687,58 @@ const PostCard = ({ post, onUpdate }) => {
           </div>
         </div>
       )}
+      {showLikesModal && (
+        <LikesList postId={currentPost._id} onClose={() => setShowLikesModal(false)} />
+      )}
     </div>
   );
 };
 
-      {showLikesModal && (
-        <LikesList postId={currentPost._id} onClose={() => setShowLikesModal(false)} />
-      )}
+function IconLike() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="1" fill="rgba(220,38,38,0.08)" />
+    </svg>
+  );
+}
+
+function IconComment() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.2" fill="none" />
+    </svg>
+  );
+}
+
+function IconView() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.2" fill="none" />
+    </svg>
+  );
+}
+
+function IconShare() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <path d="M12 3v14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8 7l4-4 4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function IconRepost() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M21 7v6h-6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M3 17v-6h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M21 7l-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M3 17l4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
 
 export default PostCard;
 

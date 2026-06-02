@@ -6,6 +6,34 @@ import Notification from '../Model/NotificationSchema.js';
 import { createNotificationService, createSystemNotificationService } from './Notification.service.js';
 import { moderateText } from './Moderation.service.js';
 
+const userCanViewProfile = (targetUser, viewerId) => {
+  if (!targetUser) return false;
+  if (!viewerId) return targetUser.profileVisibility === 'public';
+  const targetId = String(targetUser._id || targetUser.id);
+  if (targetId === String(viewerId)) return true;
+  if (!targetUser.profileVisibility || targetUser.profileVisibility === 'public') return true;
+  if (targetUser.profileVisibility === 'private') return false;
+  if (targetUser.profileVisibility === 'connections') {
+    return Array.isArray(targetUser.connections) && targetUser.connections.some((conn) => String(conn) === String(viewerId));
+  }
+  return true;
+};
+
+const getAuthorProfileFields = (user) => {
+  const canShowStatus = user?.showActivityStatus !== false;
+  return {
+    authorAvatar: user.role === 'employer' ? user.companyLogo : user.profilePicture || null,
+    authorName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || null,
+    authorRole: user.role || null,
+    authorEmail: user.email || null,
+    authorCompanyName: user.role === 'employer' ? user.companyName : undefined,
+    authorShowActivityStatus: canShowStatus,
+    authorIsOnline: canShowStatus ? !!user.isOnline : false,
+    authorLastActive: canShowStatus ? user.lastActive || null : null,
+    authorPresenceMode: canShowStatus ? (user.presenceMode || (user.isOnline ? 'online' : undefined)) : undefined,
+  };
+};
+
 export const createPostService = async (userId, postData = {}) => {
   const { content, tags, media, jobId, location } = postData;
 
@@ -83,6 +111,8 @@ export const getAllPostsService = async (options = {}) => {
     limit,
     skip,
     includeTotal = false,
+    viewerId,
+    viewerRole,
   } = options;
 
   const filter = {};
@@ -95,40 +125,8 @@ export const getAllPostsService = async (options = {}) => {
   if (typeof limit === 'number') query = query.limit(limit);
 
   const posts = await query.lean();
+  const viewerIsAdmin = viewerRole === 'admin';
 
-  if (includeTotal) {
-    const total = await Post.countDocuments(filter);
-    // Enrich posts with author email/company when possible
-    const authorIds = [...new Set(posts.map((p) => p.author).filter(Boolean))];
-    let users = [];
-    try {
-      users = await User.find({ _id: { $in: authorIds } })
-        .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
-        .lean();
-    } catch (err) {
-      console.log('Error loading authors for feed:', err);
-    }
-    const userMap = new Map((users || []).map((u) => [u._id.toString(), u]));
-    const enriched = posts.map((p) => {
-      const postObj = { ...p };
-      const u = userMap.get((p.author || '').toString());
-      if (u) {
-        // Prefer the live user profile data so posts reflect updates (avatar/name/role)
-        postObj.authorAvatar = (u.role === 'employer' ? u.companyLogo : u.profilePicture) || postObj.authorAvatar || null;
-        postObj.authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || postObj.authorName;
-        postObj.authorRole = u.role || postObj.authorRole;
-        postObj.authorEmail = u.email || postObj.authorEmail;
-        postObj.authorCompanyName = u.role === 'employer' ? u.companyName : postObj.authorCompanyName;
-        postObj.authorIsOnline = !!u.isOnline;
-        postObj.authorLastActive = u.lastActive || null;
-        postObj.authorPresenceMode = u.presenceMode || (u.isOnline ? 'online' : 'offline');
-      }
-      return postObj;
-    });
-    return { posts: enriched, total };
-  }
-
-  // Enrich posts with author email/company when possible
   const authorIds = [...new Set(posts.map((p) => p.author).filter(Boolean))];
   let users = [];
   try {
@@ -139,41 +137,116 @@ export const getAllPostsService = async (options = {}) => {
     console.log('Error loading authors for feed:', err);
   }
   const userMap = new Map((users || []).map((u) => [u._id.toString(), u]));
-  const enriched = posts.map((p) => {
+
+  const filteredPosts = posts.filter((p) => {
+    const authorUser = userMap.get((p.author || '').toString());
+    if (!authorUser) return false;
+    return viewerIsAdmin || userCanViewProfile(authorUser, viewerId);
+  });
+
+  const enriched = filteredPosts.map((p) => {
     const postObj = { ...p };
     const u = userMap.get((p.author || '').toString());
     if (u) {
-      // Prefer the live user profile data so posts reflect updates (avatar/name/role)
-      postObj.authorAvatar = (u.role === 'employer' ? u.companyLogo : u.profilePicture) || postObj.authorAvatar || null;
-      postObj.authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || postObj.authorName;
-      postObj.authorRole = u.role || postObj.authorRole;
-      postObj.authorEmail = u.email || postObj.authorEmail;
-      postObj.authorCompanyName = u.role === 'employer' ? u.companyName : postObj.authorCompanyName;
+      Object.assign(postObj, getAuthorProfileFields(u));
     }
     return postObj;
   });
 
+  if (includeTotal) {
+    return { posts: enriched, total: enriched.length };
+  }
+
   return { posts: enriched };
 };
 
-export const getPostByIdService = async (postId) => {
+export const searchPostsByQueryService = async (query, viewerId) => {
+  const normalizedQuery = String(query || '').trim();
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
+  const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const queryRegex = new RegExp(escapedQuery, 'i');
+
+  const searchConditions = [
+    { content: queryRegex },
+    { authorName: queryRegex },
+    { authorCompanyName: queryRegex },
+    { tags: queryRegex },
+  ];
+
+  const posts = await Post.find({
+    restricted: { $ne: true },
+    archived: { $ne: true },
+    $or: searchConditions,
+  })
+    .sort({ createdAt: -1 })
+    .limit(12)
+    .lean();
+
+  const authorIds = [...new Set(posts.map((p) => p.author).filter(Boolean))];
+  const authors = await User.find({ _id: { $in: authorIds } })
+    .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+    .lean();
+
+  const authorMap = new Map((authors || []).map((author) => [String(author._id), author]));
+
+  const visiblePosts = posts.filter((post) => {
+    const author = authorMap.get(String(post.author));
+    return author && userCanViewProfile(author, viewerId);
+  });
+
+  return visiblePosts.map((post) => {
+    const author = authorMap.get(String(post.author)) || {};
+    // Normalize media URL if necessary
+    let mediaObj = null;
+    if (post.media && (post.media.data || post.media.url)) {
+      const raw = post.media.url || post.media.data;
+      let url = raw;
+      if (raw && !raw.startsWith('http') && !raw.startsWith('data:') && !raw.startsWith('/')) {
+        url = `/uploads/${raw}`;
+      }
+      mediaObj = { ...post.media, url };
+    }
+
+    return {
+      _id: post._id,
+      content: post.content,
+      snippet: post.content ? post.content.substring(0, 220) : '',
+      authorId: post.author,
+      authorName: `${author.firstName || ''} ${author.lastName || ''}`.trim() || author.email || 'Unknown author',
+      authorRole: author.role || null,
+      authorAvatar: author.role === 'employer' ? author.companyLogo : author.profilePicture || null,
+      authorCompanyName: author.companyName || '',
+      createdAt: post.createdAt,
+      media: mediaObj,
+    };
+  });
+};
+
+export const getPostByIdService = async (postId, options = {}) => {
+  const { viewerId, viewerRole } = options;
   const post = await Post.findById(postId);
   if (!post) throw new AppError('Post not found', 404);
-  
+
+  const author = await User.findById(post.author).lean();
+  if (!author) throw new AppError('Post author not found', 404);
+
+  const viewerIsAdmin = viewerRole === 'admin';
+  const isAuthor = viewerId && String(author._id) === String(viewerId);
+  if (!viewerIsAdmin && !isAuthor && !userCanViewProfile(author, viewerId)) {
+    throw new AppError('Post not found', 404);
+  }
+
+  if (post.restricted && !viewerIsAdmin && !isAuthor) {
+    throw new AppError('Post not found', 404);
+  }
+
   // Enrich with fresh user data
   const postObj = post.toObject();
   try {
-    const user = await User.findById(post.author);
-    if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
-        postObj.authorIsOnline = !!user.isOnline;
-        postObj.authorLastActive = user.lastActive || null;
-        postObj.authorPresenceMode = user.presenceMode || (user.isOnline ? 'online' : 'offline');
-    }
+    Object.assign(postObj, getAuthorProfileFields(author));
   } catch (err) {
     console.log('Error enriching post with user data:', err);
   }
@@ -183,11 +256,7 @@ export const getPostByIdService = async (postId) => {
       try {
         const cu = await User.findById(c.author);
         if (cu) {
-          c.authorName = `${cu.firstName || ''} ${cu.lastName || ''}`.trim() || cu.email || c.authorName;
-          c.authorAvatar = (cu.role === 'employer' ? cu.companyLogo : cu.profilePicture) || c.authorAvatar || null;
-          c.authorIsOnline = !!cu.isOnline;
-          c.authorLastActive = cu.lastActive || null;
-          c.authorPresenceMode = cu.presenceMode || (cu.isOnline ? 'online' : 'offline');
+          Object.assign(c, getAuthorProfileFields(cu));
         }
       } catch (err) {
         /* ignore */
@@ -198,11 +267,7 @@ export const getPostByIdService = async (postId) => {
           try {
             const ru = await User.findById(r.author);
             if (ru) {
-              r.authorName = `${ru.firstName || ''} ${ru.lastName || ''}`.trim() || ru.email || r.authorName;
-              r.authorAvatar = (ru.role === 'employer' ? ru.companyLogo : ru.profilePicture) || r.authorAvatar || null;
-              r.authorIsOnline = !!ru.isOnline;
-              r.authorLastActive = ru.lastActive || null;
-              r.authorPresenceMode = ru.presenceMode || (ru.isOnline ? 'online' : 'offline');
+              Object.assign(r, getAuthorProfileFields(ru));
             }
           } catch (err) {
             /* ignore */
@@ -229,18 +294,21 @@ export const getLikersForPostService = async (postId) => {
     .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
     .lean();
 
-  return likers.map((u) => ({
-    _id: u._id,
-    firstName: u.firstName,
-    lastName: u.lastName,
-    email: u.email,
-    role: u.role,
-    profilePicture: u.role === 'employer' ? u.companyLogo : u.profilePicture,
-    companyName: u.companyName,
-    isOnline: !!u.isOnline,
-    presenceMode: u.presenceMode || (u.isOnline ? 'online' : 'offline'),
-    lastActive: u.lastActive || null,
-  }));
+  return likers.map((u) => {
+    const canShowStatus = u.showActivityStatus !== false;
+    return {
+      _id: u._id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      profilePicture: u.role === 'employer' ? u.companyLogo : u.profilePicture,
+      companyName: u.companyName,
+      isOnline: canShowStatus ? !!u.isOnline : false,
+      presenceMode: canShowStatus ? (u.presenceMode || (u.isOnline ? 'online' : undefined)) : undefined,
+      lastActive: canShowStatus ? u.lastActive || null : null,
+    };
+  });
 };
 
 export const togglePostLikeService = async (userId, postId) => {
@@ -273,11 +341,7 @@ export const togglePostLikeService = async (userId, postId) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -334,11 +398,7 @@ export const updatePostService = async (userId, postId, data = {}) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data:', err);
@@ -358,13 +418,36 @@ export const deletePostService = async (userId, postId) => {
 };
 
 export const getPostsByAuthorService = async (authorId, options = {}) => {
-  const { includeArchived = false, includeRestricted = false, limit = 10, skip = 0, includeTotal = true } = options;
+  const {
+    includeArchived = false,
+    includeRestricted = false,
+    limit = 10,
+    skip = 0,
+    includeTotal = true,
+    requesterId,
+    requesterRole,
+  } = options;
   const authorObjectId = mongoose.Types.ObjectId.isValid(authorId)
     ? new mongoose.Types.ObjectId(authorId)
     : authorId;
   const filter = { author: authorObjectId };
   if (!includeArchived) filter.archived = { $ne: true };
   if (!includeRestricted) filter.restricted = { $ne: true };
+
+  const author = await User.findById(authorId)
+    .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
+    .lean();
+
+  if (!author) {
+    throw new AppError('Author not found', 404);
+  }
+
+  const viewerIsAdmin = requesterRole === 'admin';
+  const viewerId = requesterId;
+  const isAuthor = viewerId && String(author._id) === String(viewerId);
+  if (!viewerIsAdmin && !isAuthor && !userCanViewProfile(author, viewerId)) {
+    throw new AppError('Author posts not accessible', 403);
+  }
 
   const [posts, total] = await Promise.all([
     Post.aggregate([
@@ -393,26 +476,10 @@ export const getPostsByAuthorService = async (authorId, options = {}) => {
     includeTotal ? Post.countDocuments(filter) : Promise.resolve(null),
   ]);
 
-  // If there are posts, load the author's current profile so we can show updated info
-  let author = null;
-  if (posts.length > 0) {
-    try {
-      author = await User.findById(authorId)
-        .select('-password -verificationCode -verificationCodeValidation -codeExpiration -forgotPasswordCode')
-        .lean();
-    } catch (err) {
-      console.log('Error loading author data for feed:', err);
-    }
-  }
-
   const enrichedPosts = posts.map((post) => {
     const postObj = { ...post };
     if (author) {
-      postObj.authorAvatar = author.role === 'employer' ? author.companyLogo : author.profilePicture || postObj.authorAvatar || null;
-      postObj.authorName = `${author.firstName || ''} ${author.lastName || ''}`.trim() || author.email || postObj.authorName;
-      postObj.authorRole = author.role || postObj.authorRole;
-      postObj.authorEmail = author.email || postObj.authorEmail;
-      postObj.authorCompanyName = author.role === 'employer' ? author.companyName : postObj.authorCompanyName;
+      Object.assign(postObj, getAuthorProfileFields(author));
     }
 
     return postObj;
@@ -585,11 +652,7 @@ export const recordViewService = async (userId, postId) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data in recordViewService:', err);
@@ -633,11 +696,7 @@ export const sharePostService = async (userId, postId) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data in sharePostService:', err);
@@ -683,11 +742,7 @@ export const repostService = async (userId, postId) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data in repostService:', err);
@@ -711,11 +766,7 @@ export const removeRepostService = async (userId, postId) => {
   try {
     const user = await User.findById(post.author);
     if (user) {
-      postObj.authorAvatar = user.role === 'employer' ? user.companyLogo : user.profilePicture;
-      postObj.authorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      postObj.authorRole = user.role;
-      postObj.authorEmail = user.email;
-      postObj.authorCompanyName = user.role === 'employer' ? user.companyName : undefined;
+      Object.assign(postObj, getAuthorProfileFields(user));
     }
   } catch (err) {
     console.log('Error enriching post with user data in removeRepostService:', err);

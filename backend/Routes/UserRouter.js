@@ -1,5 +1,5 @@
 import express from 'express';
-import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, deleteUser, updateProfile, changePassword, deactivateUser, createSupportTicket, getSupportTickets, updateConnectedAccounts, updateBillingPlan } from '../Controller/UserController.js';
+import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, searchUsers, searchAll, deleteUser, updateProfile, changePassword, deactivateUser, createSupportTicket, getSupportTickets, updateConnectedAccounts, updateBillingPlan, getRecommendations } from '../Controller/UserController.js';
 import { jobseekerProfile } from '../Controller/JobSeekerProfileController.js';
 import { protection } from '../Controller/ProtectionController.js';
 const router = express.Router();
@@ -22,6 +22,9 @@ router.get('/support/tickets', protection, getSupportTickets);
 router.put('/connected-accounts', protection, updateConnectedAccounts);
 router.put('/billing', protection, updateBillingPlan);
 router.delete('/profile', protection, deleteUser);
+router.get('/search', protection, searchAll);
+router.get('/users/search', protection, searchUsers);
 router.get('/users/:id', protection, getUserById);
+router.get('/recommendations', protection, getRecommendations);
 
 export default router;

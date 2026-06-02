@@ -107,6 +107,7 @@ const CommentModal = ({ post, isOpen, onClose, onCommentAdded, userName, userAva
               alt={post.authorName || 'Author'}
               userId={postAuthorId}
               presenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : 'offline')}
+              showPresence={post.authorShowActivityStatus !== false}
               size={48}
               className="post-preview-avatar"
               showLastActive={false}

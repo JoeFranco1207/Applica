@@ -18,6 +18,10 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import PostView from "./pages/PostView";
 import BrowseJob from "./pages/Browse/BrowseJob";
+import Companies from "./pages/Companies";
+import RecommendedJobs from "./pages/RecommendedJobs";
+import Skills from "./pages/Skills";
+import SavedSearches from "./pages/SavedSearches";
 import EmployerApplicants from "./pages/EmployerApplicants";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import EmployerInterviews from "./pages/EmployerInterviews";
@@ -25,6 +29,7 @@ import JobseekerInterviews from "./pages/JobseekerInterviews";
 import JobseekerApplications from "./pages/JobseekerApplications";
 import InterviewRoom from "./pages/InterviewRoom";
 import ResumeDesigns from "./pages/ResumeDesigns";
+import SearchResults from "./pages/SearchResults";
 import Chat from "./pages/Chat";
 import UserSessions from "./pages/Admin/UserSessions";
 import Moderation from "./pages/Admin/Moderation";
@@ -122,6 +127,11 @@ function App() {
           <Route path="/create" element={<ProtectedRoute><Create /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/search" element={<ProtectedRoute><SearchResults /></ProtectedRoute>} />
+          <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+          <Route path="/recommended-jobs" element={<ProtectedRoute><RecommendedJobs /></ProtectedRoute>} />
+          <Route path="/skills" element={<ProtectedRoute><Skills /></ProtectedRoute>} />
+          <Route path="/saved-searches" element={<ProtectedRoute><SavedSearches /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/post/:id" element={<ProtectedRoute><PostView /></ProtectedRoute>} />
           <Route path="/resume-designs" element={<ProtectedRoute><ResumeDesigns /></ProtectedRoute>} />

@@ -367,6 +367,27 @@ const ChevronRightIcon = ({ size = 18 }) => (
   </svg>
 );
 
+const IconBox = ({ color = '#eefdf0', size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="7" width="18" height="11" rx="2" fill={color} stroke="currentColor" strokeWidth="0.8" />
+    <path d="M3 7l9 5 9-5" stroke="currentColor" strokeWidth="0.9" fill="none" />
+  </svg>
+);
+
+const IconChart = ({ color = '#fff7ed', size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="4" width="4" height="14" rx="1" fill={color} stroke="currentColor" strokeWidth="0.8" />
+    <rect x="9" y="8" width="4" height="10" rx="1" fill={color} stroke="currentColor" strokeWidth="0.8" />
+    <rect x="15" y="12" width="4" height="6" rx="1" fill={color} stroke="currentColor" strokeWidth="0.8" />
+  </svg>
+);
+
+const IconHeart = ({ color = '#fff0f6', size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12.1 20.6l-1.1-1c-4.6-4.2-7.6-6.9-7.6-10.1 0-2.5 2-4.5 4.5-4.5 1.6 0 3.1.9 3.9 2.2.8-1.3 2.3-2.2 3.9-2.2 2.5 0 4.5 2 4.5 4.5 0 3.2-3 5.9-7.6 10.1l-1.1 1z" fill={color} stroke="currentColor" strokeWidth="0.7" />
+  </svg>
+);
+
 const samplePosts = [
   {
     id: 1,
@@ -2618,14 +2639,45 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
         <aside style={styles.sidebarColumn}>
           <div style={styles.sidebarCard}>
             <div style={styles.sidebarHeader}>
-              <h3 style={styles.sidebarTitle}>Trending ngayon</h3>
-              <p style={styles.sidebarSubtitle}>Mga mainit na paksa sa trabaho at kasanayan</p>
+              <h3 style={styles.sidebarTitle}>Recommended for you</h3>
+              <p style={styles.sidebarSubtitle}>Personalized picks and quick links</p>
             </div>
-            <div style={styles.trendingList}>
-              <button style={styles.trendingItem}>#RemoteWork</button>
-              <button style={styles.trendingItem}>#ReactJobs</button>
-              <button style={styles.trendingItem}>#DesignOpenings</button>
-              <button style={styles.trendingItem}>#DataAnalytics</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 }}>
+              <button style={styles.recoRow} onClick={() => navigate('/companies') }>
+                <div style={styles.recoIconWrapper}><IconBox color="#dcfce7" /></div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700 }}>Top companies hiring</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Check out top companies hiring now</div>
+                </div>
+                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
+              </button>
+
+              <button style={styles.recoRow} onClick={() => navigate('/recommended-jobs') }>
+                <div style={styles.recoIconWrapper}><BriefcaseIcon size={20} /></div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700 }}>Jobs you might like</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Personalized picks just for you</div>
+                </div>
+                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
+              </button>
+
+              <button style={styles.recoRow} onClick={() => navigate('/skills') }>
+                <div style={styles.recoIconWrapper}><IconChart color="#fff7ed" /></div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700 }}>Skills in demand</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Explore most in-demand skills</div>
+                </div>
+                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
+              </button>
+
+              <button style={styles.recoRow} onClick={() => navigate('/saved-searches') }>
+                <div style={styles.recoIconWrapper}><IconHeart color="#fff0f6" /></div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700 }}>Saved searches</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Quick access to your saved searches</div>
+                </div>
+                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
+              </button>
             </div>
           </div>
 
@@ -4037,6 +4089,30 @@ composerTextarea: {
     margin: "6px 0 0 0",
     fontSize: "13px",
     color: "var(--text-muted)",
+  },
+  recoRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '8px 12px',
+    borderRadius: 12,
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    cursor: 'pointer',
+    width: '100%',
+    textAlign: 'left',
+  },
+  recoIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    display: 'grid',
+    placeItems: 'center',
+    flexShrink: 0,
+  },
+  recoChevron: {
+    marginLeft: 'auto',
+    color: 'var(--text-muted)'
   },
   trendingList: {
     display: "grid",

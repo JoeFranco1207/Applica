@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNotification } from "../contexts/NotificationContext";
@@ -134,8 +134,13 @@ const ChatIcon = ({ size = 20 }) => (
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("token"));
+  const searchRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { notifications, unreadCount, markNotificationAsRead, fetchNotifications } = useNotification();
@@ -192,6 +197,74 @@ export default function Navbar() {
       window.removeEventListener('app:userUpdated', onUserUpdated);
     };
   }, []);
+
+  useEffect(() => {
+    const closeSearchOnOutsideClick = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', closeSearchOnOutsideClick);
+    return () => {
+      window.removeEventListener('mousedown', closeSearchOnOutsideClick);
+    };
+  }, []);
+
+  useEffect(() => {
+    const queryValue = searchQuery.trim();
+    if (!queryValue) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (!token || queryValue.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const response = await axios.get(`${API_BASE}/api/auth/search`, {
+          params: { query: queryValue },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setSearchResults(response.data?.data?.profiles || []);
+        setSearchOpen(true);
+      } catch (error) {
+        console.error('Profile search failed', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, token]);
+
+  const handleProfileSelect = (profile) => {
+    if (!profile?._id) return;
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    navigate(`/profile/${profile._id}`);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      const queryValue = searchQuery.trim();
+      if (!queryValue) return;
+      navigate(`/search?query=${encodeURIComponent(queryValue)}`);
+      setSearchOpen(false);
+      return;
+    }
+  };
+
   const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
   const initials = fullName
     ? fullName
@@ -306,6 +379,65 @@ export default function Navbar() {
             </>
           )}
           </div>
+
+        {token && (
+          <div style={styles.searchContainer} ref={searchRef}>
+            <input
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search people or posts"
+              aria-label="Search people or posts"
+              style={styles.searchInput}
+            />
+            {searchOpen && (searchQuery.trim().length >= 2 || isSearching) && (
+              <div style={styles.searchResults}>
+                {isSearching ? (
+                  <div style={styles.searchResultItem}>Searching...</div>
+                ) : searchResults.length ? (
+                  searchResults.map((profile) => (
+                    <button
+                      key={profile._id}
+                      type="button"
+                      style={styles.searchResultItem}
+                      onMouseDown={() => handleProfileSelect(profile)}
+                    >
+                      <img
+                        src={profile.profilePicture || '/src/assets/Applica_Logo.png'}
+                        alt={`${profile.firstName} ${profile.lastName}`}
+                        style={styles.searchResultAvatar}
+                      />
+                      <div style={styles.searchResultText}>
+                        <div style={styles.searchResultName}>{`${profile.firstName} ${profile.lastName}`}</div>
+                        <div style={styles.searchResultMeta}>
+                          {profile.companyName ? profile.companyName : profile.role || 'Profile'}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div style={styles.searchResultItem}>No profiles found</div>
+                )}
+                <button
+                  type="button"
+                  style={styles.searchMoreButton}
+                  onMouseDown={() => {
+                    const queryValue = searchQuery.trim();
+                    if (!queryValue) return;
+                    navigate(`/search?query=${encodeURIComponent(queryValue)}`);
+                    setSearchOpen(false);
+                  }}
+                >
+                  See all results
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={styles.actions}>
           <select
@@ -468,6 +600,83 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 16,
+  },
+  searchContainer: {
+    position: "relative",
+    minWidth: 240,
+    maxWidth: 320,
+    flex: "1 1 auto",
+    marginLeft: 12,
+  },
+  searchInput: {
+    width: "100%",
+    borderRadius: 999,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    padding: "10px 14px",
+    fontSize: 14,
+    outline: "none",
+    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.08)",
+  },
+  searchResults: {
+    position: "absolute",
+    top: "calc(100% + 10px)",
+    left: 0,
+    right: 0,
+    zIndex: 1002,
+    backgroundColor: "var(--surface-strong)",
+    border: "1px solid var(--border)",
+    borderRadius: 14,
+    boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
+    overflow: "hidden",
+    maxHeight: 320,
+    overflowY: "auto",
+  },
+  searchResultItem: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    borderBottom: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  searchResultAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    objectFit: "cover",
+    backgroundColor: "rgba(0,0,0,0.06)",
+  },
+  searchMoreButton: {
+    width: "100%",
+    padding: "10px 14px",
+    textAlign: "center",
+    border: "none",
+    borderTop: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--primary)",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 700,
+  },
+  searchResultText: {
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "var(--text-h)",
+  },
+  searchResultMeta: {
+    fontSize: 12,
+    color: "var(--text-secondary)",
   },
   linkButton: {
     background: "transparent",

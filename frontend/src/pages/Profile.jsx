@@ -1329,6 +1329,7 @@ export default function Profile() {
                     initialIsOnline={!!user?.isOnline}
                     lastActive={user?.lastActive || null}
                     presenceMode={user?.presenceMode || (user?.isOnline ? 'online' : 'offline')}
+                    showPresence={user?.showActivityStatus !== false}
                     showLastActive={false}
                   />
                 </div>
@@ -2562,6 +2563,7 @@ export default function Profile() {
                           presenceMode={post.authorPresenceMode || (post.author?.isOnline ? 'online' : undefined)}
                           initialIsOnline={post.authorIsOnline || post.author?.isOnline || (getUserId(post.author) === currentUserId ? user?.isOnline : false)}
                           lastActive={post.authorLastActive || post.author?.lastActive}
+                          showPresence={post.authorShowActivityStatus !== false}
                           style={{ width: '100%', height: '100%' }}
                         />
                       </div>

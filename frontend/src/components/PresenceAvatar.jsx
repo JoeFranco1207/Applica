@@ -31,7 +31,7 @@ const isRecentlyActive = (timestamp) => {
   return Date.now() - date.getTime() <= ONLINE_THRESHOLD_MS;
 };
 
-export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, lastActive = null, showLastActive = true, initialPresenceMode = 'offline', presenceMode: propPresenceMode, onClick, className = '', style = {} }) {
+export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsOnline = false, initialLastActive = null, lastActive = null, showLastActive = true, showPresence = true, initialPresenceMode = 'offline', presenceMode: propPresenceMode, onClick, className = '', style = {} }) {
   const getInitialMode = () => {
     const fallback = initialIsOnline ? 'online' : 'offline';
     const storedUser = getStoredCurrentUser();
@@ -114,11 +114,11 @@ export default function PresenceAvatar({ src, alt, size = 48, userId, initialIsO
         <div className="presence-avatar-placeholder" style={{ ...sizeStyle }}>{initials}</div>
       )}
 
-      {displayPresenceMode ? (
+      {showPresence && displayPresenceMode ? (
         <span className={`presence-dot presence-${displayPresenceMode}`} title={displayPresenceMode} />
       ) : null}
 
-      {displayPresenceMode !== 'online' && showLastActive && lastActiveState ? (
+      {showPresence && displayPresenceMode !== 'online' && showLastActive && lastActiveState ? (
         <div className="presence-last-active">{lastActiveText(lastActiveState)}</div>
       ) : null}
     </div>

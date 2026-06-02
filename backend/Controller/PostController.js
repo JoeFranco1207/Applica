@@ -44,6 +44,8 @@ export const getPostsController = async (req, res, next) => {
         limit,
         skip,
         includeTotal,
+        viewerId: req.user?.id,
+        viewerRole: req.user?.role,
       });
 
       const hasMore = data.posts.length === limit;
@@ -61,7 +63,11 @@ export const getPostsController = async (req, res, next) => {
       );
     }
 
-    const data = await getAllPostsService({ includeArchived: false });
+    const data = await getAllPostsService({
+      includeArchived: false,
+      viewerId: req.user?.id,
+      viewerRole: req.user?.role,
+    });
     return res.status(200).json(new AppSuccessful('Posts fetched successfully', 200, data.posts));
   } catch (err) {
     console.log(err);
@@ -71,17 +77,10 @@ export const getPostsController = async (req, res, next) => {
 
 export const getPostController = async (req, res, next) => {
   try {
-    const post = await getPostByIdService(req.params.id);
-    // If post is restricted, only the author or admins may view it
-    if (post.restricted) {
-      const requesterId = req.user?.id;
-      const requesterRole = req.user?.role;
-      const isAuthor = requesterId && (post.author && (post.author._id ? post.author._id.toString() === requesterId.toString() : post.author.toString() === requesterId.toString()));
-      const isAdmin = requesterRole === 'admin';
-      if (!isAuthor && !isAdmin) {
-        return next(new AppError('Post not found', 404));
-      }
-    }
+    const post = await getPostByIdService(req.params.id, {
+      viewerId: req.user?.id,
+      viewerRole: req.user?.role,
+    });
     return res.status(200).json(new AppSuccessful('Post fetched', 200, post));
   } catch (err) {
     console.log(err);
@@ -139,6 +138,8 @@ export const getPostsByAuthorController = async (req, res, next) => {
       limit,
       skip,
       includeTotal,
+      requesterId: requesterId,
+      requesterRole: requesterRole,
     });
 
     const totalPages = includeTotal && data.total > 0 ? Math.ceil(data.total / limit) : 0;

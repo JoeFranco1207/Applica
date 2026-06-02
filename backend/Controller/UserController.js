@@ -1,4 +1,6 @@
-import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService, deleteUserService } from '../Services/User.service.js';
+import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService, searchUsersByNameService, deleteUserService } from '../Services/User.service.js';
+import { getRecommendationsService } from '../Services/User.service.js';
+import { searchPostsByQueryService } from '../Services/Post.service.js';
 import { doHash, doHashValidation } from '../validator/Hashing.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
@@ -205,7 +207,7 @@ export const getUserById = async (req, res, next) => {
     const { id } = req.params;
     const requesterId = req.user?.id; // Get the ID of the user making the request
     
-    const targetUser = await User.findById(id).lean();
+    const targetUser = await getUserByIdService(id);
     
     if (!targetUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -249,6 +251,44 @@ export const getUserById = async (req, res, next) => {
     return res.success(new AppSuccessful('User profile fetched', 200, targetUser));
   } catch (err) {
     console.log(err);
+    return next(err);
+  }
+};
+
+export const searchUsers = async (req, res, next) => {
+  try {
+    const query = req.query.query || req.query.q || '';
+    const requesterId = req.user?.id;
+    const results = await searchUsersByNameService(query, requesterId);
+    return res.success(new AppSuccessful('Search results retrieved successfully', 200, results));
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+};
+
+export const searchAll = async (req, res, next) => {
+  try {
+    const query = req.query.query || req.query.q || '';
+    const requesterId = req.user?.id;
+    const [profiles, posts] = await Promise.all([
+      searchUsersByNameService(query, requesterId),
+      searchPostsByQueryService(query, requesterId),
+    ]);
+    return res.success(new AppSuccessful('Search results retrieved successfully', 200, { profiles, posts }));
+  } catch (err) {
+    console.log(err);
+    return next(err);
+  }
+};
+
+export const getRecommendations = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    const recommendations = await getRecommendationsService(userId);
+    return res.success(new AppSuccessful('Recommendations retrieved', 200, recommendations));
+  } catch (err) {
+    console.log('Recommendations error', err);
     return next(err);
   }
 };

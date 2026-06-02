@@ -791,6 +791,22 @@
   font-weight: 600;
 }
 
+.status-badge.paid {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.billing-status-text {
+  display: inline-block;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
 .account-card p {
   font-size: 13px;
   color: var(--text);
@@ -871,13 +887,25 @@
   background: var(--surface-alt);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 24px;
   margin: 16px 0;
 }
 
 .settings-container.dark-mode .subscription-card {
   background: #1a1a1a;
   border-color: #444;
+}
+
+.plan-details {
+  flex: 1;
+  min-width: 220px;
+}
+
+.subscription-card button {
+  align-self: flex-start;
+  min-width: 170px;
 }
 
 .plan-details h4 {
@@ -923,6 +951,14 @@
   padding: 20px;
   background: var(--surface-alt);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 320px;
+}
+
+.plan-card button {
+  margin-top: auto;
 }
 
 .settings-container.dark-mode .plan-card {
@@ -932,8 +968,8 @@
 
 .plan-card.featured {
   border-color: var(--primary);
-  box-shadow: 0 8px 24px rgba(24, 146, 170, 0.1);
-  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(24, 146, 170, 0.12);
+  transform: translateY(-2px);
 }
 
 .featured-badge {
@@ -975,6 +1011,44 @@
   font-size: 13px;
   color: var(--text);
   padding: 6px 0;
+}
+
+.billing-history-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.billing-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--surface-alt);
+}
+
+.settings-container.dark-mode .billing-history-item {
+  background: #1a1a1a;
+  border-color: #444;
+}
+
+.billing-history-item h4 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.billing-history-item p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.billing-history-item > div:last-child {
+  text-align: right;
 }
 
 /* FAQ List */

@@ -546,6 +546,7 @@ const PostDetailsModal = ({
                 presenceMode={currentPost.authorPresenceMode || currentPost.author?.presenceMode || (currentPost.authorIsOnline || currentPost.author?.isOnline ? 'online' : undefined)}
                 initialIsOnline={!!(currentPost.authorIsOnline || currentPost.author?.isOnline)}
                 lastActive={currentPost.authorLastActive || currentPost.author?.lastActive}
+                showPresence={currentPost.authorShowActivityStatus !== false}
                 size={56}
                 style={{ width: '100%', height: '100%', cursor: currentPost.author ? 'pointer' : 'default' }}
                 showLastActive={false}

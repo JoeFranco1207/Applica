@@ -1,7 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: './backend/.env' });
+dotenv.config({ path: '../backend/.env' });
 const key = process.env.PAYMONGO_SECRET_KEY;
 if (!key) {
   console.error('no key');

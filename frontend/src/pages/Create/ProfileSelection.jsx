@@ -8,6 +8,22 @@ import {
   fetchBarangaysByCity,
 } from '../../utils/psgcApi';
 
+// Small inline SVG icons to replace emoji in role selection
+const UserIcon = ({ size = 44 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M12 12a4 4 0 100-8 4 4 0 000 8z" fill="currentColor" opacity="0.95" />
+    <path d="M4 20a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const BuildingIcon = ({ size = 44 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.2" fill="none" />
+    <path d="M7 8h2M7 12h2M7 16h2M11 8h2M11 12h2M11 16h2M15 8h2M15 12h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3 10h18" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+  </svg>
+);
+
 const ProfileSelection = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useContext(ThemeContext);
@@ -207,18 +223,14 @@ const ProfileSelection = () => {
 
     return {
       bio: "",
-      experience: "",
-      education: "",
+      experience: [],
+      education: [],
       citizenShip: "",
       resume: "",
-      skills: "",
+      skills: [],
       certifications: "",
       portfolioLinks: "",
-      socialLinks: {
-        github: "",
-        linkedin: "",
-        twitter: "",
-      },
+      socialLinks: [],
       location: {
         region: "",
         province: "",
@@ -241,6 +253,12 @@ const ProfileSelection = () => {
 
     const normalize = (value) => {
       if (typeof value === 'string') return value.trim().length > 0;
+      if (Array.isArray(value)) {
+        return value.some((item) => {
+          if (typeof item === 'string') return item.trim().length > 0;
+          return Boolean(item);
+        });
+      }
       if (typeof value === 'boolean') return value;
       if (typeof value === 'number') return !Number.isNaN(value);
       return Boolean(value);
@@ -263,7 +281,6 @@ const ProfileSelection = () => {
           data.experience,
           data.education,
           data.skills,
-          data.resume,
           locationComplete,
         ];
 
@@ -349,7 +366,14 @@ const ProfileSelection = () => {
             skills: profileData.skills,
             certifications: profileData.certifications,
             portfolioLinks: profileData.portfolioLinks,
-            socialLinks: profileData.socialLinks,
+            socialLinks: Array.isArray(profileData.socialLinks)
+              ? profileData.socialLinks.reduce((acc, item) => {
+                  if (item?.type && item?.url?.trim()) {
+                    acc[item.type] = item.url.trim();
+                  }
+                  return acc;
+                }, {})
+              : profileData.socialLinks,
           };
 
       const profileResponse = await fetch(profileUrl, {
@@ -452,7 +476,9 @@ const ProfileSelection = () => {
             }
           >
             <div style={styles.iconWrapper}>
-              👨‍💻
+              <div style={{ color: 'var(--primary)', display: 'grid', placeItems: 'center' }}>
+                <UserIcon />
+              </div>
             </div>
 
             <h2 style={styles.cardTitle}>
@@ -505,7 +531,9 @@ const ProfileSelection = () => {
             }
           >
             <div style={styles.iconWrapper}>
-              🏢
+              <div style={{ color: 'var(--primary)', display: 'grid', placeItems: 'center' }}>
+                <BuildingIcon />
+              </div>
             </div>
 
             <h2 style={styles.cardTitle}>
@@ -1039,23 +1067,63 @@ function ModalStepper({
     { key: 'companyIdentity', label: 'Company Identity (Date Established + optional logo)', type: 'companyIdentity' },
   ];
 
+  const socialNetworks = ['github', 'facebook', 'instagram'];
+  const getSocialIcon = (type) => {
+    const iconProps = {
+      viewBox: '0 0 24 24',
+      width: 24,
+      height: 24,
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 1.8,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      style: { display: 'block' },
+    };
+
+    switch (type) {
+      case 'github':
+        return (
+          <svg {...iconProps}>
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.343-3.369-1.343-.454-1.155-1.11-1.463-1.11-1.463-.907-.62.069-.608.069-.608 1.003.071 1.53 1.031 1.53 1.031.892 1.528 2.341 1.086 2.91.831.091-.647.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.944 0-1.091.39-1.984 1.03-2.682-.103-.254-.447-1.272.098-2.65 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.91-1.294 2.748-1.025 2.748-1.025.547 1.378.203 2.396.1 2.65.64.698 1.028 1.591 1.028 2.682 0 3.843-2.339 4.688-4.566 4.935.36.31.68.918.68 1.852 0 1.336-.012 2.415-.012 2.742 0 .268.18.58.688.481C19.137 20.165 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+          </svg>
+        );
+      case 'facebook':
+        return (
+          <svg {...iconProps}>
+            <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" />
+          </svg>
+        );
+      case 'instagram':
+        return (
+          <svg {...iconProps}>
+            <rect x="2.5" y="2.5" width="19" height="19" rx="5" />
+            <path d="M16 11.37a4 4 0 11-4.63-4.63 4 4 0 014.63 4.63z" />
+            <path d="M17.5 6.5h.01" />
+          </svg>
+        );
+      default:
+        return (
+          <svg {...iconProps}>
+            <path d="M7 12h10" />
+            <path d="M11 8l4 4-4 4" />
+          </svg>
+        );
+    }
+  };
+
   const jobseekerSteps = [
     { key: 'bio', label: 'Bio', type: 'textarea' },
     { key: 'citizenShip', label: 'Citizenship', type: 'select', options: ['Filipino', 'Foreign'] },
     { key: 'location', label: 'Location', type: 'map' },
-    { key: 'experience', label: 'Experience', type: 'textarea' },
-    { key: 'education', label: 'Education', type: 'text' },
-    { key: 'skills', label: 'Skills', type: 'text' },
-    { key: 'resume', label: 'Resume', type: 'file' },
-    { key: 'certifications', label: 'Certifications (optional)', type: 'textarea', optional: true },
-    { key: 'portfolioLinks', label: 'Portfolio Links (optional)', type: 'textarea', optional: true },
-    { key: 'socialLinks.github', label: 'GitHub Profile (optional)', type: 'text', optional: true },
-    { key: 'socialLinks.linkedin', label: 'LinkedIn Profile (optional)', type: 'text', optional: true },
-    { key: 'socialLinks.twitter', label: 'Twitter Handle (optional)', type: 'text', optional: true },
+    { key: 'experience', label: 'Experience', type: 'list' },
+    { key: 'education', label: 'Education', type: 'list' },
+    { key: 'skills', label: 'Skills', type: 'list' },
+    { key: 'socialLinks', label: 'Social Links (optional)', type: 'social', optional: true },
+    { key: 'resume', label: 'Resume (optional)', type: 'file', optional: true },
   ];
 
   const steps = isEmployer ? employerSteps : jobseekerSteps;
-  
 
   const getValue = (key) => {
     if (key === 'location') return data.location || null;
@@ -1080,6 +1148,41 @@ function ModalStepper({
     if (onChange) onChange(next);
   };
 
+  const listFieldKeys = ['experience', 'education', 'skills'];
+  const isListField = (fieldKey) => listFieldKeys.includes(fieldKey);
+  const updateListField = (key, index, itemValue) => {
+    const currentValue = Array.isArray(getValue(key)) ? getValue(key) : [];
+    const updated = [...currentValue];
+    updated[index] = itemValue;
+    setValue(key, updated);
+  };
+  const addListItem = (key) => {
+    const currentValue = Array.isArray(getValue(key)) ? getValue(key) : [];
+    setValue(key, [...currentValue, '']);
+  };
+  const removeListItem = (key, index) => {
+    const currentValue = Array.isArray(getValue(key)) ? getValue(key) : [];
+    setValue(key, currentValue.filter((_, i) => i !== index));
+  };
+
+  const updateSocialItem = (index, field, value) => {
+    const currentValue = Array.isArray(getValue('socialLinks')) ? getValue('socialLinks') : [];
+    const updated = [...currentValue];
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+    };
+    setValue('socialLinks', updated);
+  };
+  const addSocialItem = () => {
+    const currentValue = Array.isArray(getValue('socialLinks')) ? getValue('socialLinks') : [];
+    setValue('socialLinks', [...currentValue, { type: 'github', url: '' }]);
+  };
+  const removeSocialItem = (index) => {
+    const currentValue = Array.isArray(getValue('socialLinks')) ? getValue('socialLinks') : [];
+    setValue('socialLinks', currentValue.filter((_, i) => i !== index));
+  };
+
   const isStepComplete = (currentStep) => {
     if (!currentStep) return false;
 
@@ -1097,6 +1200,25 @@ function ModalStepper({
 
     if (currentStep.type === 'companyIdentity') {
       return Boolean(getValue('dateEstablished'));
+    }
+
+    if (currentStep.type === 'list') {
+      const value = getValue(currentStep.key);
+      if (Array.isArray(value)) {
+        return value.some((item) => {
+          if (typeof item === 'string') return item.trim().length > 0;
+          return Boolean(item);
+        });
+      }
+      return Boolean(value);
+    }
+
+    if (currentStep.type === 'social') {
+      const socialValue = getValue('socialLinks');
+      if (!Array.isArray(socialValue) || socialValue.length === 0) {
+        return currentStep.optional;
+      }
+      return socialValue.some((item) => item?.type && item?.url?.trim().length > 0);
     }
 
     if (currentStep.optional && !getValue(currentStep.key)) {
@@ -1126,7 +1248,52 @@ function ModalStepper({
         <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Step {index + 1} / {steps.length}</div>
       </div>
       <div>
-        {step.type === 'textarea' ? (
+        {step.type === 'list' ? (
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            {(Array.isArray(getValue(step.key)) ? getValue(step.key) : []).map((item, idx) => (
+              <div key={`${step.key}-${idx}`} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => updateListField(step.key, idx, e.target.value)}
+                  placeholder={`Add ${step.label.toLowerCase()}`}
+                  style={{
+                    ...styles.input,
+                    flex: 1,
+                    marginBottom: 0,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeListItem(step.key, idx)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: 'var(--text)',
+                    padding: '10px 14px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    minWidth: 90,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => addListItem(step.key)}
+              style={{
+                ...styles.confirmButton,
+                marginTop: 8,
+                width: 'auto',
+              }}
+            >
+              + Add {step.label.toLowerCase()}
+            </button>
+          </div>
+        ) : step.type === 'textarea' ? (
           <div>
             <label style={styles.label}>{step.label}</label>
             <textarea
@@ -1162,6 +1329,78 @@ function ModalStepper({
                 </option>
               ))}
             </select>
+          </div>
+        ) : step.type === 'social' ? (
+          <div>
+            <label style={styles.label}>{step.label}</label>
+            {(Array.isArray(getValue('socialLinks')) ? getValue('socialLinks') : []).map((item, idx) => (
+              <div key={`social-${idx}`} style={{ display: 'grid', gap: 10, marginBottom: 12, gridTemplateColumns: '120px 1fr auto', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {}}
+                  aria-label={item.type || 'Social'}
+                  style={{
+                    ...styles.input,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'default',
+                    minWidth: 64,
+                    padding: '12px',
+                    height: '56px',
+                  }}
+                >
+                  {getSocialIcon(item.type)}
+                </button>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <select
+                    value={item.type || 'github'}
+                    onChange={(e) => updateSocialItem(idx, 'type', e.target.value)}
+                    style={{ ...styles.input, width: '100%' }}
+                  >
+                    {socialNetworks.map((network) => (
+                      <option key={network} value={network}>
+                        {network.charAt(0).toUpperCase() + network.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={item.url || ''}
+                    onChange={(e) => updateSocialItem(idx, 'url', e.target.value)}
+                    placeholder="Enter profile URL"
+                    style={styles.input}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeSocialItem(idx)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'var(--text)',
+                    padding: '10px 14px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    minWidth: 90,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addSocialItem}
+              style={{
+                ...styles.confirmButton,
+                marginTop: 8,
+                width: 'auto',
+              }}
+            >
+              + Add social
+            </button>
           </div>
         ) : step.type === 'map' ? (
           <div>

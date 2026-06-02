@@ -17,6 +17,78 @@ const regions = [
   "Zamboanga",
 ];
 
+const socialNetworks = ["github", "facebook", "instagram", "linkedin", "twitter"];
+
+const getSocialIcon = (type) => {
+  const iconProps = {
+    viewBox: '0 0 24 24',
+    width: 20,
+    height: 20,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  };
+
+  switch (type) {
+    case 'github':
+      return (
+        <svg {...iconProps}>
+          <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.343-3.369-1.343-.454-1.155-1.11-1.463-1.11-1.463-.907-.62.069-.608.069-.608 1.003.071 1.53 1.031 1.53 1.031.892 1.528 2.341 1.086 2.91.831.091-.647.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.944 0-1.091.39-1.984 1.03-2.682-.103-.254-.447-1.272.098-2.65 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.91-1.294 2.748-1.025 2.748-1.025.547 1.378.203 2.396.1 2.65.64.698 1.028 1.591 1.028 2.682 0 3.843-2.339 4.688-4.566 4.935.36.31.68.918.68 1.852 0 1.336-.012 2.415-.012 2.742 0 .268.18.58.688.481C19.137 20.165 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+        </svg>
+      );
+    case 'facebook':
+      return (
+        <svg {...iconProps}>
+          <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" />
+        </svg>
+      );
+    case 'instagram':
+      return (
+        <svg {...iconProps}>
+          <rect x="2.5" y="2.5" width="19" height="19" rx="5" />
+          <path d="M16 11.37a4 4 0 11-4.63-4.63 4 4 0 014.63 4.63z" />
+          <path d="M17.5 6.5h.01" />
+        </svg>
+      );
+    case 'linkedin':
+      return (
+        <svg {...iconProps}>
+          <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z" />
+          <path d="M2 9h4v12H2z" />
+          <circle cx="4" cy="4" r="2" />
+        </svg>
+      );
+    case 'twitter':
+      return (
+        <svg {...iconProps}>
+          <path d="M23 3a10.9 10.9 0 01-3.14 1.53A4.48 4.48 0 0012 7.5v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...iconProps}>
+          <path d="M7 12h10" />
+          <path d="M11 8l4 4-4 4" />
+        </svg>
+      );
+  }
+};
+
+const normalizeArrayField = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|[,;]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 const CreateJobseekerProfile = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -29,8 +101,11 @@ const CreateJobseekerProfile = () => {
       otherDetails: "",
       coords: null,
     },
-    experience: "",
-    education: "",
+    experience: [],
+    education: [],
+    skills: [],
+    certifications: [],
+    socialLinks: [],
     resume: "",
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -43,6 +118,9 @@ const CreateJobseekerProfile = () => {
 
   const [resumeFile, setResumeFile] =
     useState(null);
+  const [newExperienceItem, setNewExperienceItem] = useState("");
+  const [newEducationItem, setNewEducationItem] = useState("");
+  const [newSkillItem, setNewSkillItem] = useState("");
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] =
@@ -83,6 +161,7 @@ const CreateJobseekerProfile = () => {
             user.citizenShip ||
             user.experience ||
             user.education ||
+            user.skills ||
             user.resume ||
             user.profilePicture ||
             user.location?.region ||
@@ -101,8 +180,31 @@ const CreateJobseekerProfile = () => {
               otherDetails: user.location?.otherDetails || "",
               coords: user.location?.coords || null,
             },
-            experience: user.experience || "",
-            education: user.education || "",
+            experience: normalizeArrayField(user.experience),
+            education: normalizeArrayField(user.education),
+            skills: normalizeArrayField(user.skills),
+            certifications: normalizeArrayField(user.certifications || user.certification),
+            socialLinks: (() => {
+              const links = [];
+              if (user.socialLinks) {
+                ['github', 'facebook', 'instagram', 'linkedin', 'twitter'].forEach((type) => {
+                  const url = user.socialLinks[type];
+                  if (url) {
+                    links.push({ type, url });
+                  }
+                });
+              }
+              if (user.github && !links.some((item) => item.type === 'github')) {
+                links.push({ type: 'github', url: user.github });
+              }
+              if (user.linkedin && !links.some((item) => item.type === 'linkedin')) {
+                links.push({ type: 'linkedin', url: user.linkedin });
+              }
+              if (user.twitter && !links.some((item) => item.type === 'twitter')) {
+                links.push({ type: 'twitter', url: user.twitter });
+              }
+              return links;
+            })(),
             resume: user.resume || "",
           });
 
@@ -193,6 +295,59 @@ const CreateJobseekerProfile = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleListItemChange = (field, index, value) => {
+    setFormData((prev) => {
+      const next = [...(prev[field] || [])];
+      next[index] = value;
+      return {
+        ...prev,
+        [field]: next,
+      };
+    });
+  };
+
+  const addListItem = (field) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: [...(prev[field] || []), ""],
+    }));
+  };
+
+  const removeListItem = (field, index) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: (prev[field] || []).filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const handleSocialLinkChange = (index, field, value) => {
+    setFormData((prev) => {
+      const next = [...(prev.socialLinks || [])];
+      next[index] = {
+        ...next[index],
+        [field]: value,
+      };
+      return {
+        ...prev,
+        socialLinks: next,
+      };
+    });
+  };
+
+  const addSocialLinkItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      socialLinks: [...(prev.socialLinks || []), { type: 'github', url: '' }],
+    }));
+  };
+
+  const removeSocialLinkItem = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      socialLinks: (prev.socialLinks || []).filter((_, idx) => idx !== index),
     }));
   };
 
@@ -288,6 +443,7 @@ const CreateJobseekerProfile = () => {
       if (typeof v === "string") return v.trim().length > 0;
       if (typeof v === "number") return !Number.isNaN(v);
       if (typeof v === "boolean") return v;
+      if (Array.isArray(v)) return v.length > 0;
       return !!v;
     };
 
@@ -302,8 +458,6 @@ const CreateJobseekerProfile = () => {
       data?.location?.otherDetails,
       // profilePicture is stored in separate state `profilePicture` (or existingProfilePicture)
       profilePicture || existingProfilePicture,
-      // resume may be in form data or existing name
-      data?.resume || existingResumeName,
     ];
 
     const filled = fields.reduce((count, value) => count + (isFilled(value) ? 1 : 0), 0);
@@ -332,16 +486,6 @@ const CreateJobseekerProfile = () => {
       if (!hasLocationData(formData.location)) {
         showMessage(
           "Please complete your location either by using location permission or entering it manually.",
-          "error"
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      if (!existingResumeName && !resumeFile) {
-        showMessage(
-          "Resume is required",
           "error"
         );
 
@@ -379,6 +523,14 @@ const CreateJobseekerProfile = () => {
         location: formData.location,
         experience: formData.experience,
         education: formData.education,
+certifications: formData.certifications,
+      socialLinks: (formData.socialLinks || []).reduce((acc, item) => {
+        if (item?.type && item?.url?.trim()) {
+          acc[item.type] = item.url.trim();
+        }
+        return acc;
+      }, {}),
+      skills: formData.skills,
         resume: resumeUrlToSave,
         profilePicture: profilePicture || existingProfilePicture || "",
       };
@@ -568,30 +720,227 @@ const CreateJobseekerProfile = () => {
               />
             </div>
 
-            <div style={styles.grid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Experience</label>
-                <textarea
-                  name="experience"
-                  value={formData.experience}
-                  onChange={handleInputChange}
-                  placeholder="Your experience"
-                  style={styles.textarea}
-                  disabled={!editable}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Education</label>
-                <input
-                  type="text"
-                  name="education"
-                  value={formData.education}
-                  onChange={handleInputChange}
-                  placeholder="Your education"
-                  style={styles.input}
-                  disabled={!editable}
-                />
-              </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Experience</label>
+              {editable ? (
+                <>
+                  {(formData.experience || []).map((item, index) => (
+                    <div key={`experience-${index}`} style={styles.listItem}>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleListItemChange("experience", index, e.target.value)}
+                        placeholder="Add an experience item"
+                        style={styles.listInput}
+                      />
+                      <button
+                        type="button"
+                        style={styles.removeButton}
+                        onClick={() => removeListItem("experience", index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    style={styles.addButton}
+                    onClick={() => addListItem("experience")}
+                  >
+                    + Add experience
+                  </button>
+                </>
+              ) : (
+                <ul style={styles.bulletList}>
+                  {formData.experience.map((item, index) => (
+                    <li key={`experience-view-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Education</label>
+              {editable ? (
+                <>
+                  {(formData.education || []).map((item, index) => (
+                    <div key={`education-${index}`} style={styles.listItem}>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleListItemChange("education", index, e.target.value)}
+                        placeholder="Add education background"
+                        style={styles.listInput}
+                      />
+                      <button
+                        type="button"
+                        style={styles.removeButton}
+                        onClick={() => removeListItem("education", index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    style={styles.addButton}
+                    onClick={() => addListItem("education")}
+                  >
+                    + Add education background
+                  </button>
+                </>
+              ) : (
+                <ul style={styles.bulletList}>
+                  {formData.education.map((item, index) => (
+                    <li key={`education-view-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Skills</label>
+              {editable ? (
+                <>
+                  {(formData.skills || []).map((item, index) => (
+                    <div key={`skills-${index}`} style={styles.listItem}>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleListItemChange("skills", index, e.target.value)}
+                        placeholder="Add a skill"
+                        style={styles.listInput}
+                      />
+                      <button
+                        type="button"
+                        style={styles.removeButton}
+                        onClick={() => removeListItem("skills", index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    style={styles.addButton}
+                    onClick={() => addListItem("skills")}
+                  >
+                    + Add skill
+                  </button>
+                </>
+              ) : (
+                <ul style={styles.bulletList}>
+                  {formData.skills.map((item, index) => (
+                    <li key={`skills-view-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Certifications (optional)</label>
+              {editable ? (
+                <>
+                  {(formData.certifications || []).map((item, index) => (
+                    <div key={`certification-${index}`} style={styles.listItem}>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleListItemChange("certifications", index, e.target.value)}
+                        placeholder="Add a certification"
+                        style={styles.listInput}
+                      />
+                      <button
+                        type="button"
+                        style={styles.removeButton}
+                        onClick={() => removeListItem("certifications", index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    style={styles.addButton}
+                    onClick={() => addListItem("certifications")}
+                  >
+                    + Add certification
+                  </button>
+                </>
+              ) : (
+                <ul style={{ paddingLeft: 18, margin: 0, color: 'var(--text)' }}>
+                  {(formData.certifications || []).map((item, index) => (
+                    <li key={`certification-view-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Social Links (optional)</label>
+              {editable ? (
+                <>
+                  {(formData.socialLinks || []).map((item, index) => (
+                    <div key={`social-${index}`} style={{ display: 'grid', gap: 10, marginBottom: 12, gridTemplateColumns: '70px 1fr auto', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        aria-label={item.type || 'Social'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 70,
+                          height: 48,
+                          borderRadius: 12,
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface-alt)',
+                          cursor: 'default',
+                        }}
+                      >
+                        {getSocialIcon(item.type)}
+                      </button>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <select
+                          value={item.type || 'github'}
+                          onChange={(e) => handleSocialLinkChange(index, 'type', e.target.value)}
+                          style={styles.input}
+                        >
+                          {socialNetworks.map((network) => (
+                            <option key={network} value={network}>
+                              {network.charAt(0).toUpperCase() + network.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={item.url || ''}
+                          onChange={(e) => handleSocialLinkChange(index, 'url', e.target.value)}
+                          placeholder="Enter profile link"
+                          style={styles.input}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        style={styles.removeButton}
+                        onClick={() => removeSocialLinkItem(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    style={styles.addButton}
+                    onClick={addSocialLinkItem}
+                  >
+                    + Add social
+                  </button>
+                </>
+              ) : (
+                <ul style={{ paddingLeft: 18, margin: 0, color: 'var(--text)' }}>
+                  {(formData.socialLinks || []).map((item, index) => (
+                    <li key={`social-view-${index}`}>{item.type}: {item.url}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div style={styles.formGroup}>
@@ -721,7 +1070,7 @@ const CreateJobseekerProfile = () => {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Resume / CV</label>
+              <label style={styles.label}>Resume / CV (optional)</label>
               <input
                 id="jobseekerResumeInput"
                 type="file"
@@ -740,6 +1089,7 @@ const CreateJobseekerProfile = () => {
               >
                 {formData.resume ? `Selected: ${formData.resume}` : "Choose resume (.pdf, .doc, .docx)"}
               </label>
+              <div style={styles.hintText}>Uploading a resume is optional. You can continue without one.</div>
               {existingResumeName && !resumeFile && (
                 <div style={styles.hintText}>Current resume: {existingResumeName}</div>
               )}
@@ -939,6 +1289,47 @@ const styles = {
   },
   hiddenInput: {
     display: "none",
+  },
+  listItem: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  listInput: {
+    flex: 1,
+    padding: "14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    fontSize: "1rem",
+    outline: "none",
+    minWidth: "200px",
+  },
+  addButton: {
+    marginTop: "10px",
+    padding: "12px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text-h)",
+    cursor: "pointer",
+    alignSelf: "flex-start",
+  },
+  removeButton: {
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "transparent",
+    color: "var(--text-h)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  bulletList: {
+    margin: 0,
+    paddingLeft: "20px",
+    color: "var(--text)",
   },
   imageUploadCircle: {
     marginTop: "12px",

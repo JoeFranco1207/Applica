@@ -122,6 +122,11 @@ export default function ResumeDesigns() {
   const [replaceResumeConfirmed, setReplaceResumeConfirmed] = useState(false);
   
   // Additional info state
+  const [summary, setSummary] = useState('');
+  const [projects, setProjects] = useState(['']);
+  const [certifications, setCertifications] = useState(['']);
+  const [languages, setLanguages] = useState(['']);
+  const [achievements, setAchievements] = useState(['']);
   const [references, setReferences] = useState([{ name: '', contact: '' }]);
   const [extracurricular, setExtracurricular] = useState(['']);
 
@@ -165,6 +170,11 @@ export default function ResumeDesigns() {
     setResumeUrl(null);
     setReplaceResumeConfirmed(false);
     // Reset form
+    setSummary('');
+    setProjects(['']);
+    setCertifications(['']);
+    setLanguages(['']);
+    setAchievements(['']);
     setReferences([{ name: '', contact: '' }]);
     setExtracurricular(['']);
   };
@@ -195,6 +205,62 @@ export default function ResumeDesigns() {
     const updated = [...extracurricular];
     updated[idx] = value;
     setExtracurricular(updated);
+  };
+
+  const handleAddProject = () => {
+    setProjects([...projects, '']);
+  };
+
+  const handleRemoveProject = (idx) => {
+    setProjects(projects.filter((_, i) => i !== idx));
+  };
+
+  const handleProjectChange = (idx, value) => {
+    const updated = [...projects];
+    updated[idx] = value;
+    setProjects(updated);
+  };
+
+  const handleAddCertification = () => {
+    setCertifications([...certifications, '']);
+  };
+
+  const handleRemoveCertification = (idx) => {
+    setCertifications(certifications.filter((_, i) => i !== idx));
+  };
+
+  const handleCertificationChange = (idx, value) => {
+    const updated = [...certifications];
+    updated[idx] = value;
+    setCertifications(updated);
+  };
+
+  const handleAddLanguage = () => {
+    setLanguages([...languages, '']);
+  };
+
+  const handleRemoveLanguage = (idx) => {
+    setLanguages(languages.filter((_, i) => i !== idx));
+  };
+
+  const handleLanguageChange = (idx, value) => {
+    const updated = [...languages];
+    updated[idx] = value;
+    setLanguages(updated);
+  };
+
+  const handleAddAchievement = () => {
+    setAchievements([...achievements, '']);
+  };
+
+  const handleRemoveAchievement = (idx) => {
+    setAchievements(achievements.filter((_, i) => i !== idx));
+  };
+
+  const handleAchievementChange = (idx, value) => {
+    const updated = [...achievements];
+    updated[idx] = value;
+    setAchievements(updated);
   };
 
   const handleNextStep = () => {
@@ -252,6 +318,10 @@ export default function ResumeDesigns() {
     try {
       const cleanReferences = references.filter(ref => ref.name.trim() || ref.contact.trim());
       const cleanExtracurricular = extracurricular.filter(e => e.trim());
+      const cleanProjects = projects.filter(p => p.trim());
+      const cleanCertifications = certifications.filter(c => c.trim());
+      const cleanLanguages = languages.filter(l => l.trim());
+      const cleanAchievements = achievements.filter(a => a.trim());
 
       const response = await axios.post(
         'http://localhost:8000/api/jobseeker/resume',
@@ -260,6 +330,11 @@ export default function ResumeDesigns() {
           designName: selectedDesign.name,
           template: selectedDesign.preview,
           color: selectedDesign.color,
+          summary,
+          projects: cleanProjects,
+          certifications: cleanCertifications,
+          languages: cleanLanguages,
+          achievements: cleanAchievements,
           references: cleanReferences,
           extracurricular: cleanExtracurricular,
         },
@@ -447,8 +522,251 @@ export default function ResumeDesigns() {
               <>
                 <h2 style={styles.modalTitle}>Add Additional Information</h2>
                 <p style={{ ...styles.modalText, color: isDarkMode ? '#cbd5e1' : '#64748b', marginBottom: '24px' }}>
-                  Add your references and extracurricular activities to enhance your resume.
+                  Add your professional summary and optional resume sections to enrich the final document.
                 </p>
+
+                {/* Summary Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Summary
+                  </h3>
+                  <textarea
+                    placeholder="Brief professional summary or objective"
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={4}
+                    style={{
+                      ...styles.input,
+                      minHeight: '110px',
+                      resize: 'vertical',
+                      width: '100%',
+                    }}
+                  />
+                </div>
+
+                {/* Projects Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Projects
+                  </h3>
+                  {projects.map((project, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Project description"
+                        value={project}
+                        onChange={(e) => handleProjectChange(idx, e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {projects.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveProject(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddProject}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Project
+                  </button>
+                </div>
+
+                {/* Certifications Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Certifications
+                  </h3>
+                  {certifications.map((cert, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Certification or credential"
+                        value={cert}
+                        onChange={(e) => handleCertificationChange(idx, e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {certifications.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveCertification(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddCertification}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Certification
+                  </button>
+                </div>
+
+                {/* Languages Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Languages
+                  </h3>
+                  {languages.map((language, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Language skill"
+                        value={language}
+                        onChange={(e) => handleLanguageChange(idx, e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {languages.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveLanguage(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddLanguage}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Language
+                  </button>
+                </div>
+
+                {/* Achievements Section */}
+                <div style={{ marginBottom: '32px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: isDarkMode ? '#e5e7eb' : '#1f2937' }}>
+                    Achievements
+                  </h3>
+                  {achievements.map((achievement, idx) => (
+                    <div key={idx} style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'end' }}>
+                      <input
+                        type="text"
+                        placeholder="Achievement or award"
+                        value={achievement}
+                        onChange={(e) => handleAchievementChange(idx, e.target.value)}
+                        style={{
+                          ...styles.input,
+                          backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                          color: isDarkMode ? '#e5e7eb' : '#111827',
+                          borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        }}
+                      />
+                      {achievements.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveAchievement(idx)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleAddAchievement}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      marginTop: '8px',
+                    }}
+                  >
+                    + Add Achievement
+                  </button>
+                </div>
 
                 {/* References Section */}
                 <div style={{ marginBottom: '32px' }}>

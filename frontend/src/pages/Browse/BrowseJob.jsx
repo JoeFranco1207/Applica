@@ -1902,34 +1902,46 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
               <div style={styles.jobFilterSection}>
                 <label style={styles.jobFilterLabel}>Job Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  style={styles.jobFilterSelect}
-                >
-                  <option value="All">All Categories</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
+                <div style={styles.filterPillRow}>
+                  {["All", ...categories].map((category) => {
+                    const isActive = selectedCategory === category;
+                    return (
+                      <button
+                        type="button"
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        style={{
+                          ...styles.filterPill,
+                          ...(isActive ? styles.filterPillActive : {}),
+                        }}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div style={styles.jobFilterSection}>
                 <label style={styles.jobFilterLabel}>Employment Type</label>
-                <div style={styles.checkboxGrid}>
-                  {["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"].map((type) => (
-                    <label key={type} style={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={employmentTypes.includes(type)}
-                        onChange={() => toggleEmploymentType(type)}
-                        style={styles.checkboxInput}
-                      />
-                      {type}
-                    </label>
-                  ))}
+                <div style={styles.filterPillRow}>
+                  {["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"].map((type) => {
+                    const isSelected = employmentTypes.includes(type);
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => toggleEmploymentType(type)}
+                        style={{
+                          ...styles.filterPill,
+                          ...styles.filterPillCompact,
+                          ...(isSelected ? styles.filterPillActive : {}),
+                        }}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1952,18 +1964,24 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
               <div style={styles.jobFilterSection}>
                 <label style={styles.jobFilterLabel}>Remote</label>
-                <div style={styles.checkboxGrid}>
-                  {["All", "Remote", "On-site", "Hybrid"].map((option) => (
-                    <label key={option} style={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={remoteOptions.includes(option)}
-                        onChange={() => toggleRemoteOption(option)}
-                        style={styles.checkboxInput}
-                      />
-                      {option}
-                    </label>
-                  ))}
+                <div style={styles.filterPillRow}>
+                  {["All", "Remote", "On-site", "Hybrid"].map((option) => {
+                    const isSelected = remoteOptions.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => toggleRemoteOption(option)}
+                        style={{
+                          ...styles.filterPill,
+                          ...styles.filterPillCompact,
+                          ...(isSelected ? styles.filterPillActive : {}),
+                        }}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3644,21 +3662,25 @@ composerTextarea: {
   jobFilterColumn: {
     display: "grid",
     gap: "16px",
-    maxWidth: "280px",
+    maxWidth: "320px",
     paddingRight: "20px",
+    position: "sticky",
+    top: "24px",
+    alignSelf: "flex-start",
   },
   jobFilterCard: {
-    background: "var(--surface)",
-    borderRadius: "24px",
-    padding: "22px",
-    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    borderRadius: "28px",
+    padding: "24px",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
     display: "grid",
     gap: "18px",
-    boxShadow: "0 20px 50px rgba(0, 0, 0, 0.04)",
+    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.08)",
+    minWidth: 0,
   },
   filterHeaderRow: {
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: "12px",
   },
@@ -3673,12 +3695,13 @@ composerTextarea: {
     color: "var(--primary)",
     fontWeight: "700",
     cursor: "pointer",
-    padding: "6px 10px",
+    padding: "8px 10px",
     borderRadius: "12px",
+    fontSize: "13px",
   },
   jobFilterTitle: {
     margin: 0,
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: "800",
     color: "var(--text)",
   },
@@ -3691,12 +3714,12 @@ composerTextarea: {
     fontWeight: "700",
     color: "var(--text-muted)",
     textTransform: "uppercase",
-    letterSpacing: "0.04em",
+    letterSpacing: "0.08em",
   },
   jobFilterInput: {
     width: "100%",
     padding: "12px 14px",
-    borderRadius: "16px",
+    borderRadius: "18px",
     border: "1px solid var(--border)",
     background: "var(--surface-alt)",
     color: "var(--text)",
@@ -3706,7 +3729,7 @@ composerTextarea: {
   jobFilterSelect: {
     width: "100%",
     padding: "12px 14px",
-    borderRadius: "16px",
+    borderRadius: "18px",
     border: "1px solid var(--border)",
     background: "var(--surface-alt)",
     color: "var(--text)",
@@ -3717,6 +3740,32 @@ composerTextarea: {
   checkboxGrid: {
     display: "grid",
     gap: "10px",
+  },
+  filterPillRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  filterPill: {
+    borderRadius: "999px",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "600",
+    outline: "none",
+    transition: "all 0.2s ease",
+  },
+  filterPillCompact: {
+    padding: "8px 12px",
+  },
+  filterPillActive: {
+    background: "var(--primary)",
+    color: "#ffffff",
+    borderColor: "transparent",
+    boxShadow: "0 10px 24px rgba(79, 110, 255, 0.16)",
   },
   checkboxLabel: {
     display: "flex",

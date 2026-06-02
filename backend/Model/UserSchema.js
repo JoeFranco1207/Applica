@@ -53,6 +53,8 @@ const userSchema = new mongoose.Schema({
       github: { type: String, default: '' },
       linkedin: { type: String, default: '' },
       twitter: { type: String, default: '' },
+      facebook: { type: String, default: '' },
+      instagram: { type: String, default: '' },
     },
     role: { type: String,
       enum: ['user', 'admin', 'employer', 'jobseeker'],

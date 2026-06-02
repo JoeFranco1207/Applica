@@ -14,7 +14,19 @@ const templateGenerators = {
   'creative-vibrant': generateCreativeVibrant,
 };
 
-export const createResumeService = async (userId, resumeData) => {
+function renderListSection(title, items, prefix = '• ') {
+  if (!items || !items.length) return '';
+  return `
+    <div class="section">
+      <div class="section-title">${title}</div>
+      <div class="section-content">
+        ${items.map(item => `<div class="item"><div class="item-title">${prefix}${item}</div></div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+export const createResumeService = async (userId, resumeData = {}) => {
   const user = await User.findById(userId);
 
   if (!user) {
@@ -45,6 +57,11 @@ export const createResumeService = async (userId, resumeData) => {
   const phone = user.phoneNumber || "";
 
   const {
+    summary = '',
+    certifications = [],
+    languages = [],
+    projects = [],
+    achievements = [],
     education = [],
     experience = [],
     skills = [],
@@ -69,6 +86,21 @@ export const createResumeService = async (userId, resumeData) => {
     ? extracurricular.filter(e => e && typeof e === 'string' && e.trim().length > 0)
     : [];
 
+  const certificationItems = Array.isArray(certifications)
+    ? certifications.filter(c => c && typeof c === 'string' && c.trim().length > 0)
+    : [];
+  const languageItems = Array.isArray(languages)
+    ? languages.filter(l => l && typeof l === 'string' && l.trim().length > 0)
+    : [];
+  const projectItems = Array.isArray(projects)
+    ? projects.filter(p => p && typeof p === 'string' && p.trim().length > 0)
+    : [];
+  const achievementItems = Array.isArray(achievements)
+    ? achievements.filter(a => a && typeof a === 'string' && a.trim().length > 0)
+    : [];
+
+  const resumeSummary = typeof summary === 'string' ? summary.trim() : '';
+
   // Extract location information
   const locationParts = [];
   if (user.location?.barangay) locationParts.push(user.location.barangay);
@@ -81,6 +113,7 @@ export const createResumeService = async (userId, resumeData) => {
     email,
     phone,
     bio: user.bio || '',
+    summary: resumeSummary || user.bio || '',
     profilePicture: user.profilePicture || '',
     location,
     citizenship: user.citizenShip || 'Not specified',
@@ -89,6 +122,10 @@ export const createResumeService = async (userId, resumeData) => {
     skills: skillItems,
     references: referenceItems,
     extracurricular: extracurricularItems,
+    certifications: certificationItems,
+    languages: languageItems,
+    projects: projectItems,
+    achievements: achievementItems,
     color: color || '#1e40af',
   };
 
@@ -204,7 +241,7 @@ function generateClassicProfessional(data) {
           </div>
         </div>
 
-        ${data.bio ? `<div class="summary">${data.bio}</div>` : ''}
+        ${data.summary || data.bio ? `<div class="summary">${data.summary || data.bio}</div>` : ''}
 
         <div class="two-column">
           <div>
@@ -225,6 +262,11 @@ function generateClassicProfessional(data) {
               </div>
             </div>
             ` : ''}
+
+            ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+            ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+            ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+            ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
 
             ${data.extracurricular.length ? `
             <div class="section">
@@ -342,7 +384,7 @@ function generateCreativeMinimal(data) {
       </div>
 
       <div class="body">
-        ${data.bio ? `<div class="summary">${data.bio}</div>` : ''}
+        ${data.summary || data.bio ? `<div class="summary">${data.summary || data.bio}</div>` : ''}
 
         <div class="sections">
           <div>
@@ -359,6 +401,11 @@ function generateCreativeMinimal(data) {
               ${data.education.map(edu => `<div class="item"><div class="item-title">${edu}</div></div>`).join('')}
             </div>
             ` : ''}
+
+            ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+            ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+            ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+            ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
 
             ${data.extracurricular.length ? `
             <div class="section">
@@ -467,7 +514,7 @@ function generateModernTech(data) {
         </div>
 
         <div class="body">
-          ${data.bio ? `<div class="summary">${data.bio}</div>` : ''}
+          ${data.summary || data.bio ? `<div class="summary">${data.summary || data.bio}</div>` : ''}
 
           <div class="sections">
             <div>
@@ -484,6 +531,11 @@ function generateModernTech(data) {
                 ${data.education.map(edu => `<div class="item"><div class="item-title">${edu}</div></div>`).join('')}
               </div>
               ` : ''}
+
+              ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+              ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+              ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+              ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
 
               ${data.extracurricular.length ? `
               <div class="section">
@@ -601,7 +653,7 @@ function generateExecutivePremium(data) {
           ${profilePicHtml ? `<div class="masthead-photo">${profilePicHtml}</div>` : ''}
         </div>
 
-        ${data.bio ? `<div class="summary">${data.bio}</div>` : ''}
+        ${data.summary || data.bio ? `<div class="summary">${data.summary || data.bio}</div>` : ''}
 
         <div class="two-tier">
           <div>
@@ -618,6 +670,11 @@ function generateExecutivePremium(data) {
               ${data.education.map(edu => `<div class="item"><div class="item-title">${edu}</div></div>`).join('')}
             </div>
             ` : ''}
+
+            ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+            ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+            ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+            ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
 
             ${data.extracurricular.length ? `
             <div class="section">
@@ -721,7 +778,7 @@ function generateAcademicScholar(data) {
           </div>
         </div>
 
-        ${data.bio ? `<div class="summary-box">${data.bio}</div>` : ''}
+        ${data.summary || data.bio ? `<div class="summary-box">${data.summary || data.bio}</div>` : ''}
 
         <div class="main-content">
           <div>
@@ -738,7 +795,10 @@ function generateAcademicScholar(data) {
               ${data.education.map(edu => `<div class="item"><div class="item-title">▪ ${edu}</div></div>`).join('')}
             </div>
             ` : ''}
-
+            ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+            ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+            ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+            ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
             ${data.extracurricular.length ? `
             <div class="section">
               <div class="section-title">Extracurricular Activities</div>
@@ -850,7 +910,7 @@ function generateCreativeVibrant(data) {
         </div>
 
         <div class="body">
-          ${data.bio ? `<div class="summary">${data.bio}</div>` : ''}
+          ${data.summary || data.bio ? `<div class="summary">${data.summary || data.bio}</div>` : ''}
 
           <div class="content-grid">
             <div>
@@ -867,7 +927,10 @@ function generateCreativeVibrant(data) {
                 ${data.education.map(edu => `<div class="item"><div class="item-title">${edu}</div></div>`).join('')}
               </div>
               ` : ''}
-
+              ${data.certifications.length ? renderListSection('Certifications', data.certifications) : ''}
+              ${data.languages.length ? renderListSection('Languages', data.languages) : ''}
+              ${data.projects.length ? renderListSection('Projects', data.projects) : ''}
+              ${data.achievements.length ? renderListSection('Achievements', data.achievements) : ''}
               ${data.extracurricular.length ? `
               <div class="section">
                 <div class="section-title">🎯 Extracurricular</div>

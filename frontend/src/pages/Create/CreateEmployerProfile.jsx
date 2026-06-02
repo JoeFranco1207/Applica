@@ -354,10 +354,6 @@ const CreateEmployerProfile = () => {
 
             if (picturesFromBackend.length) {
               setExistingCompanyPictures(picturesFromBackend);
-              setCompanyPicturePreviews(picturesFromBackend);
-            } else if (existing.companyPicture) {
-              setExistingCompanyPicture(existing.companyPicture);
-              setCompanyPicturePreview(existing.companyPicture);
             }
 
             setIsEditing(hasEmployerData);
@@ -490,6 +486,15 @@ const CreateEmployerProfile = () => {
         return;
       }
 
+      const combinedCompanyPictures = [
+        ...existingCompanyPictures,
+        ...companyPictures,
+      ].filter(Boolean);
+
+      if (combinedCompanyPictures.length === 0 && companyPicture) {
+        combinedCompanyPictures.push(companyPicture);
+      }
+
       const payload = {
         companyName: formData.companyName,
         companyDescription: formData.companyDescription,
@@ -500,14 +505,9 @@ const CreateEmployerProfile = () => {
         contactNumber: formData.contactNumber,
         dateEstablished: formData.dateEstablished,
         companyLogo: companyLogo || existingCompanyLogo || "",
-        companyPictures: companyPictures.length
-          ? companyPictures
-          : existingCompanyPictures.length
-          ? existingCompanyPictures
-          : companyPicture
-          ? [companyPicture]
-          : [],
-        companyPicture: companyPicture || existingCompanyPicture || "",
+        companyPictures: combinedCompanyPictures,
+        companyPicture:
+          combinedCompanyPictures[0] || existingCompanyPicture || companyPicture || "",
       };
 
       const response = await axios.put(
@@ -560,10 +560,15 @@ const CreateEmployerProfile = () => {
 
       if (savedPictures.length) {
         setExistingCompanyPictures(savedPictures);
-        setCompanyPicturePreviews(savedPictures);
+        setCompanyPictures([]);
+        setCompanyPicturePreviews([]);
         setExistingCompanyPicture("");
         setCompanyPicturePreview("");
       } else if (updatedProfile.companyPicture) {
+        const savedSinglePicture = [updatedProfile.companyPicture];
+        setExistingCompanyPictures(savedSinglePicture);
+        setCompanyPictures([]);
+        setCompanyPicturePreviews([]);
         setExistingCompanyPicture(updatedProfile.companyPicture);
         setCompanyPicturePreview(updatedProfile.companyPicture);
       }

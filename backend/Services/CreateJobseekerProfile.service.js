@@ -62,16 +62,14 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
       throw new AppError("Incomplete location data. Provide either current location coordinates or region/city/barangay.", 400);
     }
 
-    if (!experience) {
+    const normalizedExperience = normalizeArrayField(experience);
+    if (normalizedExperience.length === 0) {
       throw new AppError("Experience is required", 400);
     }
 
-    if (!education) {
+    const normalizedEducation = normalizeArrayField(education);
+    if (normalizedEducation.length === 0) {
       throw new AppError("Education is required", 400);
-    }
-
-    if (!resume) {
-      throw new AppError("Resume is required", 400);
     }
 
     const normalizedSkills = normalizeArrayField(skills);
@@ -85,9 +83,9 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
 
     user.citizenShip = citizenShip;
     user.location = location;
-    user.experience = experience;
-    user.education = education;
-    user.resume = resume;
+    user.experience = normalizedExperience.join('\n');
+    user.education = normalizedEducation.join('\n');
+    user.resume = resume || "";
     user.profilePicture = profilePicture;
     user.bio = bio;
     user.skills = normalizedSkills;
@@ -97,6 +95,8 @@ export const jobseekerProfileService = async (userId, profileData = {}) => {
       github: (socialLinks?.github || github || '').trim(),
       linkedin: (socialLinks?.linkedin || linkedin || '').trim(),
       twitter: (socialLinks?.twitter || twitter || '').trim(),
+      facebook: (socialLinks?.facebook || '').trim(),
+      instagram: (socialLinks?.instagram || '').trim(),
     };
 
     await user.save();
@@ -134,6 +134,9 @@ export const updateJobseekerProfileService = async (userId, profileData = {}) =>
     if (allowedFields.includes(field)) {
       if (field === 'skills' || field === 'certifications' || field === 'portfolioLinks') {
         updateData[field] = normalizeArrayField(profileData[field]);
+      } else if (field === 'experience' || field === 'education') {
+        const normalizedField = normalizeArrayField(profileData[field]);
+        updateData[field] = normalizedField.join('\n');
       } else if (field === 'socialLinks') {
         updateData.socialLinks = {
           ...(user.socialLinks || {}),

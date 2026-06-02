@@ -336,6 +336,18 @@ export default function Profile() {
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [showApplicantModal, setShowApplicantModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showAllPhotosModal, setShowAllPhotosModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmDialogOptions, setConfirmDialogOptions] = useState({
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
+  const [selectedPhotoSrc, setSelectedPhotoSrc] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -346,10 +358,12 @@ export default function Profile() {
   const dragStartRef = useRef({ x: 0, y: 0 });
   const startOffsetRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef(null);
+  const companyPhotoUploadRef = useRef(null);
   const imgRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCompanyPhotos, setUploadingCompanyPhotos] = useState(false);
   const [myPosts, setMyPosts] = useState([]);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -364,6 +378,13 @@ export default function Profile() {
   const location = useLocation();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const { setPresence, createInterview } = useNotification();
+
+  const getAuthToken = () => localStorage.getItem("token") || "";
+  const getAuthHeaders = () => {
+    const token = getAuthToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const storedUser = localStorage.getItem("user");
   const [authUser, setAuthUser] = useState(storedUser ? JSON.parse(storedUser) : null);
   const currentUserId = authUser?.id || authUser?._id || null;
@@ -484,11 +505,240 @@ export default function Profile() {
     setModalJob(null);
   };
 
+  const openPhotoModal = (photoSrc) => {
+    setSelectedPhotoSrc(photoSrc);
+    setShowPhotoModal(true);
+  };
+
+  const closePhotoModal = () => {
+    setSelectedPhotoSrc("");
+    setShowPhotoModal(false);
+  };
+
+  const executeDeletePhoto = async (indexToDelete) => {
+    if (!user) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Session expired. Please sign in again.");
+      return;
+    }
+
+    const updatedPictures = profilePictures.filter((_, index) => index !== indexToDelete);
+    const payload = {
+      companyPictures: updatedPictures,
+      companyPicture: updatedPictures[0] || "",
+    };
+
+    try {
+      const response = await axios.put(
+        "http://localhost:8000/api/employer/profile",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const updatedUser = response.data?.data || { ...user, ...payload };
+      const normalizedUser = {
+        ...user,
+        ...updatedUser,
+        companyPictures: updatedPictures,
+        companyPicture: payload.companyPicture,
+      };
+
+      setUser(normalizedUser);
+      setAuthUser(normalizedUser);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+
+      if (selectedPhotoSrc && selectedPhotoSrc === profilePictures[indexToDelete]) {
+        setSelectedPhotoSrc("");
+        setShowPhotoModal(false);
+      }
+
+      if (updatedPictures.length === 0) {
+        setShowAllPhotosModal(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete photo:", error);
+      alert("Unable to delete photo. Please try again.");
+    }
+  };
+
+  const handleDeletePhoto = (indexToDelete) => {
+    if (!user || !isOwnProfile) {
+      return;
+    }
+
+    openConfirmDialog({
+      title: "Delete photo",
+      message: "Delete this photo? This action cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: () => executeDeletePhoto(indexToDelete),
+    });
+  };
+
+  const openAllPhotosModal = () => {
+    setShowAllPhotosModal(true);
+  };
+
+  const closeAllPhotosModal = () => {
+    setShowAllPhotosModal(false);
+  };
+
+  const openConfirmDialog = ({ title, message, confirmText = "Confirm", cancelText = "Cancel", onConfirm = null, onCancel = null }) => {
+    setConfirmDialogOptions({ title, message, confirmText, cancelText, onConfirm, onCancel });
+    setShowConfirmModal(true);
+  };
+
+  const closeConfirmDialog = () => {
+    setShowConfirmModal(false);
+    setConfirmDialogOptions((prev) => ({
+      ...prev,
+      onConfirm: null,
+      onCancel: null,
+    }));
+  };
+
+  const handleConfirmDialogConfirm = async () => {
+    if (confirmDialogOptions.onConfirm) {
+      try {
+        await confirmDialogOptions.onConfirm();
+      } catch (error) {
+        console.error("Confirm dialog action failed:", error);
+      }
+    }
+    closeConfirmDialog();
+  };
+
+  const handleConfirmDialogCancel = () => {
+    if (confirmDialogOptions.onCancel) {
+      try {
+        confirmDialogOptions.onCancel();
+      } catch (error) {
+        console.error("Confirm dialog cancel action failed:", error);
+      }
+    }
+    closeConfirmDialog();
+  };
+
+  const openAddPhotosDialog = () => {
+    if (companyPhotoUploadRef.current) {
+      companyPhotoUploadRef.current.click();
+    }
+  };
+
+  const saveCompanyPictures = async (updatedPictures) => {
+    if (!user || user.role !== "employer") return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Session expired. Please sign in again.");
+      return;
+    }
+
+    setUploadingCompanyPhotos(true);
+
+    const payload = {
+      companyPictures: updatedPictures,
+      companyPicture: updatedPictures[0] || "",
+    };
+
+    try {
+      const response = await axios.put(
+        "http://localhost:8000/api/employer/profile",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const updatedUser = response.data?.data || {};
+      const normalizedUser = {
+        ...user,
+        ...updatedUser,
+        companyPictures: updatedPictures,
+        companyPicture: payload.companyPicture,
+      };
+
+      setUser(normalizedUser);
+      setAuthUser(normalizedUser);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+    } catch (error) {
+      console.error("Failed to add company photos:", error);
+      alert("Unable to add photos. Please try again.");
+    } finally {
+      setUploadingCompanyPhotos(false);
+    }
+  };
+
+  const handleCompanyPhotosSelect = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const invalidFile = files.find((file) => !file.type.startsWith("image/"));
+    if (invalidFile) {
+      alert("Please select only image files.");
+      if (companyPhotoUploadRef.current) {
+        companyPhotoUploadRef.current.value = null;
+      }
+      return;
+    }
+
+    const readers = files.map((file) =>
+      new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      })
+    );
+
+    const results = await Promise.all(readers);
+    const newPictures = results.filter(Boolean);
+    if (newPictures.length === 0) {
+      if (companyPhotoUploadRef.current) {
+        companyPhotoUploadRef.current.value = null;
+      }
+      return;
+    }
+
+    const updatedPictures = [...profilePictures, ...newPictures];
+    openConfirmDialog({
+      title: "Upload photos",
+      message: `Upload ${newPictures.length} selected company photo${newPictures.length === 1 ? "" : "s"}?`,
+      confirmText: "Upload",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        await saveCompanyPictures(updatedPictures);
+        if (companyPhotoUploadRef.current) {
+          companyPhotoUploadRef.current.value = null;
+        }
+      },
+      onCancel: () => {
+        if (companyPhotoUploadRef.current) {
+          companyPhotoUploadRef.current.value = null;
+        }
+      },
+    });
+  };
+
   const profilePictures = Array.isArray(user?.companyPictures)
     ? user.companyPictures.filter(Boolean)
     : user?.companyPicture
     ? [user.companyPicture]
     : [];
+
+  const previewProfilePictures = profilePictures.slice(0, 4);
+  const hasMorePhotos = profilePictures.length > 4;
+  const extraPhotoCount = profilePictures.length - 4;
 
   useEffect(() => {
     const fetchEmployerJobs = async () => {
@@ -1033,21 +1283,42 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const handleImageUpload = async () => {
+  const handleImageUpload = () => {
     if (!user) {
       alert('Unable to upload image: no user loaded.');
       return;
     }
 
-    const token = localStorage.getItem("token");
+    if (!selectedImagePreview && !user?.profilePicture && !user?.companyLogo) {
+      alert('Please select an image before uploading.');
+      return;
+    }
+
+    const token = getAuthToken();
     if (!token) {
       alert('Your session has expired. Please sign in again.');
       return;
     }
 
+    openConfirmDialog({
+      title: "Upload image",
+      message: "Upload this image to your profile now?",
+      confirmText: "Upload",
+      cancelText: "Cancel",
+      onConfirm: performImageUpload,
+    });
+  };
+
+  const performImageUpload = async () => {
     setUploadingAvatar(true);
 
     try {
+      const token = getAuthToken();
+      if (!token) {
+        alert('Your session has expired. Please sign in again.');
+        return;
+      }
+
       let url;
       let payload;
 
@@ -1114,9 +1385,7 @@ export default function Profile() {
       const method = user.role === "jobseeker" ? axios.patch : axios.put;
       console.debug('Uploading profile image', { userId: user._id || user.id, url, payloadSummary: { profilePicture: payload.profilePicture?.slice(0, 40), companyLogo: payload.companyLogo?.slice(0, 40) } });
       const response = await method(url, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response?.data) {
@@ -1698,6 +1967,42 @@ export default function Profile() {
                     <p style={styles.detailValue}>Not provided</p>
                   )}
                 </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Certifications</label>
+                  {Array.isArray(user?.certifications) && user.certifications.length > 0 ? (
+                    <ul style={{ paddingLeft: 18, margin: 0, color: 'var(--text)' }}>
+                      {user.certifications.map((cert, index) => (
+                        <li key={`cert-${index}`}>{cert}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={styles.detailValue}>Not provided</p>
+                  )}
+                </div>
+                <div style={styles.detailItem}>
+                  <label style={styles.detailLabel}>Social Links</label>
+                  {user?.socialLinks && Object.values(user.socialLinks).some((url) => url) ? (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {Object.entries(user.socialLinks).map(([key, value]) =>
+                        value ? (
+                          <a
+                            key={key}
+                            href={/^https?:\/\//i.test(value) ? value : `https://${value}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#1892aa', textDecoration: 'none', fontSize: 14 }}
+                            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                          >
+                            {key.charAt(0).toUpperCase() + key.slice(1)}
+                          </a>
+                        ) : null
+                      )}
+                    </div>
+                  ) : (
+                    <p style={styles.detailValue}>Not provided</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1762,38 +2067,98 @@ export default function Profile() {
               </div>
 
               {/* Company Picture Gallery */}
-              {profilePictures.length > 0 && (
+              {(profilePictures.length > 0 || (user?.role === "employer" && isOwnProfile)) && (
                 <div style={{
                   marginTop: 24,
                   paddingTop: 24,
                   borderTop: `1px solid ${isDarkMode ? "#333" : "#e0e0e0"}`,
                 }}>
-                  <h3 style={{
-                    margin: "0 0 12px 0",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    color: isDarkMode ? "#ffffff" : "#000",
-                  }}>
-                    Company Building & Location
-                  </h3>
-                  <div style={styles.companyGalleryGrid}>
-                    {profilePictures.map((pictureSrc, index) => (
-                      <a
-                        key={`company-picture-${index}`}
-                        href={pictureSrc}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        style={styles.companyGalleryItem}
-                      >
-                        <img
-                          src={pictureSrc}
-                          alt={`Company view ${index + 1}`}
-                          style={styles.companyGalleryImage}
-                        />
-                        <span style={styles.companyGalleryOverlay}>View full size</span>
-                      </a>
-                    ))}
+                  <div style={styles.companyGalleryHeader}>
+                    <h3 style={{
+                      margin: 0,
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: isDarkMode ? "#ffffff" : "#000",
+                    }}>
+                      Company Building & Location
+                    </h3>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      {user?.role === "employer" && isOwnProfile && (
+                        <button
+                          type="button"
+                          style={styles.addPhotoButton}
+                          onClick={openAddPhotosDialog}
+                          disabled={uploadingCompanyPhotos}
+                        >
+                          {uploadingCompanyPhotos ? "Uploading..." : "Add photos"}
+                        </button>
+                      )}
+                      {profilePictures.length > 0 && (
+                        <button
+                          type="button"
+                          style={styles.viewAllButton}
+                          onClick={openAllPhotosModal}
+                        >
+                          View all ({profilePictures.length})
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  <input
+                    ref={companyPhotoUploadRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleCompanyPhotosSelect}
+                    style={{ display: "none" }}
+                  />
+
+                  {profilePictures.length > 0 ? (
+                    <div style={styles.companyGalleryGrid}>
+                      {previewProfilePictures.map((pictureSrc, index) => (
+                        <button
+                          key={`company-picture-${index}`}
+                          type="button"
+                          onClick={openAllPhotosModal}
+                          style={{
+                            ...styles.companyGalleryItem,
+                            cursor: "pointer",
+                            border: "none",
+                            padding: 0,
+                            background: "transparent",
+                          }}
+                        >
+                          <img
+                            src={pictureSrc}
+                            alt={`Company view ${index + 1}`}
+                            style={styles.companyGalleryImage}
+                          />
+                          <span style={styles.companyGalleryOverlay}>
+                            View
+                          </span>
+                          {hasMorePhotos && index === 3 && (
+                            <div style={styles.morePhotosBadge}>
+                              +{extraPhotoCount}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      borderRadius: 16,
+                      padding: 24,
+                      backgroundColor: isDarkMode ? "#111827" : "#f8fafc",
+                      color: isDarkMode ? "#e2e8f0" : "#475569",
+                      textAlign: "center",
+                    }}>
+                      <p style={{ margin: 0, fontWeight: 600 }}>No company photos yet</p>
+                      <p style={{ marginTop: 8, color: isDarkMode ? "#cbd5e1" : "#64748b" }}>
+                        Add photos to showcase your company location and workspace.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2352,6 +2717,60 @@ export default function Profile() {
             </div>
           )}
 
+          {showAllPhotosModal && (
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={closeAllPhotosModal}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.modalHeader}>
+                  <h2 style={styles.modalTitle}>All Photos</h2>
+                  <button style={styles.modalClose} onClick={closeAllPhotosModal}>✕</button>
+                </div>
+                <div style={styles.modalBody}>
+                  <div style={styles.allPhotosGrid}>
+                    {profilePictures.map((pictureSrc, index) => (
+                      <div key={`all-company-picture-${index}`} style={styles.allPhotosItem}>
+                        {isOwnProfile && (
+                          <button
+                            type="button"
+                            style={styles.deletePhotoButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePhoto(index);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
+                        <img
+                          src={pictureSrc}
+                          alt={`Photo ${index + 1}`}
+                          style={styles.allPhotosImage}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showPhotoModal && selectedPhotoSrc && (
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={closePhotoModal}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.modalHeader}>
+                  <h2 style={styles.modalTitle}>Company Photo</h2>
+                  <button style={styles.modalClose} onClick={closePhotoModal}>✕</button>
+                </div>
+                <div style={styles.modalBody}>
+                  <img
+                    src={selectedPhotoSrc}
+                    alt="Company full size"
+                    style={styles.galleryModalImage}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {showImageModal && (
             <div className="modal-overlay" style={styles.modalOverlay} onClick={closeImageModal}>
               <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -2454,6 +2873,28 @@ export default function Profile() {
                     disabled={!(selectedImagePreview || user?.profilePicture || user?.companyLogo) || uploadingAvatar}
                   >
                     {uploadingAvatar ? "Uploading..." : "Upload image"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showConfirmModal && (
+            <div className="modal-overlay" style={styles.modalOverlay} onClick={handleConfirmDialogCancel}>
+              <div className="modal-card" style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.modalHeader}>
+                  <h2 style={styles.modalTitle}>{confirmDialogOptions.title || "Confirm"}</h2>
+                  <button style={styles.modalClose} onClick={handleConfirmDialogCancel}>✕</button>
+                </div>
+                <div style={styles.modalBody}>
+                  <p style={{ margin: 0, color: "#334155" }}>{confirmDialogOptions.message}</p>
+                </div>
+                <div style={styles.modalActions}>
+                  <button style={styles.cancelButton} onClick={handleConfirmDialogCancel} type="button">
+                    {confirmDialogOptions.cancelText || "Cancel"}
+                  </button>
+                  <button style={styles.uploadButton} onClick={handleConfirmDialogConfirm} type="button">
+                    {confirmDialogOptions.confirmText || "Confirm"}
                   </button>
                 </div>
               </div>
@@ -2801,6 +3242,83 @@ const styles = {
     fontSize: "0.9rem",
     fontWeight: 600,
     opacity: 1,
+  },
+
+  companyGalleryHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+
+  viewAllButton: {
+    border: "1px solid #2563eb",
+    background: "#2563eb",
+    color: "#ffffff",
+    padding: "10px 18px",
+    borderRadius: "999px",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    transition: "background-color 0.2s ease, transform 0.2s ease",
+  },
+
+  addPhotoButton: {
+    border: "1px solid #2563eb",
+    background: "#ffffff",
+    color: "#2563eb",
+    padding: "10px 18px",
+    borderRadius: "999px",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    transition: "background-color 0.2s ease, transform 0.2s ease",
+  },
+
+  morePhotosBadge: {
+    position: "absolute",
+    inset: "auto 12px 12px auto",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "rgba(0,0,0,0.72)",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+  },
+
+  allPhotosGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+  },
+
+  allPhotosItem: {
+    position: "relative",
+    borderRadius: "16px",
+    overflow: "hidden",
+    background: "rgba(255,255,255,0.04)",
+  },
+
+  deletePhotoButton: {
+    position: "absolute",
+    top: "10px",
+    right: "10px",
+    zIndex: 2,
+    border: "none",
+    background: "rgba(0, 0, 0, 0.6)",
+    color: "#ffffff",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    fontSize: "0.8rem",
+    cursor: "pointer",
+  },
+
+  allPhotosImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
   },
 
   navActions: {
@@ -3960,14 +4478,14 @@ const styles = {
   },
 
   modalCard: {
-    width: "min(620px, 90vw)",
+    width: "min(920px, 95vw)",
     maxHeight: "90vh",
     overflowY: "auto",
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--surface)",
     borderRadius: "24px",
     padding: "28px",
     boxShadow: "0 28px 70px rgba(15, 23, 42, 0.2)",
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--border)",
   },
 
   modalHeader: {
@@ -3980,7 +4498,7 @@ const styles = {
   modalTitle: {
     margin: 0,
     fontSize: "1.75rem",
-    color: "#0f172a",
+    color: "var(--text)",
   },
 
   modalClose: {
@@ -3988,13 +4506,21 @@ const styles = {
     background: "transparent",
     fontSize: "1.25rem",
     cursor: "pointer",
-    color: "#475569",
+    color: "var(--text-muted)",
   },
 
   modalBody: {
     display: "grid",
     gap: "12px",
-    color: "#334155",
+    color: "var(--text)",
+  },
+
+  galleryModalImage: {
+    width: "100%",
+    maxHeight: "70vh",
+    objectFit: "contain",
+    borderRadius: "16px",
+    display: "block",
   },
 
   modalLabel: {

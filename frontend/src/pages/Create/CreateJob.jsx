@@ -64,6 +64,8 @@ const CreateJob = () => {
     salaryMin: "",
     salaryMax: "",
     salaryFrequency: "monthly",
+    employmentType: "Full-time",
+    remoteType: "Remote",
     externalLink: "",
   });
   const [jobMedia, setJobMedia] = useState(null);
@@ -229,7 +231,8 @@ const CreateJob = () => {
   const isEmployer = !authChecking && userRole === "employer";
   const descriptionWordLimit = isPremium ? 300 : 100;
   const requirementsWordLimit = isPremium ? 150 : 60;
-  const activeJobLimitText = isPremium ? "Unlimited" : "3";
+  const activeJobLimitText = isPremium ? "Unlimited" : "1";
+  const activeJobDurationText = isPremium ? "Your premium job stays active for 2 months." : "Free jobs stay active for 2 weeks.";
 
   const handleMediaUpload = (e) => {
     const file = e.target.files?.[0];
@@ -316,6 +319,19 @@ const CreateJob = () => {
         return;
       }
 
+      const salaryMinValue = formData.salaryMin ? parseInt(formData.salaryMin, 10) : undefined;
+      const salaryMaxValue = formData.salaryMax ? parseInt(formData.salaryMax, 10) : undefined;
+
+      if (
+        salaryMinValue !== undefined &&
+        salaryMaxValue !== undefined &&
+        salaryMinValue > salaryMaxValue
+      ) {
+        showMessage("Salary minimum cannot be greater than salary maximum.", "error");
+        setLoading(false);
+        return;
+      }
+
       const rawLink = formData.externalLink.trim();
       const normalizedLink =
         rawLink && !/^https?:\/\//i.test(rawLink)
@@ -327,14 +343,16 @@ const CreateJob = () => {
         description: formData.description,
         requirements: formData.requirements,
         location: formData.location,
-        salary: formData.salaryMin
-          ? parseInt(formData.salaryMin)
+        salary: salaryMinValue
+          ? salaryMinValue
           : formData.salary
-          ? parseInt(formData.salary)
+          ? parseInt(formData.salary, 10)
           : 0,
-        salaryMin: formData.salaryMin ? parseInt(formData.salaryMin) : undefined,
-        salaryMax: formData.salaryMax ? parseInt(formData.salaryMax) : undefined,
+        salaryMin: salaryMinValue,
+        salaryMax: salaryMaxValue,
         salaryFrequency: formData.salaryFrequency,
+        employmentType: formData.employmentType || "Full-time",
+        remoteType: formData.remoteType || "Remote",
         externalLink: normalizedLink || undefined,
         media: jobMedia || undefined,
       };
@@ -349,10 +367,34 @@ const CreateJob = () => {
         }
       );
 
+      // Optimistic UI: publish the newly created job to a small client cache
+      // and dispatch a window event so Browse can pick it up immediately.
+      const createdJob = response.data?.data || response.data || null;
+      try {
+        if (createdJob) {
+          // Save to local cache for later merging (survives reload)
+          const key = "applica:optimisticJobs";
+          const existing = JSON.parse(localStorage.getItem(key) || "[]");
+          localStorage.setItem(key, JSON.stringify([createdJob, ...existing]));
+
+          // Dispatch an in-window event for immediate update
+          try {
+            window.dispatchEvent(new CustomEvent("applica:newJob", { detail: createdJob }));
+          } catch (evErr) {
+            // Fallback for environments that don't support CustomEvent constructor
+            const evt = document.createEvent("CustomEvent");
+            evt.initCustomEvent("applica:newJob", true, true, createdJob);
+            window.dispatchEvent(evt);
+          }
+        }
+      } catch (cacheErr) {
+        console.error("Failed to cache optimistic job:", cacheErr);
+      }
+
       showMessage("Job posted successfully!", "success");
       setTimeout(() => {
-        navigate("/profile");
-      }, 1500);
+        navigate("/explore");
+      }, 1200);
     } catch (error) {
       showMessage(
         error.response?.data?.message || "Error posting job",
@@ -390,8 +432,9 @@ const CreateJob = () => {
                 <p style={styles.planBannerText}>
                   {isPremium
                     ? `Unlimited active jobs, up to ${descriptionWordLimit} words for job descriptions, and up to ${requirementsWordLimit} words for requirements.`
-                    : `Up to ${activeJobLimitText} active jobs (${activeJobCount} currently active). Free employers are limited to ${descriptionWordLimit} words in descriptions and ${requirementsWordLimit} words in requirements.`}
+                    : `Up to ${activeJobLimitText} active job (${activeJobCount} currently active). Free employers are limited to ${descriptionWordLimit} words in descriptions and ${requirementsWordLimit} words in requirements.`}
                 </p>
+                <p style={styles.planBannerTextSmaller}>{activeJobDurationText}</p>
               </div>
               {!isPremium && (
                 <button
@@ -571,6 +614,38 @@ const CreateJob = () => {
                     Add a minimum and maximum salary, then choose how it is paid.
                   </span>
                 </div>
+              </div>
+            </div>
+
+            <div style={styles.twoColumnGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Employment type</label>
+                <select
+                  name="employmentType"
+                  value={formData.employmentType}
+                  onChange={handleInputChange}
+                  style={styles.select}
+                >
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Internship">Internship</option>
+                  <option value="Freelance">Freelance</option>
+                  <option value="Contract">Contract</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Remote / work type</label>
+                <select
+                  name="remoteType"
+                  value={formData.remoteType}
+                  onChange={handleInputChange}
+                  style={styles.select}
+                >
+                  <option value="Remote">Remote</option>
+                  <option value="On-site">On-site</option>
+                  <option value="Hybrid">Hybrid</option>
+                </select>
               </div>
             </div>
 
@@ -905,6 +980,12 @@ const styles = {
     color: "var(--text)",
     lineHeight: 1.5,
     marginTop: "6px",
+  },
+  planBannerTextSmaller: {
+    fontSize: "12px",
+    color: "var(--text-muted)",
+    lineHeight: 1.4,
+    marginTop: "4px",
   },
   upgradeBtn: {
     padding: "10px 16px",

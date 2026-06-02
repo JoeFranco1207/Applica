@@ -70,9 +70,17 @@ export const uploadResumeController = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) throw new AppError('User not found', 404);
     user.resume = publicUrl;
+    user.resumes = user.resumes || [];
+    user.resumes = user.resumes.map((item) => ({ ...item, default: false }));
+    user.resumes.push({
+      fileName: req.file.filename,
+      url: publicUrl,
+      uploadedAt: new Date(),
+      default: true,
+    });
     await user.save();
 
-    return res.status(201).json({ ok: true, url: publicUrl, fileName: req.file.filename });
+    return res.status(201).json({ ok: true, url: publicUrl, fileName: req.file.filename, resumes: user.resumes });
   } catch (err) {
     next(err);
   }

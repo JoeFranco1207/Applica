@@ -5,14 +5,20 @@ import AppError from "../Middleware/AppError.js";
 // Premium limits configuration
 const PREMIUM_LIMITS = {
   free: {
-    maxActiveJobs: 3,
+    maxActiveJobs: 1,
+    descriptionMaxWords: 100,
+    requirementsMaxWords: 60,
     descriptionMaxChars: 500,
     requirementsMaxChars: 300,
+    postDurationDays: 14,
   },
   premium: {
     maxActiveJobs: null, // unlimited
+    descriptionMaxWords: 300,
+    requirementsMaxWords: 150,
     descriptionMaxChars: 2000,
     requirementsMaxChars: 1000,
+    postDurationDays: 60,
   },
 };
 
@@ -26,6 +32,8 @@ export const createJob = async (jobData, employerId) => {
     salaryMin,
     salaryMax,
     salaryFrequency,
+    employmentType,
+    remoteType,
     externalLink,
     media,
   } = jobData;
@@ -56,6 +64,10 @@ export const createJob = async (jobData, employerId) => {
     const activeJobCount = await Job.countDocuments({
       createdBy: employerId,
       deletedAt: { $exists: false },
+      $or: [
+        { expiresAt: { $exists: false } },
+        { expiresAt: { $gt: new Date() } },
+      ],
     });
 
     if (activeJobCount >= limits.maxActiveJobs) {
@@ -116,11 +128,15 @@ export const createJob = async (jobData, employerId) => {
     requirements,
     companyName: employer.companyName,
     location,
+    employmentType: employmentType || "Full-time",
+    remoteType: remoteType || "Remote",
     salary: salaryMin ? Number(salaryMin) : salary ? Number(salary) : 0,
     salaryMin: salaryMin ? Number(salaryMin) : undefined,
     salaryMax: salaryMax ? Number(salaryMax) : undefined,
     salaryFrequency: salaryFrequency || "monthly",
     createdBy: employerId,
+    expiresAt: new Date(Date.now() + limits.postDurationDays * 24 * 60 * 60 * 1000),
+    postPlan: isPremium ? "premium" : "free",
   };
 
   if (externalLink) {

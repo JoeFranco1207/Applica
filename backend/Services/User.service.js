@@ -282,6 +282,19 @@ export const loginService = async(email, password, deviceInfo) => {
         // Normalize legacy employer_ prefixed plan values before save
         normalizePlanFields(existingUser);
 
+        // Defensive: if legacy documents stored `location` as an empty string,
+        // convert to the object shape expected by the schema so Mongo doesn't
+        // attempt to create nested fields inside a string element.
+        if (existingUser.location == null || typeof existingUser.location === 'string') {
+          existingUser.location = {
+            region: '',
+            city: '',
+            barangay: '',
+            otherDetails: '',
+            coords: { lat: null, lng: null },
+          };
+        }
+
         await existingUser.save();
 
         return { token, user: safeUser };

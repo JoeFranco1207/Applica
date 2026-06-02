@@ -444,9 +444,21 @@ export default function BrowseJob() {
   const isEmployer = currentRole === 'employer';
   const isJobseeker = currentRole === 'jobseeker';
   const [searchTerm, setSearchTerm] = useState("");
+  const [sidebarKeyword, setSidebarKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [locationFilter, setLocationFilter] = useState("All");
   const [companyFilter, setCompanyFilter] = useState("All");
+  const [employmentTypes, setEmploymentTypes] = useState(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
+  const [salaryRange, setSalaryRange] = useState([10000, 100000]);
+  const [remoteOptions, setRemoteOptions] = useState(["All"]);
+  const [appliedSidebarKeyword, setAppliedSidebarKeyword] = useState("");
+  const [appliedSelectedCategory, setAppliedSelectedCategory] = useState("All");
+  const [appliedLocationFilter, setAppliedLocationFilter] = useState("All");
+  const [appliedCompanyFilter, setAppliedCompanyFilter] = useState("All");
+  const [appliedEmploymentTypes, setAppliedEmploymentTypes] = useState(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
+  const [appliedSalaryRange, setAppliedSalaryRange] = useState([10000, 100000]);
+  const [appliedRemoteOptions, setAppliedRemoteOptions] = useState(["All"]);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [resumeMatchEnabled, setResumeMatchEnabled] = useState(true);
   const [premiumAIAccess, setPremiumAIAccess] = useState(!!effectiveUser?.premiumAIAccess);
   const [savedJobIds, setSavedJobIds] = useState(() => {
@@ -1397,7 +1409,25 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
       try {
         const response = await axios.get("http://localhost:8000/api/jobs");
-        setJobs(response.data.data || []);
+        const fetched = response.data.data || [];
+        setJobs(fetched);
+
+        // Merge any optimistic jobs created locally (optimistic cache)
+        try {
+          const key = "applica:optimisticJobs";
+          const optimistic = JSON.parse(localStorage.getItem(key) || "[]");
+          if (Array.isArray(optimistic) && optimistic.length > 0) {
+            const existingIds = new Set(fetched.map((j) => j._id));
+            const toAdd = optimistic.filter((j) => !existingIds.has(j._id));
+            if (toAdd.length > 0) {
+              setJobs((prev) => [...toAdd, ...prev]);
+            }
+            // Clear optimistic cache after merging
+            localStorage.removeItem(key);
+          }
+        } catch (mergeErr) {
+          console.error('Failed to merge optimistic jobs', mergeErr);
+        }
       } catch (error) {
         console.error("Job fetch error", error);
         setJobError("Hindi mai-load ang mga job ngayon.");
@@ -1424,11 +1454,36 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     fetchSocialPosts();
   }, [token]);
 
+  // Listen for optimistic new job events from other parts of the app
+  useEffect(() => {
+    const onNewJob = (e) => {
+      const job = e?.detail || (e && e.detail) || null;
+      if (!job || !job._id) return;
+
+      setJobs((prev) => {
+        if (prev.some((j) => j._id === job._id)) return prev;
+        return [job, ...prev];
+      });
+    };
+
+    window.addEventListener("applica:newJob", onNewJob);
+    return () => window.removeEventListener("applica:newJob", onNewJob);
+  }, []);
+
   const tabs = ["forYou", "following", "job", "post", "saved"];
   const [activeTab, setActiveTab] = useState("forYou");
+  const [sortMode, setSortMode] = useState("recent"); // 'recent' or 'relevant'
 
-  const showJobSection = ["forYou", "job", "saved"].includes(activeTab);
-  const showPostSection = ["forYou", "following", "post"].includes(activeTab);
+  const isForYou = activeTab === "forYou";
+  const showJobSection = ["job", "saved"].includes(activeTab);
+  const showPostSection = ["following", "post"].includes(activeTab);
+  const showCombinedForYouFeed = isForYou;
+  const showJobFilter = activeTab === "job";
+  const showPostComposer = (showCombinedForYouFeed || showPostSection) && currentUser?.role === "jobseeker";
+  const feedSectionStyle = {
+    ...styles.feedSection,
+    gridTemplateColumns: showJobFilter ? "280px 1.5fr 1fr" : "1.5fr 1fr",
+  };
 
   const followingPostItems = socialPosts.filter((post) => {
     const authorId = getUserId(post.author);
@@ -1449,6 +1504,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       company: job.companyName,
       role: job.title,
       location: job.location || "Remote",
+      employmentType: job.employmentType || job.jobType || "Full-time",
+      remoteType: job.remoteType || (job.location?.toLowerCase().includes("remote") ? "Remote" : "On-site"),
+      salaryValue: job.salaryMax || job.salary || job.salaryMin || 0,
       postedAt: job.createdAt
         ? new Date(job.createdAt).toLocaleDateString("en-US", {
             month: "short",
@@ -1473,6 +1531,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       externalLink: job.externalLink,
       media: job.media,
       createdBy: job.createdBy,
+      createdAt: job.createdAt,
       createdById: job.createdBy?._id,
       employerEmail: job.createdBy?.email,
       employerAvatar: job.createdBy?.role === 'employer' ? job.createdBy?.companyLogo : job.createdBy?.profilePicture,
@@ -1481,11 +1540,119 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     };
   });
 
+  // Helper: get Date from document (prefer `createdAt`, fallback to ObjectId timestamp)
+  const getDocTimestamp = (doc) => {
+    try {
+      if (!doc) return new Date(0);
+      if (doc.createdAt) return new Date(doc.createdAt);
+      const id = doc._id || doc.id;
+      if (!id || typeof id !== 'string') return new Date(0);
+      const ts = parseInt(id.substring(0, 8), 16) * 1000;
+      return new Date(ts);
+    } catch (err) {
+      return new Date(0);
+    }
+  };
+
+  // Helper: compute displayed social posts (extracted from inline IIFE)
+  const getDisplayedSocial = () => {
+    const source = activeTab === "following" ? followingPostItems : socialPosts;
+    if (!Array.isArray(source)) return [];
+
+    if (sortMode === 'recent') {
+      return [...source].sort((a, b) => getDocTimestamp(b) - getDocTimestamp(a));
+    }
+
+    return [...source].sort((a, b) => {
+      const scoreA = (a.likes?.length || a.likes || 0) * 2 + (a.views || 0) * 1 + (a.comments?.length || 0) * 1.5;
+      const scoreB = (b.likes?.length || b.likes || 0) * 2 + (b.views || 0) * 1 + (b.comments?.length || 0) * 1.5;
+      return scoreB - scoreA;
+    });
+  };
+
+  const formatCurrency = (value) => {
+    try {
+      return new Intl.NumberFormat("en-PH", {
+        style: "currency",
+        currency: "PHP",
+        minimumFractionDigits: 0,
+      }).format(value);
+    } catch {
+      return `₱${value.toLocaleString()}`;
+    }
+  };
+
+  const toggleEmploymentType = (type) => {
+    setEmploymentTypes((current) => {
+      if (type === "All Types") {
+        return ["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"];
+      }
+      const hasType = current.includes(type);
+      const next = hasType ? current.filter((item) => item !== type) : [...current.filter((item) => item !== "All Types"), type];
+      const allSelected = ["Full-time", "Part-time", "Internship", "Freelance", "Contract"].every((option) => next.includes(option));
+      return allSelected ? ["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"] : next;
+    });
+  };
+
+  const toggleRemoteOption = (option) => {
+    setRemoteOptions((current) => {
+      if (option === "All") {
+        return ["All"];
+      }
+      const next = current.includes(option)
+        ? current.filter((item) => item !== option)
+        : [...current.filter((item) => item !== "All"), option];
+      return next.length === 0 ? ["All"] : next;
+    });
+  };
+
+  const clearJobFilters = () => {
+    setSidebarKeyword("");
+    setSelectedCategory("All");
+    setLocationFilter("All");
+    setCompanyFilter("All");
+    setEmploymentTypes(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
+    setSalaryRange([10000, 100000]);
+    setRemoteOptions(["All"]);
+    setAppliedSidebarKeyword("");
+    setAppliedSelectedCategory("All");
+    setAppliedLocationFilter("All");
+    setAppliedCompanyFilter("All");
+    setAppliedEmploymentTypes(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
+    setAppliedSalaryRange([10000, 100000]);
+    setAppliedRemoteOptions(["All"]);
+  };
+
+  const applyJobFilters = () => {
+    setAppliedSidebarKeyword(sidebarKeyword);
+    setAppliedSelectedCategory(selectedCategory);
+    setAppliedLocationFilter(locationFilter);
+    setAppliedCompanyFilter(companyFilter);
+    setAppliedEmploymentTypes(employmentTypes);
+    setAppliedSalaryRange(salaryRange);
+    setAppliedRemoteOptions(remoteOptions);
+  };
+
   const rankedJobPosts = resumeMatchEnabled
     ? [...jobPosts].sort((a, b) => (b.resumeScore || 0) - (a.resumeScore || 0))
     : jobPosts;
 
-  const feedItemsToShow = jobs.length ? rankedJobPosts : samplePosts;
+  // Apply sort mode: recent (newest first) or relevant (popularity by views/likes/applicants)
+  const scoredAndSorted = (() => {
+    const arr = [...rankedJobPosts];
+    if (sortMode === 'recent') {
+      return arr.sort((a, b) => getDocTimestamp(b) - getDocTimestamp(a));
+    }
+
+    // relevance score: weighted sum of likes and views and applicants
+    return arr.sort((a, b) => {
+      const scoreA = (a.likes || 0) * 2 + (a.views || 0) * 1 + (a.applicants || 0) * 1.5;
+      const scoreB = (b.likes || 0) * 2 + (b.views || 0) * 1 + (b.applicants || 0) * 1.5;
+      return scoreB - scoreA;
+    });
+  })();
+
+  const feedItemsToShow = jobs.length ? scoredAndSorted : samplePosts;
   const filteredPosts = feedItemsToShow.filter((post) => {
     if (activeTab === "saved" && !savedJobIds.includes(post.id)) {
       return false;
@@ -1502,19 +1669,91 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       .toLowerCase();
 
     const matchesSearch = searchText.includes(searchTerm.toLowerCase());
+    const matchesKeyword =
+      !appliedSidebarKeyword.trim() ||
+      searchText.includes(appliedSidebarKeyword.toLowerCase());
     const matchesCategory =
-      selectedCategory === "All" ||
+      appliedSelectedCategory === "All" ||
       post.tags?.some((tag) =>
-        tag.toLowerCase().includes(selectedCategory.toLowerCase())
+        tag.toLowerCase().includes(appliedSelectedCategory.toLowerCase())
       ) ||
-      post.role.toLowerCase().includes(selectedCategory.toLowerCase());
+      post.role.toLowerCase().includes(appliedSelectedCategory.toLowerCase());
     const matchesLocation =
-      locationFilter === "All" || post.location === locationFilter;
+      appliedLocationFilter === "All" || post.location === appliedLocationFilter;
     const matchesCompany =
-      companyFilter === "All" || post.company === companyFilter;
+      appliedCompanyFilter === "All" || post.company === appliedCompanyFilter;
+    const matchesEmployment =
+      appliedEmploymentTypes.includes("All Types") ||
+      appliedEmploymentTypes.includes(post.employmentType) ||
+      appliedEmploymentTypes.includes(post.jobType);
+    const salaryMinValue = appliedSalaryRange[0];
+    const salaryMaxValue = appliedSalaryRange[1];
+    const salaryValue = post.salaryValue || 0;
+    const matchesSalary =
+      salaryValue === 0 ||
+      (salaryValue >= salaryMinValue && salaryValue <= salaryMaxValue);
+    const matchesRemote =
+      appliedRemoteOptions.includes("All") ||
+      appliedRemoteOptions.some((option) =>
+        post.remoteType?.toLowerCase().includes(option.toLowerCase())
+      );
 
-    return matchesSearch && matchesCategory && matchesLocation && matchesCompany;
+    return (
+      matchesSearch &&
+      matchesKeyword &&
+      matchesCategory &&
+      matchesLocation &&
+      matchesCompany &&
+      matchesEmployment &&
+      matchesSalary &&
+      matchesRemote
+    );
   });
+
+  const forYouFeedItems = (() => {
+    if (!isForYou) return [];
+    const lowerSearch = searchTerm.trim().toLowerCase();
+
+    const matchesSearch = (item) => {
+      if (!lowerSearch) return true;
+      const searchText = [
+        item.role,
+        item.company,
+        item.location,
+        item.description,
+        item.tags?.join(" "),
+        item.content,
+        item.authorName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchText.includes(lowerSearch);
+    };
+
+    const feedSource = [
+      ...getDisplayedSocial().map((post) => ({ ...post, __feedType: "post" })),
+      ...jobPosts.map((job) => ({ ...job, __feedType: "job" })),
+    ].filter(matchesSearch);
+
+    return feedSource.sort((a, b) => {
+      if (sortMode === "recent") {
+        return getDocTimestamp(b) - getDocTimestamp(a);
+      }
+
+      const scoreA =
+        (a.likes?.length || a.likes || 0) * 2 +
+        (a.views || 0) * 1 +
+        (a.applicants || 0) * 1.5 +
+        (a.comments?.length || 0) * 1.2;
+      const scoreB =
+        (b.likes?.length || b.likes || 0) * 2 +
+        (b.views || 0) * 1 +
+        (b.applicants || 0) * 1.5 +
+        (b.comments?.length || 0) * 1.2;
+      return scoreB - scoreA;
+    });
+  })();
 
   const trendingJobs = jobs.length
     ? [...jobPosts].sort((a, b) => b.views - a.views)
@@ -1554,73 +1793,35 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
           />
         </div>
 
-        <div style={styles.filterRow}>
-          <select
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-            style={styles.filterSelect}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Sort:</div>
+          <button
+            onClick={() => setSortMode('recent')}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: sortMode === 'recent' ? '1px solid var(--primary)' : '1px solid var(--border)',
+              background: sortMode === 'recent' ? 'var(--surface-alt)' : 'transparent',
+              cursor: 'pointer'
+            }}
           >
-            <option value="All">{t("browse.allLocations")}</option>
-            {[...new Set(jobs.map((job) => job.location || "Remote"))]
-              .filter(Boolean)
-              .map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-          </select>
-
-          <select
-            value={companyFilter}
-            onChange={(e) => setCompanyFilter(e.target.value)}
-            style={styles.filterSelect}
+            Recent
+          </button>
+          <button
+            onClick={() => setSortMode('relevant')}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: sortMode === 'relevant' ? '1px solid var(--primary)' : '1px solid var(--border)',
+              background: sortMode === 'relevant' ? 'var(--surface-alt)' : 'transparent',
+              cursor: 'pointer'
+            }}
           >
-            <option value="All">{t("browse.allCompanies")}</option>
-            {[...new Set(jobs.map((job) => job.companyName || "Unknown"))]
-              .filter(Boolean)
-              .map((company) => (
-                <option key={company} value={company}>
-                  {company}
-                </option>
-              ))}
-          </select>
-
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            style={styles.filterSelect}
-          >
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-
-          {currentUser?.role === 'jobseeker' && (
-            <button
-              type="button"
-              onClick={() => setResumeMatchEnabled((prev) => !prev)}
-              style={resumeMatchEnabled ? styles.premiumActiveButton : styles.premiumButton}
-            >
-              {resumeMatchEnabled ? 'Resume Match On' : 'Resume Match Off'}
-            </button>
-          )}
-
-          {currentUser?.role === 'jobseeker' && (
-            <button
-              type="button"
-              onClick={() => navigate('/ai-premium')}
-              style={premiumAIAccess ? styles.premiumActiveButton : styles.premiumButton}
-              disabled={premiumAIAccess}
-            >
-                  {premiumAIAccess
-                    ? 'AI Premium Active'
-                    : 'Upgrade AI Premium'}
-            </button>
-          )}
+            Relevant
+          </button>
         </div>
 
+        {/* Filters are shown in the left sidebar when Job tab is active */}
         <div style={styles.aiHintRow}>
           {currentUser?.role === 'jobseeker' && (
             <span style={styles.aiHintText}>
@@ -1632,26 +1833,139 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
           )}
         </div>
 
-        <div style={styles.categoryChips}>
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              style={
-                selectedCategory === category
-                  ? styles.activeChip
-                  : styles.chip
-              }
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+          {/* Category chips are available in the job filter sidebar */}
       </div>
 
-      <section style={styles.feedSection}>
+      <section style={feedSectionStyle}>
+        {showJobFilter && (
+          <aside style={styles.jobFilterColumn}>
+            <div style={styles.jobFilterCard}>
+              <div style={styles.filterHeaderRow}>
+                <div>
+                  <h3 style={styles.jobFilterTitle}>{t("browse.filters")}</h3>
+                  <p style={styles.filterSubtitle}>Refine job posts on this tab only</p>
+                </div>
+                <button style={styles.clearFiltersButton} onClick={clearJobFilters}>
+                  Clear all
+                </button>
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>Keyword</label>
+                <input
+                  type="text"
+                  value={sidebarKeyword}
+                  onChange={(e) => setSidebarKeyword(e.target.value)}
+                  placeholder="Job title, skills, or company"
+                  style={styles.jobFilterInput}
+                />
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>{t("browse.location")}</label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  style={styles.jobFilterSelect}
+                >
+                  <option value="All">{t("browse.allLocations")}</option>
+                  {[...new Set(jobs.map((job) => job.location || "Remote"))]
+                    .filter(Boolean)
+                    .map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>Job Category</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  style={styles.jobFilterSelect}
+                >
+                  <option value="All">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>Employment Type</label>
+                <div style={styles.checkboxGrid}>
+                  {["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"].map((type) => (
+                    <label key={type} style={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={employmentTypes.includes(type)}
+                        onChange={() => toggleEmploymentType(type)}
+                        style={styles.checkboxInput}
+                      />
+                      {type}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>Salary Range</label>
+                <div style={styles.salaryRow}>
+                  <span style={styles.salaryValue}>{formatCurrency(salaryRange[0])}</span>
+                  <span style={styles.salaryValue}>{formatCurrency(salaryRange[1])}+</span>
+                </div>
+                <input
+                  type="range"
+                  min={10000}
+                  max={100000}
+                  step={5000}
+                  value={salaryRange[1]}
+                  onChange={(e) => setSalaryRange([salaryRange[0], Number(e.target.value)])}
+                  style={styles.salarySlider}
+                />
+              </div>
+
+              <div style={styles.jobFilterSection}>
+                <label style={styles.jobFilterLabel}>Remote</label>
+                <div style={styles.checkboxGrid}>
+                  {["All", "Remote", "On-site", "Hybrid"].map((option) => (
+                    <label key={option} style={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={remoteOptions.includes(option)}
+                        onChange={() => toggleRemoteOption(option)}
+                        style={styles.checkboxInput}
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={applyJobFilters}
+                style={styles.applyFiltersButton}
+              >
+                See results
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMoreFilters((prev) => !prev)}
+                style={styles.moreFiltersButton}
+              >
+                More Filters
+              </button>
+            </div>
+          </aside>
+        )}
+
         <div style={styles.feedColumn}>
-          {showPostSection && currentUser?.role === "jobseeker" && (
+          {showPostComposer && (
             <div style={styles.postComposerCard}>
               <div style={styles.composerTop}>
                 <div style={styles.composerAvatar}>
@@ -1739,7 +2053,280 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
             </div>
           )}
 
-          {showPostSection && (
+          {showCombinedForYouFeed && (
+            <>
+              {forYouFeedItems.map((post) => (
+                post.__feedType === "job" ? (
+                  <div key={`job-${post.id}`} style={styles.xPostCard}>
+                    <div style={styles.postHeaderRow}>
+                      <div
+                        style={{
+                          ...styles.postAvatar,
+                          cursor: post.createdById ? 'pointer' : 'default',
+                        }}
+                        onClick={() => {
+                          if (post.createdById) navigate(`/profile/${post.createdById}`);
+                        }}
+                      >
+                        <PresenceAvatar
+                          src={post.employerAvatar}
+                          alt={post.employerName || post.company || 'Employer'}
+                          userId={post.createdById || getUserId(post.createdBy)}
+                          presenceMode={post.employerPresenceMode || post.createdBy?.presenceMode || (post.createdBy?.isOnline ? 'online' : undefined)}
+                          initialIsOnline={sameId(post.createdById || getUserId(post.createdBy), currentUserId) ? !!effectiveUser?.isOnline : !!post.createdBy?.isOnline}
+                          lastActive={post.authorLastActive || post.createdBy?.lastActive}
+                          size={48}
+                          style={{ width: '100%', height: '100%' }}
+                          showLastActive={false}
+                        />
+                      </div>
+                      <div style={styles.postHeading}>
+                        <div style={styles.postCompanyRow}>
+                          <span style={styles.postCompany}>{post.company}</span>
+                          <span style={styles.postDot}>·</span>
+                          <span style={styles.postMeta}>{post.postedAt}</span>
+                        </div>
+                        {post.employerEmail && (
+                          <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#0f766e', fontSize: '12px', fontWeight: '500', textAlign: 'left' }}>
+                            {post.employerEmail}
+                          </p>
+                        )}
+                        <p style={{ ...styles.postTagline, textAlign: 'left' }}>{post.location}</p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                          {post.employmentType && (
+                            <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600 }}>
+                              {post.employmentType}
+                            </span>
+                          )}
+                          {post.remoteType && (
+                            <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600 }}>
+                              {post.remoteType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.postBody}>
+                      <h2 style={styles.postRole}>{post.role}</h2>
+                      <p style={styles.postText}>{post.description}</p>
+                    </div>
+
+                    {post.media?.data && (
+                      <div style={styles.jobMediaPreview}>
+                        {post.media.type === "video" ? (
+                          <video src={post.media.data} style={styles.jobMediaItem} controls />
+                        ) : (
+                          <img src={post.media.data} alt="Job media" style={styles.jobMediaItem} />
+                        )}
+                      </div>
+                    )}
+
+                    <div style={styles.postTags}>
+                      {post.tags.map((tag, index) => (
+                        <span key={`${post.id}-tag-${index}`} style={styles.postTag}>{tag}</span>
+                      ))}
+                    </div>
+
+                    {post.externalLink && (
+                      <div style={styles.jobCardLink}>
+                        <a
+                          href={post.externalLink.startsWith("http") ? post.externalLink : `https://${post.externalLink}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={styles.jobLink}
+                        >
+                          View application link
+                        </a>
+                      </div>
+                    )}
+
+                    <div style={styles.postStatsRow}>
+                      <span style={styles.postStatItem}> {post.applicants} {t('browse.applicants')}</span>
+                      <span style={styles.postStatItem}> {post.views} {t('browse.views')}</span>
+                      <span style={styles.postStatItem}> {post.likes} {t('browse.likes')}</span>
+                    </div>
+
+                    <div style={styles.postActionRow}>
+                      <button
+                        style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
+                        onClick={() => handleSave(post.id)}
+                        title={savedJobIds.includes(post.id) ? "Alisin mula sa nai-save" : "I-save ang trabaho"}
+                      >
+                        <BookmarkIcon filled={savedJobIds.includes(post.id)} size={18} />
+                      </button>
+                      <button
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          ...(post.userLiked ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton),
+                        }}
+                        onClick={() => handleToggleLike(post.id)}
+                        disabled={jobActionLoading}
+                        title={t('browse.likePostTitle')}
+                      >
+                        <HeartIcon filled={post.userLiked} size={16} />
+                        <span>{post.likes}</span>
+                      </button>
+                      <button
+                        style={isEmployer ? { ...styles.actionButton, opacity: 0.5, cursor: 'not-allowed' } : styles.actionButton}
+                        onClick={() => openApplyModal(post)}
+                        disabled={jobActionLoading || isEmployer}
+                        title={isEmployer ? "Hindi makaka-apply ang employer" : "Mag-apply sa trabahong ito"}
+                      >
+                        <BriefcaseIcon size={18} />
+                      </button>
+                      <button
+                        style={styles.actionButton}
+                        onClick={() => openJobModal(post.id)}
+                        title="Tingnan ang buong detalye ng trabaho"
+                      >
+                        <ChevronRightIcon size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={`post-${post._id}`} style={styles.socialPostCard}>
+                    <div style={styles.socialPostHeader}>
+                      <div
+                        style={{ ...styles.postAvatar, cursor: post.author ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          const authorId = getUserId(post.author);
+                          if (authorId) navigate(`/profile/${authorId}`);
+                        }}
+                      >
+                        <PresenceAvatar
+                          src={post.authorAvatar}
+                          alt={post.authorName || 'User'}
+                          userId={getUserId(post.author)}
+                          presenceMode={post.authorPresenceMode || post.author?.presenceMode || (post.author?.isOnline ? 'online' : undefined)}
+                          initialIsOnline={sameId(getUserId(post.author), currentUserId) ? !!effectiveUser?.isOnline : !!post.author?.isOnline}
+                          lastActive={post.authorLastActive || post.author?.lastActive}
+                          size={48}
+                          style={{ width: '100%', height: '100%' }}
+                          showLastActive={false}
+                        />
+                      </div>
+                      <div style={styles.postHeading}>
+                        <div style={styles.postCompanyRow}>
+                          <span
+                            style={{ ...styles.postCompany, cursor: post.author ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              const authorId = getUserId(post.author);
+                              if (authorId) navigate(`/profile/${authorId}`);
+                            }}
+                          >
+                            {post.authorName || "Jobseeker"}
+                          </span>
+                          <span style={styles.postDot}>·</span>
+                          <span style={styles.postMeta}>{post.authorRole}</span>
+                          <span style={styles.postDot}>·</span>
+                          <span style={styles.postMeta}>{formatDateMonthDay(post.createdAt)}</span>
+                        </div>
+                        {post.authorEmail && (
+                          <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#1892aa', fontSize: '12px', textAlign: 'left' }}>
+                            {post.authorEmail}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                        {sameId(post.author, currentUserId) && (
+                          <>
+                            <button style={styles.actionButton} onClick={() => startEditPost(post)}>I-edit</button>
+                            <button style={styles.actionButton} onClick={() => archivePost(post._id)}>I-archive</button>
+                            <button style={{ ...styles.actionButton, background: '#ffefef', color: '#b91c1c' }} onClick={() => deletePost(post._id)}>Tanggalin</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div style={styles.postBody} onClick={() => openPostOrJob(post)}>
+                      <p style={styles.postText}>{post.content}</p>
+                      {post.location && (
+                        <p style={{ ...styles.postMeta, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <LocationIcon size={14} />
+                          {post.location.city}, {post.location.region}
+                        </p>
+                      )}
+                    </div>
+
+                    {post.media?.data && (
+                      <div style={{ marginTop: '12px', borderRadius: '12px', overflow: 'hidden' }}>
+                        {post.media.type === 'video' ? (
+                          <video src={post.media.data} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} controls />
+                        ) : (
+                          <img src={post.media.data} alt="post media" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} />
+                        )}
+                      </div>
+                    )}
+
+                    {post.tags?.length > 0 && (
+                      <div style={styles.postTags}>
+                        {post.tags.map((tag, index) => (
+                          <span key={`${post._id || post.id}-social-tag-${index}`} style={styles.postTag}>#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={styles.postEngagementDivider} />
+                    
+                    <div style={styles.postEngagementBar}>
+                      <button
+                        style={{
+                          ...styles.engagementButton,
+                          color: post.likes?.some((id) => id.toString() === currentUserId?.toString()) ? 'var(--primary)' : 'var(--text-muted)',
+                        }}
+                        onClick={() => togglePostLike(post._id)}
+                        title={t('browse.likePostTitle')}
+                      >
+                        <HeartIcon 
+                          filled={post.likes?.some((id) => id.toString() === currentUserId?.toString())} 
+                          size={16} 
+                        />
+                        <span>{post.likes?.length || 0}</span>
+                      </button>
+                      <button
+                        style={styles.engagementButton}
+                        title={t('browse.commentPostTitle')}
+                        onClick={() => openPostModal(post)}
+                      >
+                        <CommentIcon size={16} />
+                        <span>{post.comments?.length || 0}</span>
+                      </button>
+                      <button 
+                        style={styles.engagementButton} 
+                        title={t('browse.repostPostTitle')}
+                        onClick={() => handleRepost(post._id)}
+                      >
+                        <RepostIcon size={16} />
+                        <span>{post.reposts?.length || 0}</span>
+                      </button>
+                      <button 
+                        style={styles.engagementButton} 
+                        title={t('browse.sharePostTitle')}
+                        onClick={() => handleSharePost(post._id)}
+                      >
+                        <ShareIcon size={16} />
+                      </button>
+                    </div>
+
+                    {editingPostId === post._id && (
+                      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                        <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
+                        <input value={editingTags} onChange={(e) => setEditingTags(e.target.value)} placeholder="Mga tag (hiwalayin ng kuwit)" />
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button onClick={cancelEdit} style={styles.actionButton}>Kanselahin</button>
+                          <button onClick={saveEditPost} style={styles.postComposerButton}>I-save</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              ))}
+            </>
+          )}
+
+          {!showCombinedForYouFeed && showPostSection && (
             <>
               {socialPosts.length > 0 && (
                 <div style={styles.socialFeedHeading}>
@@ -1754,7 +2341,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 </div>
               )}
 
-              {(activeTab === "following" ? followingPostItems : socialPosts).map((post) => (
+              {getDisplayedSocial().map((post) => (
                 <div key={post._id} style={styles.socialPostCard}>
                   <div style={styles.socialPostHeader}>
                     <div
@@ -1893,7 +2480,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
             </>
           )}
 
-          {showJobSection && filteredPosts.map((post) => (
+          {!showCombinedForYouFeed && showJobSection && filteredPosts.map((post) => (
             <div key={post.id} style={styles.xPostCard}>
               <div style={styles.postHeaderRow}>
                 <div
@@ -1929,6 +2516,18 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                     </p>
                   )}
                   <p style={{ ...styles.postTagline, textAlign: 'left' }}>{post.location}</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                    {post.employmentType && (
+                      <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600 }}>
+                        {post.employmentType}
+                      </span>
+                    )}
+                    {post.remoteType && (
+                      <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600 }}>
+                        {post.remoteType}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2185,6 +2784,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               <h4 style={{ color: 'var(--text-h)', marginBottom: '12px', marginTop: 0 }}>Detalye</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: 'var(--text)' }}>
                 <li style={{ marginBottom: '10px' }}>Sahod: {formatSalaryText(modalJob)}</li>
+                {modalJob.employmentType && <li style={{ marginBottom: '10px' }}>Uri ng trabaho: {modalJob.employmentType}</li>}
+                {modalJob.remoteType && <li style={{ marginBottom: '10px' }}>Work setup: {modalJob.remoteType}</li>}
                 {modalJob.category && <li style={{ marginBottom: '10px' }}>Kategorya: {modalJob.category}</li>}
                 {modalJob.jobType && <li style={{ marginBottom: '10px' }}>Uri: {modalJob.jobType}</li>}
                 {modalJob.experienceLevel && <li style={{ marginBottom: '0' }}>Karanasan: {modalJob.experienceLevel}</li>}
@@ -2670,7 +3271,10 @@ const styles = {
     transition: "all 0.2s",
   },
   categoryChips: {
-    display: "none",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
+    gap: "8px",
+    marginTop: "12px",
   },
   chip: {
     padding: "6px 12px",
@@ -2984,6 +3588,134 @@ composerTextarea: {
     display: "grid",
     gap: "0",
     paddingLeft: "20px",
+  },
+  jobFilterColumn: {
+    display: "grid",
+    gap: "16px",
+    maxWidth: "280px",
+    paddingRight: "20px",
+  },
+  jobFilterCard: {
+    background: "var(--surface)",
+    borderRadius: "24px",
+    padding: "22px",
+    border: "1px solid var(--border)",
+    display: "grid",
+    gap: "18px",
+    boxShadow: "0 20px 50px rgba(0, 0, 0, 0.04)",
+  },
+  filterHeaderRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+  filterSubtitle: {
+    margin: "6px 0 0 0",
+    fontSize: "12px",
+    color: "var(--text-muted)",
+  },
+  clearFiltersButton: {
+    border: "none",
+    background: "transparent",
+    color: "var(--primary)",
+    fontWeight: "700",
+    cursor: "pointer",
+    padding: "6px 10px",
+    borderRadius: "12px",
+  },
+  jobFilterTitle: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "var(--text)",
+  },
+  jobFilterSection: {
+    display: "grid",
+    gap: "10px",
+  },
+  jobFilterLabel: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  jobFilterInput: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: "16px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    fontSize: "14px",
+    outline: "none",
+  },
+  jobFilterSelect: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: "16px",
+    border: "1px solid var(--border)",
+    background: "var(--surface-alt)",
+    color: "var(--text)",
+    fontSize: "14px",
+    outline: "none",
+    cursor: "pointer",
+  },
+  checkboxGrid: {
+    display: "grid",
+    gap: "10px",
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "14px",
+    color: "var(--text)",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  checkboxInput: {
+    width: "16px",
+    height: "16px",
+    accentColor: "var(--primary)",
+  },
+  salaryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    fontSize: "12px",
+    color: "var(--text-muted)",
+  },
+  salaryValue: {
+    fontWeight: "700",
+    color: "var(--text)",
+  },
+  salarySlider: {
+    width: "100%",
+    marginTop: "8px",
+    accentColor: "var(--primary)",
+  },
+  applyFiltersButton: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: "18px",
+    border: "none",
+    background: "var(--primary)",
+    color: "#fff",
+    fontWeight: "700",
+    cursor: "pointer",
+    transition: "transform 0.2s, opacity 0.2s",
+  },
+  moreFiltersButton: {
+    width: "100%",
+    padding: "12px 16px",
+    borderRadius: "16px",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    fontWeight: "700",
+    cursor: "pointer",
   },
   xPostCard: {
     background: "var(--surface)",

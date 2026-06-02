@@ -173,8 +173,140 @@ const userSchema = new mongoose.Schema({
       select: false,
     },
     
+    // Privacy & Settings
+    profileVisibility: {
+      type: String,
+      enum: ['public', 'private', 'connections'],
+      default: 'public',
+    },
+    showActivityStatus: {
+      type: Boolean,
+      default: true,
+    },
+    allowMessages: {
+      type: Boolean,
+      default: true,
+    },
+    showProfileInSearch: {
+      type: Boolean,
+      default: true,
+    },
+    jobAlerts: {
+      type: Boolean,
+      default: true,
+    },
+    applicationUpdates: {
+      type: Boolean,
+      default: true,
+    },
+    jobRecommendations: {
+      type: Boolean,
+      default: true,
+    },
+    interviewRequests: {
+      type: Boolean,
+      default: true,
+    },
+    messages: {
+      type: Boolean,
+      default: true,
+    },
+    marketingTips: {
+      type: Boolean,
+      default: false,
+    },
+    pushNotifications: {
+      type: Boolean,
+      default: true,
+    },
+    soundEffects: {
+      type: Boolean,
+      default: true,
+    },
+    vibration: {
+      type: Boolean,
+      default: true,
+    },
+    emailDigest: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly', 'never'],
+      default: 'weekly',
+    },
+    themePreference: {
+      type: String,
+      enum: ['light', 'dark', 'auto'],
+      default: 'light',
+    },
+    languagePreference: {
+      type: String,
+      enum: ['en', 'es', 'fil'],
+      default: 'en',
+    },
+    compactView: {
+      type: Boolean,
+      default: false,
+    },
+    fontSize: {
+      type: String,
+      enum: ['small', 'normal', 'large', 'extra-large'],
+      default: 'normal',
+    },
+    animationsEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    connectedAccounts: {
+      linkedin: { type: Boolean, default: false },
+      github: { type: Boolean, default: false },
+      google: { type: Boolean, default: false },
+      facebook: { type: Boolean, default: false },
+    },
+    supportTickets: [
+      {
+        ticketId: { type: String, required: true },
+        subject: { type: String, required: true },
+        message: { type: String, default: '' },
+        status: {
+          type: String,
+          enum: ['open', 'pending', 'closed'],
+          default: 'open',
+        },
+        createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
+    billingHistory: [
+      {
+        plan: { type: String, default: '' },
+        amountCents: { type: Number, default: 0 },
+        currency: { type: String, default: 'USD' },
+        status: { type: String, default: 'completed' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    resumes: [
+      {
+        fileName: { type: String, default: '' },
+        url: { type: String, default: '' },
+        uploadedAt: { type: Date, default: Date.now },
+        default: { type: Boolean, default: false },
+      },
+    ],
   }, options
  );
+
+// Ensure legacy string `location` fields are normalized to the object shape before saving
+userSchema.pre('save', function () {
+  if (this.location == null || typeof this.location === 'string') {
+    this.location = {
+      region: '',
+      city: '',
+      barangay: '',
+      otherDetails: '',
+      coords: { lat: null, lng: null },
+    };
+  }
+});
 
 export default mongoose.model("User", userSchema);
 

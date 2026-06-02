@@ -1,5 +1,5 @@
 import express from 'express';
-import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, deleteUser } from '../Controller/UserController.js';
+import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, deleteUser, updateProfile, changePassword, deactivateUser, createSupportTicket, getSupportTickets, updateConnectedAccounts, updateBillingPlan } from '../Controller/UserController.js';
 import { jobseekerProfile } from '../Controller/JobSeekerProfileController.js';
 import { protection } from '../Controller/ProtectionController.js';
 const router = express.Router();
@@ -13,6 +13,14 @@ router.post('/sendVerificationCode', sendVerificationCode);
 router.put('/verifyCode', verifyCode);
 router.put('/select-role', protection, chooseRole);
 router.get('/profile', protection, getProfile);
+router.put('/profile', protection, updateProfile);
+router.put('/profile/:id', protection, updateProfile);
+router.put('/change-password/:id', protection, changePassword);
+router.put('/deactivate/:id', protection, deactivateUser);
+router.post('/support/tickets', protection, createSupportTicket);
+router.get('/support/tickets', protection, getSupportTickets);
+router.put('/connected-accounts', protection, updateConnectedAccounts);
+router.put('/billing', protection, updateBillingPlan);
 router.delete('/profile', protection, deleteUser);
 router.get('/users/:id', protection, getUserById);
 

@@ -5,8 +5,24 @@ import Jobseeker from "../Model/JobseekerSchema.js";
 import { createNotificationService } from "./Notification.service.js";
 import { sendApplicantStatusEmail } from "./NodeMailer.js";
 
+const activeJobFilter = () => ({
+  deletedAt: { $exists: false },
+  $or: [
+    { expiresAt: { $exists: false } },
+    { expiresAt: { $gt: new Date() } },
+  ],
+});
+
+const getJobIfActive = async (jobId) => {
+  const job = await Job.findById(jobId);
+  if (!job || (job.expiresAt && job.expiresAt <= new Date())) {
+    throw new AppError("Job not found", 404);
+  }
+  return job;
+};
+
 export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => {
-  const query = Job.find()
+  const query = Job.find(activeJobFilter())
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
@@ -18,7 +34,7 @@ export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => 
 
   const jobs = await query;
   if (includeTotal) {
-    const total = await Job.countDocuments();
+    const total = await Job.countDocuments(activeJobFilter());
     return { jobs, total };
   }
 
@@ -26,10 +42,7 @@ export const getAllJobs = async ({ limit, skip, includeTotal = false } = {}) => 
 };
 
 export const addJobView = async (jobId, userId) => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   if (!job.views.includes(userId)) {
     job.views.push(userId);
@@ -46,10 +59,7 @@ export const addJobView = async (jobId, userId) => {
 };
 
 export const toggleJobLike = async (jobId, userId) => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   const likeIndex = job.likes.findIndex((id) => id.toString() === userId.toString());
   const isLiking = likeIndex === -1;
@@ -87,10 +97,7 @@ export const toggleJobLike = async (jobId, userId) => {
 };
 
 export const applyToJob = async (jobId, userId, coverLetter = '') => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   const existingApplication = job.applicants.find((application) => {
     if (application.user) {
@@ -172,10 +179,7 @@ export const applyToJob = async (jobId, userId, coverLetter = '') => {
 };
 
 export const notifyApplicantResumeViewed = async (jobId, employerId, applicantId) => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   if (job.createdBy.toString() !== employerId.toString()) {
     throw new AppError("Not authorized to view this applicant", 403);
@@ -209,10 +213,7 @@ export const notifyApplicantResumeViewed = async (jobId, employerId, applicantId
 };
 
 export const updateApplicantStatus = async (jobId, employerId, applicantId, status) => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   if (job.createdBy.toString() !== employerId.toString()) {
     throw new AppError("Not authorized to update this job application", 403);
@@ -303,7 +304,7 @@ export const getJobById = async (jobId) => {
     select: "firstName lastName email companyName role profilePicture companyLogo",
   });
 
-  if (!job) {
+  if (!job || (job.expiresAt && job.expiresAt <= new Date())) {
     throw new AppError("Job not found", 404);
   }
 
@@ -311,7 +312,14 @@ export const getJobById = async (jobId) => {
 };
 
 export const getEmployerJobs = async (employerId) => {
-  const jobs = await Job.find({ createdBy: employerId })
+  const jobs = await Job.find({
+      createdBy: employerId,
+      deletedAt: { $exists: false },
+      $or: [
+        { expiresAt: { $exists: false } },
+        { expiresAt: { $gt: new Date() } },
+      ],
+    })
     .sort({ createdAt: -1 })
     .populate({
       path: "createdBy",
@@ -391,10 +399,7 @@ export const deleteEmployerJob = async (jobId, employerId) => {
 };
 
 export const removeApplicant = async (jobId, employerId, applicantId) => {
-  const job = await Job.findById(jobId);
-  if (!job) {
-    throw new AppError("Job not found", 404);
-  }
+  const job = await getJobIfActive(jobId);
 
   if (job.createdBy.toString() !== employerId.toString()) {
     throw new AppError("Not authorized to remove this application", 403);

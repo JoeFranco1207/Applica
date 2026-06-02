@@ -49,6 +49,16 @@ export const jobSchema = new mongoose.Schema({
          required: true
     },
     location: String,
+    employmentType: {
+      type: String,
+      enum: ["Full-time", "Part-time", "Internship", "Freelance", "Contract"],
+      default: "Full-time",
+    },
+    remoteType: {
+      type: String,
+      enum: ["Remote", "On-site", "Hybrid"],
+      default: "Remote",
+    },
     salary: Number,
     salaryMin: Number,
     salaryMax: Number,
@@ -81,7 +91,15 @@ export const jobSchema = new mongoose.Schema({
       type: [applicantSchema],
       default: [],
     },
-
+    expiresAt: {
+      type: Date,
+      default: undefined,
+    },
+    postPlan: {
+      type: String,
+      enum: ['free', 'premium'],
+      default: 'free',
+    },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

@@ -397,7 +397,7 @@ export default function Navbar() {
                       }}
                       onClick={() => {
                         setMenuOpen(false);
-                        navigate("/profile");
+                        navigate("/settings");
                       }}
                     >
                       Settings

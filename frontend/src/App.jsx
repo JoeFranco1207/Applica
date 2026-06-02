@@ -15,6 +15,7 @@ import CreateEmployerProfile from "./pages/Create/CreateEmployerProfile";
 import CreateJobseekerProfile from "./pages/Create/CreateJobseekerProfile";
 import CreateJob from "./pages/Create/CreateJob";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import PostView from "./pages/PostView";
 import BrowseJob from "./pages/Browse/BrowseJob";
 import EmployerApplicants from "./pages/EmployerApplicants";
@@ -121,6 +122,7 @@ function App() {
           <Route path="/create" element={<ProtectedRoute><Create /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/post/:id" element={<ProtectedRoute><PostView /></ProtectedRoute>} />
           <Route path="/resume-designs" element={<ProtectedRoute><ResumeDesigns /></ProtectedRoute>} />
           <Route path="/ai-premium" element={<ProtectedRoute><AIPremium /></ProtectedRoute>} />

@@ -32,6 +32,7 @@ export const employerSchema = new mongoose.Schema({
     website: String,
     contactNumber: String,
     companyLogo: String,
+    companyPicture: String,
     dateEstablished: Date,
     dateOfApproval: Date,
     approvalStatus: {

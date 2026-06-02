@@ -5,6 +5,34 @@ import { ThemeContext } from '../../contexts/ThemeContext';
 const ProfileSelection = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useContext(ThemeContext);
+  // Theme-based inline style overrides used by this page
+  const themeStyles = isDarkMode
+    ? {
+        containerBg: 'linear-gradient(to bottom right, #0f172a, #071125, #111827)',
+        glow1Bg: 'rgba(59,130,246,0.12)',
+        glow2Bg: 'rgba(168,85,247,0.08)',
+        textColor: '#e6eef6',
+        subtitleColor: '#cbd5e1',
+        cardBg: 'rgba(255,255,255,0.04)',
+        cardBorder: '1px solid rgba(148,163,184,0.06)',
+        cardBoxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+        featureBg: 'rgba(255,255,255,0.02)',
+        primaryBtnBg: 'linear-gradient(to right, #275791, #1892aa)',
+        secondaryBtnBg: 'rgba(255,255,255,0.06)'
+      }
+    : {
+        containerBg: 'linear-gradient(to bottom right, #ffffff, #f8fafc)',
+        glow1Bg: 'rgba(59,130,246,0.08)',
+        glow2Bg: 'rgba(168,85,247,0.06)',
+        textColor: '#0f172a',
+        subtitleColor: '#475569',
+        cardBg: 'linear-gradient(180deg, #ffffff, #f8fafc)',
+        cardBorder: '1px solid rgba(15,23,42,0.06)',
+        cardBoxShadow: '0 10px 40px rgba(15,23,42,0.06)',
+        featureBg: 'rgba(15,23,42,0.04)',
+        primaryBtnBg: 'linear-gradient(to right, #275791, #1892aa)',
+        secondaryBtnBg: 'rgba(15,23,42,0.04)'
+      };
   const safeGetStoredUser = () => {
     const raw = localStorage.getItem("user");
     if (!raw) return {};
@@ -44,6 +72,7 @@ const ProfileSelection = () => {
         companySize: "",
         contactNumber: "",
         dateEstablished: "",
+        companyLogo: "",
         location: {
           region: "",
           city: "",
@@ -105,7 +134,6 @@ const ProfileSelection = () => {
           data.website,
           data.contactNumber,
           data.dateEstablished,
-          data.companyLogo,
           locationComplete,
         ]
       : [
@@ -188,6 +216,7 @@ const ProfileSelection = () => {
             companyLocation: profileData.location,
             industry: profileData.industry,
             website: profileData.website,
+            companyLogo: profileData.companyLogo || "",
           }
         : {
             bio: profileData.bio,
@@ -267,19 +296,19 @@ const ProfileSelection = () => {
   };
 
   return (
-    <div className="page-container" style={styles.container}>
+    <div className="page-container" style={{ ...styles.container, background: themeStyles.containerBg, color: 'var(--text)' }}>
       {/* BACKGROUND GLOW */}
-      <div style={styles.glow1}></div>
-      <div style={styles.glow2}></div>
+      <div style={{ ...styles.glow1, background: themeStyles.glow1Bg }}></div>
+      <div style={{ ...styles.glow2, background: themeStyles.glow2Bg }}></div>
 
       {/* MAIN */}
       <div style={styles.main}>
         <div style={styles.heroSection}>
-          <h1 style={styles.title}>
+          <h1 style={{ ...styles.title, color: 'var(--text-h)' }}>
             Choose Your Profile Type
           </h1>
 
-          <p style={styles.subtitle}>
+          <p style={{ ...styles.subtitle, color: 'var(--muted)' }}>
             Select how you want to use
             Applica
           </p>
@@ -291,9 +320,11 @@ const ProfileSelection = () => {
           <div
             style={{
               ...styles.card,
-              ...(selectedRole ===
-                "jobseeker" &&
-                styles.selectedCard),
+              background: 'var(--surface)',
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-strong)',
+              color: 'var(--text)',
+              ...(selectedRole === "jobseeker" && styles.selectedCard),
             }}
             onClick={() =>
               setSelectedRole("jobseeker")
@@ -307,7 +338,7 @@ const ProfileSelection = () => {
               Job Seeker
             </h2>
 
-            <p style={styles.cardDescription}>
+            <p style={{ ...styles.cardDescription, color: isDarkMode ? '#f8fbff' : '#0f172a' }}>
               Find jobs, upload resumes, and
               connect with employers.
             </p>
@@ -342,9 +373,11 @@ const ProfileSelection = () => {
           <div
             style={{
               ...styles.card,
-              ...(selectedRole ===
-                "employer" &&
-                styles.selectedCardEmployer),
+              background: 'var(--surface)',
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-strong)',
+              color: 'var(--text)',
+              ...(selectedRole === "employer" && styles.selectedCardEmployer),
             }}
             onClick={() =>
               setSelectedRole("employer")
@@ -358,7 +391,7 @@ const ProfileSelection = () => {
               Employer
             </h2>
 
-            <p style={styles.cardDescription}>
+            <p style={{ ...styles.cardDescription, color: isDarkMode ? '#f8fbff' : '#0f172a' }}>
               Hire skilled professionals and
               manage job postings.
             </p>
@@ -393,7 +426,7 @@ const ProfileSelection = () => {
         {/* BUTTONS */}
         <div style={styles.buttons}>
           <button
-            style={styles.secondaryButton}
+            style={{ ...styles.secondaryButton, background: themeStyles.secondaryBtnBg, color: 'var(--text)' }}
             onClick={handleBack}
           >
             Back to Home
@@ -402,6 +435,7 @@ const ProfileSelection = () => {
           <button
             style={{
               ...styles.primaryButton,
+              background: themeStyles.primaryBtnBg,
               opacity: selectedRole ? 1 : 0.5,
               cursor: selectedRole ? "pointer" : "not-allowed",
             }}
@@ -470,20 +504,18 @@ const ProfileSelection = () => {
 const styles = {
   container: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(to bottom right, #0f172a, #111827, #1e293b)",
+    background: "var(--page-bg)",
     overflow: "hidden",
     position: "relative",
     fontFamily: "Arial",
-    color: "#fff",
+    color: "var(--text)",
   },
 
   glow1: {
     position: "absolute",
     width: "350px",
     height: "350px",
-    background:
-      "rgba(59,130,246,0.25)",
+    background: "var(--accent)",
     borderRadius: "50%",
     top: "-120px",
     left: "-120px",
@@ -494,8 +526,7 @@ const styles = {
     position: "absolute",
     width: "350px",
     height: "350px",
-    background:
-      "rgba(168,85,247,0.2)",
+    background: "rgba(168,85,247,0.2)",
     borderRadius: "50%",
     bottom: "-120px",
     right: "-120px",
@@ -537,8 +568,8 @@ backButton: {
   padding: "12px 20px",
   borderRadius: "12px",
   border: "1px solid rgba(255,255,255,0.2)",
-  background: "rgba(255,255,255,0.08)",
-  color: "#fff",
+  background: "var(--tile-bg)",
+  color: "var(--text)",
   cursor: "pointer",
   backdropFilter: "blur(10px)",
   fontWeight: "600",
@@ -570,7 +601,7 @@ backButton: {
 
   subtitle: {
     fontSize: "1.2rem",
-    color: "#cbd5e1",
+    color: 'var(--muted)',
     maxWidth: "650px",
     margin: "0 auto",
     lineHeight: "1.7",
@@ -587,15 +618,12 @@ backButton: {
     position: "relative",
     padding: "40px",
     borderRadius: "28px",
-    background:
-      "rgba(255,255,255,0.08)",
-    border:
-      "1px solid rgba(255,255,255,0.1)",
+    background: 'var(--surface)',
+    border: '1px solid var(--border-color)',
     backdropFilter: "blur(12px)",
     transition: "0.3s ease",
     cursor: "pointer",
-    boxShadow:
-      "0 10px 40px rgba(0,0,0,0.25)",
+    boxShadow: 'var(--shadow-strong)',
   },
 
   selectedCard: {
@@ -622,8 +650,7 @@ backButton: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "3rem",
-    background:
-      "rgba(255,255,255,0.1)",
+    background: 'var(--tile-bg)',
     marginBottom: "25px",
   },
 
@@ -634,7 +661,6 @@ backButton: {
   },
 
   cardDescription: {
-    color: "#cbd5e1",
     lineHeight: "1.8",
     marginBottom: "25px",
     fontSize: "1rem",
@@ -648,11 +674,11 @@ backButton: {
 
   feature: {
     background:
-      "rgba(255,255,255,0.06)",
+      "var(--tile-bg)",
     padding: "14px 16px",
     borderRadius: "14px",
     fontSize: "0.95rem",
-    color: "#e2e8f0",
+    color: 'var(--muted)',
   },
 
   selectedBadge: {
@@ -694,9 +720,8 @@ backButton: {
     borderRadius: "14px",
     border:
       "1px solid rgba(255,255,255,0.15)",
-    background:
-      "rgba(255,255,255,0.08)",
-    color: "#fff",
+    background: 'var(--tile-bg)',
+    color: 'var(--text)',
     fontSize: "1rem",
     fontWeight: "700",
     cursor: "pointer",
@@ -714,15 +739,15 @@ backButton: {
   },
   modalContainer: {
     width: "min(560px, 90vw)",
-    background: "#0f172a",
+    background: 'var(--surface)',
     borderRadius: "24px",
     padding: "28px",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: '1px solid var(--border-color)',
   },
   progressBarContainer: {
     position: "relative",
-    background: "rgba(255,255,255,0.1)",
+    background: 'rgba(255,255,255,0.06)',
     height: "12px",
     borderRadius: "999px",
     overflow: "hidden",
@@ -736,16 +761,17 @@ backButton: {
   label: {
     display: "block",
     marginBottom: "8px",
-    color: "#e2e8f0",
+    color: 'var(--muted)',
     fontWeight: "700",
   },
   input: {
     width: "100%",
     padding: "14px 16px",
     borderRadius: "14px",
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.05)",
-    color: "#fff",
+    border: "1px solid var(--border)",
+    boxShadow: "inset 0 0 0 1px var(--border)",
+    background: 'var(--surface)',
+    color: 'var(--text)',
     marginBottom: "16px",
     outline: "none",
     fontSize: "0.95rem",
@@ -755,9 +781,10 @@ backButton: {
     minHeight: "110px",
     padding: "14px 16px",
     borderRadius: "14px",
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.05)",
-    color: "#fff",
+    border: "1px solid var(--border)",
+    boxShadow: "inset 0 0 0 1px var(--border)",
+    background: 'var(--surface)',
+    color: 'var(--text)',
     marginBottom: "16px",
     resize: "vertical",
     fontSize: "0.95rem",
@@ -767,17 +794,17 @@ backButton: {
   },
   locationHeading: {
     marginBottom: "12px",
-    color: "#cbd5e1",
+    color: 'var(--muted)',
     fontSize: "1rem",
   },
   modalHeading: {
     margin: 0,
     marginBottom: "16px",
     fontSize: "1.8rem",
-    color: "#fff",
+    color: 'var(--text)',
   },
   modalText: {
-    color: "#cbd5e1",
+    color: 'var(--muted)',
     marginBottom: "24px",
     lineHeight: "1.7",
   },
@@ -791,7 +818,7 @@ backButton: {
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "transparent",
-    color: "#fff",
+    color: 'var(--text)',
     cursor: "pointer",
   },
   confirmButton: {
@@ -820,14 +847,43 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
     setIndex(0);
     setLocationError(null);
   }, [role]);
+  const employerIndustryOptions = [
+    "Agriculture & Fisheries",
+    "Business Process Outsourcing (BPO)",
+    "Construction",
+    "Creative & Media",
+    "Education",
+    "Energy & Utilities",
+    "Engineering",
+    "Finance & Banking",
+    "Food & Beverage",
+    "Government & Public Administration",
+    "Healthcare & Pharmaceuticals",
+    "Hospitality & Tourism",
+    "Information Technology",
+    "Insurance",
+    "Legal Services",
+    "Logistics & Transportation",
+    "Manufacturing",
+    "Marketing & Advertising",
+    "Property & Real Estate",
+    "Retail & Wholesale",
+    "Security & Safety",
+    "Telecommunications",
+    "Textiles & Apparel",
+    "Transportation & Automotive",
+    "Wellness & Personal Care",
+    "Other",
+  ];
+
   const employerSteps = [
     { key: 'companyName', label: 'Company Name', type: 'text' },
     { key: 'companyDescription', label: 'Company Description', type: 'textarea' },
     { key: 'location', label: 'Location Setup', type: 'map' },
-    { key: 'industry', label: 'Industry', type: 'text' },
+    { key: 'industry', label: 'Industry', type: 'select', options: employerIndustryOptions },
     { key: 'companySize', label: 'Company Size', type: 'select', options: ['1-10','11-50','51-200','201-500','501-1000','1001+'] },
     { key: 'contactDetails', label: 'Contact Details', type: 'contact' },
-    { key: 'companyIdentity', label: 'Company Identity (Logo + Date Established)', type: 'companyIdentity' },
+    { key: 'companyIdentity', label: 'Company Identity (Date Established + optional logo)', type: 'companyIdentity' },
   ];
 
   const jobseekerSteps = [
@@ -855,9 +911,9 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
   };
 
   const getControlStyle = () => ({
-    background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-    border: isDarkMode ? '1px solid rgba(255,255,255,0.18)' : '1px solid #cbd5e1',
-    color: isDarkMode ? '#fff' : '#111827',
+    background: 'var(--control-bg)',
+    border: '1px solid var(--control-border)',
+    color: 'var(--muted-text)',
   });
 
   const setValue = (key, value) => {
@@ -887,7 +943,7 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
     }
 
     if (currentStep.type === 'companyIdentity') {
-      return Boolean(getValue('companyLogo') && getValue('dateEstablished'));
+      return Boolean(getValue('dateEstablished'));
     }
 
     if (currentStep.optional && !getValue(currentStep.key)) {
@@ -913,8 +969,8 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
   return (
     <div key={step.key}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#cbd5e1' }}>{step.label}</div>
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>Step {index + 1} / {steps.length}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--muted-foreground)' }}>{step.label}</div>
+        <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Step {index + 1} / {steps.length}</div>
       </div>
       <div>
         {step.type === 'textarea' ? (
@@ -1112,10 +1168,26 @@ function ModalStepper({ role, data = {}, onChange, onClose, onSave, loading, isD
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) setValue('companyLogo', file.name);
+                  if (!file) return;
+                  if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file.');
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setValue('companyLogo', reader.result || '');
+                  };
+                  reader.readAsDataURL(file);
                 }}
                 style={styles.input}
               />
+              {getValue('companyLogo') && (
+                <img
+                  src={getValue('companyLogo')}
+                  alt="Company logo preview"
+                  style={{ width: '100%', maxHeight: 180, objectFit: 'contain', borderRadius: 12, border: '1px solid rgba(148, 163, 184, 0.2)' }}
+                />
+              )}
               <input
                 type="date"
                 value={getValue('dateEstablished') || ''}

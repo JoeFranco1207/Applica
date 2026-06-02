@@ -1754,6 +1754,42 @@ export default function Profile() {
                   <p style={styles.detailValue}>{user.approvalStatus || "Pending"}</p>
                 </div>
               </div>
+
+              {/* Company Picture Gallery */}
+              {user.companyPicture && (
+                <div style={{
+                  marginTop: 24,
+                  paddingTop: 24,
+                  borderTop: `1px solid ${isDarkMode ? "#333" : "#e0e0e0"}`,
+                }}>
+                  <h3 style={{
+                    margin: "0 0 12px 0",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    color: isDarkMode ? "#ffffff" : "#000",
+                  }}>
+                    Company Building & Location
+                  </h3>
+                  <div style={{
+                    width: "100%",
+                    maxWidth: "500px",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  }}>
+                    <img
+                      src={user.companyPicture}
+                      alt="Company building"
+                      style={{
+                        width: "100%",
+                        height: "auto",
+                        display: "block",
+                        objectFit: "cover",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

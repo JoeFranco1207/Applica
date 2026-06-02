@@ -26,17 +26,35 @@ const companySizes = [
 ];
 
 const industries = [
-  "Technology",
-  "Finance",
-  "Healthcare",
-  "Retail",
-  "Manufacturing",
+  "Agriculture & Fisheries",
+  "Business Process Outsourcing (BPO)",
+  "Construction",
+  "Creative & Media",
   "Education",
-  "Hospitality",
-  "Transportation",
-  "Real Estate",
-  "Energy",
+  "Energy & Utilities",
+  "Engineering",
+  "Finance & Banking",
+  "Food & Beverage",
+  "Government & Public Administration",
+  "Healthcare & Pharmaceuticals",
+  "Hospitality & Tourism",
+  "Information Technology",
+  "Insurance",
+  "Legal Services",
+  "Logistics & Transportation",
+  "Manufacturing",
+  "Marketing & Advertising",
+  "Property & Real Estate",
+  "Retail & Wholesale",
+  "Security & Safety",
   "Telecommunications",
+  "Textiles & Apparel",
+  "Transportation & Automotive",
+  "Wellness & Personal Care",
+  "E-commerce & Online Retail",
+  "Mining & Natural Resources",
+  "Professional Services",
+  "Nonprofit / NGO",
   "Other",
 ];
 
@@ -63,6 +81,10 @@ const CreateEmployerProfile = () => {
   const [companyLogo, setCompanyLogo] = useState("");
   const [companyLogoPreview, setCompanyLogoPreview] = useState("");
   const [existingCompanyLogo, setExistingCompanyLogo] = useState("");
+
+  const [companyPicture, setCompanyPicture] = useState("");
+  const [companyPicturePreview, setCompanyPicturePreview] = useState("");
+  const [existingCompanyPicture, setExistingCompanyPicture] = useState("");
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
@@ -146,6 +168,10 @@ const CreateEmployerProfile = () => {
               setExistingCompanyLogo(existing.companyLogo);
               setCompanyLogoPreview(existing.companyLogo);
             }
+            if (existing.companyPicture) {
+              setExistingCompanyPicture(existing.companyPicture);
+              setCompanyPicturePreview(existing.companyPicture);
+            }
             setIsEditing(hasEmployerData);
             setEditable(!hasEmployerData);
           }
@@ -191,6 +217,7 @@ const CreateEmployerProfile = () => {
       data?.companyLocation?.otherDetails,
       // include the in-component `companyLogo` state as well
       companyLogo || existingCompanyLogo,
+      // companyPicture is optional, don't count it towards completion
     ];
 
     const filled = fields.reduce((c, v) => c + (isFilled(v) ? 1 : 0), 0);
@@ -233,6 +260,21 @@ const CreateEmployerProfile = () => {
     }
   };
 
+  const handleCompanyPictureChange = (e) => {
+    const file = e.target.files[0];
+
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCompanyPicture(reader.result);
+        setCompanyPicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      showMessage("Please select a valid image file", "error");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -257,6 +299,7 @@ const CreateEmployerProfile = () => {
         contactNumber: formData.contactNumber,
         dateEstablished: formData.dateEstablished,
         companyLogo: companyLogo || existingCompanyLogo || "",
+        companyPicture: companyPicture || existingCompanyPicture || "",
       };
 
       const response = await axios.put(
@@ -281,6 +324,7 @@ const CreateEmployerProfile = () => {
           ...storedUser,
           ...updatedProfile,
           companyLogo: updatedProfile.companyLogo,
+          companyPicture: updatedProfile.companyPicture,
           companyLocation: updatedProfile.companyLocation,
           dateEstablished: updatedProfile.dateEstablished,
         })
@@ -298,6 +342,10 @@ const CreateEmployerProfile = () => {
       if (updatedProfile.companyLogo) {
         setExistingCompanyLogo(updatedProfile.companyLogo);
         setCompanyLogoPreview(updatedProfile.companyLogo);
+      }
+      if (updatedProfile.companyPicture) {
+        setExistingCompanyPicture(updatedProfile.companyPicture);
+        setCompanyPicturePreview(updatedProfile.companyPicture);
       }
 
       setIsEditing(true);
@@ -467,6 +515,42 @@ const CreateEmployerProfile = () => {
                 </label>
               </div>
 
+              {/* Company Picture (Building/Location) */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Company Building/Location Photo (Optional)
+                </label>
+
+                <input
+                  id="employerCompanyPictureInput"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCompanyPictureChange}
+                  style={styles.hiddenInput}
+                  disabled={!editable}
+                />
+
+                <label
+                  htmlFor="employerCompanyPictureInput"
+                  style={styles.imageUploadRectangle}
+                >
+                  {(companyPicturePreview || existingCompanyPicture) ? (
+                    <img
+                      src={companyPicturePreview || existingCompanyPicture}
+                      alt="Company picture preview"
+                      style={styles.imageUploadPreview}
+                    />
+                  ) : (
+                    <div style={styles.uploadPlaceholder}>
+                      <span style={styles.uploadIcon}>🏢</span>
+                      <span style={styles.uploadText}>
+                        Click to upload building photo
+                      </span>
+                    </div>
+                  )}
+                </label>
+              </div>
+
               {/* Description */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>
@@ -494,7 +578,7 @@ const CreateEmployerProfile = () => {
                     name="industry"
                     value={formData.industry}
                     onChange={handleInputChange}
-                    style={styles.input}
+                    style={{ ...styles.input, ...styles.selectInput }}
                     disabled={!editable}
                   >
                     <option value="">
@@ -521,7 +605,7 @@ const CreateEmployerProfile = () => {
                     name="companySize"
                     value={formData.companySize}
                     onChange={handleInputChange}
-                    style={styles.input}
+                    style={{ ...styles.input, ...styles.selectInput }}
                     disabled={!editable}
                   >
                     <option value="">
@@ -608,7 +692,7 @@ const CreateEmployerProfile = () => {
                       formData.companyLocation.region
                     }
                     onChange={handleInputChange}
-                    style={styles.input}
+                    style={{ ...styles.input, ...styles.selectInput }}
                     disabled={!editable}
                   >
                     <option value="">
@@ -834,10 +918,21 @@ const styles = {
     padding: "14px",
     borderRadius: "12px",
     border: "1px solid var(--border)",
+    boxShadow: "inset 0 0 0 1px var(--border)",
     background: "var(--surface-alt)",
     color: "var(--text)",
     fontSize: "1rem",
     outline: "none",
+  },
+
+  selectInput: {
+    appearance: "none",
+    paddingRight: "44px",
+    backgroundImage:
+      "linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%)",
+    backgroundPosition: "calc(100% - 20px) calc(50% - 6px), calc(100% - 14px) calc(50% - 6px)",
+    backgroundSize: "8px 8px, 8px 8px",
+    backgroundRepeat: "no-repeat",
   },
 
   textarea: {
@@ -845,6 +940,7 @@ const styles = {
     padding: "14px",
     borderRadius: "12px",
     border: "1px solid var(--border)",
+    boxShadow: "inset 0 0 0 1px var(--border)",
     background: "var(--surface-alt)",
     color: "var(--text)",
     resize: "vertical",
@@ -905,6 +1001,19 @@ const styles = {
     width: "150px",
     height: "150px",
     borderRadius: "50%",
+    border: "2px dashed var(--border)",
+    backgroundColor: "var(--surface-alt)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    overflow: "hidden",
+  },
+  imageUploadRectangle: {
+    marginTop: "12px",
+    width: "100%",
+    height: "220px",
+    borderRadius: "16px",
     border: "2px dashed var(--border)",
     backgroundColor: "var(--surface-alt)",
     display: "flex",

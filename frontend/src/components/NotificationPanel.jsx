@@ -84,7 +84,7 @@ export default function NotificationPanel({ onClose }) {
   const shouldShowDetailModal = (n) => {
     if (!n || n.type !== 'status') return false;
     const message = String(n.message || '').toLowerCase();
-    return /login|session|active on another|another device|secure your account|logged in/.test(message) || n.attemptedDevice || n.currentDevice;
+    return /login|session|active on another|another device|secure your account|logged in/.test(message) || n.attemptedDevice || n.attemptedLocation;
   };
 
   const handleClick = async (n) => {
@@ -221,10 +221,12 @@ export default function NotificationPanel({ onClose }) {
                 <span className="np-detail-label">Attempted device:</span>
                 <span>{detailNotification.attemptedDevice || 'Unknown device'}</span>
               </div>
-              <div className="np-detail-row">
-                <span className="np-detail-label">Current logged-in device:</span>
-                <span>{detailNotification.currentDevice || 'Unknown device'}</span>
-              </div>
+              {detailNotification.attemptedLocation && (
+                <div className="np-detail-row">
+                  <span className="np-detail-label">Attempted location:</span>
+                  <span>{detailNotification.attemptedLocation}</span>
+                </div>
+              )}
               <div className="np-detail-note">If this is not you, secure your account immediately and update your password.</div>
             </div>
           </div>

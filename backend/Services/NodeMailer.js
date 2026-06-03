@@ -53,13 +53,13 @@ export const sendApplicantStatusEmail = async (to, status, jobTitle, employerNam
     return true;
 };
 
-export const sendLoginNotificationEmail = async (to, deviceInfo, currentDevice) => {
+export const sendLoginNotificationEmail = async (to, deviceInfo, attemptedLocation) => {
     const subject = 'New login attempt detected';
     const html = `
       <p>Hi there,</p>
       <p>We detected a login attempt to your Applica account.</p>
-      <p><strong>Attempted device:</strong> ${deviceInfo || 'Unknown device'}</p>
-      ${currentDevice ? `<p><strong>Current logged-in device:</strong> ${currentDevice}</p>` : ''}
+            <p><strong>Attempted device:</strong> ${deviceInfo || 'Unknown device'}</p>
+            ${attemptedLocation ? `<p><strong>Attempted location:</strong> ${attemptedLocation}</p>` : ''}
       <p>If this was not you, please secure your account immediately.</p>
       <p>Thank you,<br/>Applica Security Team</p>
     `;

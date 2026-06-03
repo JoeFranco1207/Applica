@@ -31,10 +31,7 @@ export default function Footer() {
         <div className="footer-left">
           <div className="footer-brand">Applica</div>
           <div className="footer-devs">
-            Built by
-            <strong> NovaForge Technologies</strong>
-            <span className="divider">•</span>
-            <strong>Afreads07</strong>
+            Built by <strong>Applica</strong>
           </div>
           <div className="footer-copy">© {new Date().getFullYear()} Applica</div>
         </div>

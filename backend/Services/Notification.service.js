@@ -73,7 +73,7 @@ export const createSystemNotificationService = async (recipient, message, type =
     throw new AppError('Recipient is required', 400);
   }
 
-  const { attemptedDevice, currentDevice } = options;
+  const { attemptedDevice, attemptedLocation } = options;
 
   const notification = await Notification.create({
     type,
@@ -83,7 +83,7 @@ export const createSystemNotificationService = async (recipient, message, type =
     actorAvatar: '',
     message,
     attemptedDevice,
-    currentDevice,
+    attemptedLocation,
     read: false,
   });
 
@@ -95,6 +95,8 @@ export const createSystemNotificationService = async (recipient, message, type =
       actorName: notification.actorName,
       actorAvatar: notification.actorAvatar,
       message,
+      attemptedDevice: notification.attemptedDevice,
+      attemptedLocation: notification.attemptedLocation,
       createdAt: notification.createdAt,
     });
   } catch (err) {

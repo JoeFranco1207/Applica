@@ -85,6 +85,10 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: "",
     },
+    activeSessionLocation: {
+      type: String,
+      default: "",
+    },
     activeSessionExpires: {
       type: Date,
       default: null,
@@ -93,6 +97,7 @@ const userSchema = new mongoose.Schema({
       {
         token: { type: String },
         device: { type: String, default: '' },
+        location: { type: String, default: '' },
         createdAt: { type: Date, default: Date.now },
         expires: { type: Date },
       },
@@ -295,6 +300,11 @@ const userSchema = new mongoose.Schema({
         default: { type: Boolean, default: false },
       },
     ],
+    // Track how many resumes a non-premium user has generated via the builder
+    resumeGenerationCount: {
+      type: Number,
+      default: 0,
+    },
     savedSearches: {
       type: [String],
       default: [],

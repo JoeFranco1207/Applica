@@ -579,7 +579,7 @@ const CreateJob = () => {
                         name="salaryMin"
                         value={formData.salaryMin}
                         onChange={handleInputChange}
-                        placeholder="e.g., 10000"
+                        placeholder="e.g., 500"
                         style={styles.input}
                       />
                     </div>

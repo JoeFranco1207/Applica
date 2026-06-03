@@ -48,6 +48,7 @@ export const createResumeController = async (req, res, next) => {
       ok: true,
       fileName: result.fileName,
       url: result.publicUrl,
+      resumeGenerationCount: result.resumeGenerationCount || 0,
     });
 
   } catch (err) {

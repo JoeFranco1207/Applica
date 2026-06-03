@@ -134,6 +134,8 @@ export default function ResumeDesigns() {
   const user = token ? JSON.parse(localStorage.getItem('user') || '{}') : null;
   const existingResumeUrl = user?.resume;
   const hasExistingResume = Boolean(existingResumeUrl);
+  const freeAllowedPreviews = ['classic-professional', 'creative-minimal'];
+  const userResumeCount = user?.resumeGenerationCount || 0;
 
   // Load liked designs from localStorage
   useEffect(() => {
@@ -305,10 +307,20 @@ export default function ResumeDesigns() {
     if (hasExistingResume && !replaceResumeConfirmed) {
       return;
     }
+    // Allow non-premium users to generate one resume using limited templates
+    const freeAllowedPreviews = ['classic-professional', 'creative-minimal'];
+    const userResumeCount = user?.resumeGenerationCount || 0;
     if (user?.role === 'jobseeker' && !user?.premiumAIAccess) {
-      alert('This feature is available to AI Premium members only. Please upgrade to continue.');
-      navigate('/ai-premium');
-      return;
+      if (!freeAllowedPreviews.includes(selectedDesign.preview)) {
+        alert('This template is reserved for premium members. Please upgrade to access more templates.');
+        navigate('/ai-premium');
+        return;
+      }
+      if (userResumeCount >= 1) {
+        alert('You have used your one free resume generation. Please upgrade to generate more.');
+        navigate('/ai-premium');
+        return;
+      }
     }
     setGenerating(true);
     startProgressAnimation();
@@ -355,6 +367,10 @@ export default function ResumeDesigns() {
           if (storedUser) {
             const parsed = JSON.parse(storedUser);
             parsed.resume = url;
+            // update resume generation count if server provided it
+            if (response?.data?.resumeGenerationCount !== undefined) {
+              parsed.resumeGenerationCount = response.data.resumeGenerationCount;
+            }
             localStorage.setItem('user', JSON.stringify(parsed));
           }
         } catch (e) {
@@ -434,6 +450,24 @@ export default function ResumeDesigns() {
                 backgroundColor: design.color,
               }}
             >
+              {/* Badge: Free or Premium */}
+              <div style={{
+                position: 'absolute',
+                top: 12,
+                left: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                fontSize: 12,
+                fontWeight: 800,
+                color: '#fff',
+                zIndex: 2,
+                boxShadow: '0 6px 18px rgba(2,6,23,0.12)',
+                background: ['classic-professional', 'creative-minimal'].includes(design.preview)
+                  ? 'rgba(16,185,129,0.95)'
+                  : 'linear-gradient(90deg,#f97316,#ef4444)'
+              }}>
+                {['classic-professional', 'creative-minimal'].includes(design.preview) ? 'Free' : 'Premium'}
+              </div>
               <div style={styles.previewContent}>
                 <div style={styles.previewName}>{design.name}</div>
                 <div style={styles.previewIcon}><DocumentIcon size={28} /></div>
@@ -1017,7 +1051,8 @@ export default function ResumeDesigns() {
                     Back
                   </button>
                   {user?.role === 'jobseeker' ? (
-                    user?.premiumAIAccess ? (
+                    // Allow generate if premium or eligible free template and hasn't used free generation yet
+                    (user?.premiumAIAccess || (freeAllowedPreviews.includes(selectedDesign.preview) && userResumeCount < 1)) ? (
                       <button
                         style={{
                           ...styles.confirmButton,

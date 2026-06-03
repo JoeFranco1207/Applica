@@ -241,6 +241,19 @@ export default function Signup() {
       setLoading(true);
 
       const deviceInfo = `${navigator.platform} - ${navigator.userAgent}`;
+      // Attempt to get precise geolocation from the browser
+      let clientLocation = null;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('timeout')), 5000);
+            navigator.geolocation.getCurrentPosition((p) => { clearTimeout(timer); resolve(p); }, (err) => { clearTimeout(timer); reject(err); }, { enableHighAccuracy: false, timeout: 5000 });
+          });
+          clientLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch (e) {
+          clientLocation = null;
+        }
+      }
 
       // If admin access token was granted via /admin-access/:token, use admin login endpoint
       const adminAccessToken = localStorage.getItem('adminAccessToken');
@@ -275,7 +288,7 @@ export default function Signup() {
           {
             email: loginData.email,
             password: loginData.password,
-            deviceInfo,
+            deviceInfo: clientLocation ? { device: deviceInfo, coords: clientLocation } : deviceInfo,
           }
         );
 
@@ -1136,7 +1149,8 @@ const styles = {
     fontSize: "34px",
     fontWeight: "800",
     marginBottom: "30px",
-    color: "#000",
+    color: "#215b94",
+    textAlign: "center",
   },
 
   inputGroup: {

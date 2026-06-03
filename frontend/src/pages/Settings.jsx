@@ -150,6 +150,7 @@ const Settings = () => {
   const [helpSubject, setHelpSubject] = useState('');
   const [helpMessage, setHelpMessage] = useState('');
   const [savingTicket, setSavingTicket] = useState(false);
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -965,6 +966,7 @@ const Settings = () => {
         setTickets((prev) => [...prev, response.data.data]);
         setHelpSubject('');
         setHelpMessage('');
+        setShowTicketModal(false);
         alert('Support ticket created successfully!');
       }
     } catch (error) {
@@ -2246,10 +2248,32 @@ const Settings = () => {
 
                 <button 
                   className="btn-primary"
-                  onClick={handleSubmitTicket}
+                  onClick={() => setShowTicketModal(true)}
                 >
                   Create Support Ticket
                 </button>
+
+                {showTicketModal && (
+                  <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div className="modal" style={{ width: 520, maxWidth: '94%', background: '#fff', borderRadius: 8, padding: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+                      <h3 style={{ marginTop: 0 }}>Create Support Ticket</h3>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Subject</label>
+                        <input value={helpSubject} onChange={(e) => setHelpSubject(e.target.value)} placeholder="Short summary" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #ddd' }} />
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Message (optional)</label>
+                        <textarea value={helpMessage} onChange={(e) => setHelpMessage(e.target.value)} placeholder="Describe your issue in more detail" rows={6} style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid #ddd' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => { setShowTicketModal(false); }} style={{ padding: '8px 12px', borderRadius: 6, background: 'transparent', border: '1px solid #ddd' }}>Cancel</button>
+                        <button onClick={async () => { await handleSubmitTicket(); }} className="btn-primary" style={{ padding: '8px 12px', borderRadius: 6 }}>
+                          {savingTicket ? 'Submitting...' : 'Submit Ticket'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ marginTop: "20px" }}>
                   <p><strong>Email Support:</strong> support@applica.com</p>

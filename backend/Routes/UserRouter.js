@@ -1,5 +1,5 @@
 import express from 'express';
-import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, searchUsers, searchAll, deleteUser, updateProfile, changePassword, deactivateUser, createSupportTicket, getSupportTickets, updateConnectedAccounts, updateBillingPlan, getRecommendations } from '../Controller/UserController.js';
+import { Register, Login, Logout, sendVerificationCode, verifyCode, chooseRole, getProfile, getUserById, searchUsers, searchAll, deleteUser, updateProfile, changePassword, deactivateUser, createSupportTicket, getSupportTickets, updateConnectedAccounts, updateBillingPlan, getRecommendations, getPersonalizedJobsController, getPersonalizedPostsController, getPersonalizedFeedController } from '../Controller/UserController.js';
 import { jobseekerProfile } from '../Controller/JobSeekerProfileController.js';
 import { protection } from '../Controller/ProtectionController.js';
 const router = express.Router();
@@ -26,5 +26,8 @@ router.get('/search', protection, searchAll);
 router.get('/users/search', protection, searchUsers);
 router.get('/users/:id', protection, getUserById);
 router.get('/recommendations', protection, getRecommendations);
+router.get('/feed/personalized-jobs', protection, getPersonalizedJobsController);
+router.get('/feed/personalized-posts', protection, getPersonalizedPostsController);
+router.get('/feed/personalized', protection, getPersonalizedFeedController);
 
 export default router;

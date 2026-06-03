@@ -6,6 +6,7 @@ import "./BrowseJob.css";
 import { useTranslate } from "../../hooks/useTranslate";
 import PostDetailsModal from "../../components/PostDetailsModal";
 import PresenceAvatar from "../../components/PresenceAvatar";
+import CompanySidebar from '../../components/CompanySidebar';
 
 const getUserId = (user) => {
   if (!user) return null;
@@ -60,6 +61,200 @@ const mergePostData = (existing = {}, updated = {}) => {
 
   return result;
 };
+
+function RecommendedJobsSidebar() {
+  const navigate = useNavigate();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_BASE}/api/auth/recommendations`, {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        const data = response.data?.data || {};
+        const recommendedJobs = Array.isArray(data.recommendedJobs) ? data.recommendedJobs.slice(0, 3) : [];
+        setJobs(recommendedJobs);
+      } catch (err) {
+        console.error('Failed to load recommended jobs', err);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, []);
+
+  const fallbackJobs = [
+    {
+      title: 'Kitchen Staff',
+      company: "Max's Restaurant",
+      location: 'San Fernando, Pampanga',
+      employmentType: 'Full-time',
+      remoteType: 'On-site',
+    },
+    {
+      title: 'Cashier',
+      company: 'Puregold Price Club',
+      location: 'San Fernando, Pampanga',
+      employmentType: 'Full-time',
+      remoteType: 'On-site',
+    },
+    {
+      title: 'Barista',
+      company: 'The Coffee Bean & Tea Leaf',
+      location: 'San Fernando, Pampanga',
+      employmentType: 'Part-time',
+      remoteType: 'On-site',
+    },
+  ];
+  const list = jobs.length ? jobs : fallbackJobs;
+
+  const renderBadge = (text) => (
+    <span
+      style={{
+        fontSize: 11,
+        padding: '4px 8px',
+        borderRadius: 999,
+        background: 'var(--surface-alt)',
+        color: 'var(--text-secondary)',
+        border: '1px solid var(--border)',
+        fontWeight: 700,
+      }}
+    >
+      {text}
+    </span>
+  );
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)', padding: 16, boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 14 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-h)' }}>Jobs you might like</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Personalized picks just for you</div>
+          </div>
+          <button
+            onClick={() => navigate('/recommended-jobs')}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--primary)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: 13,
+              padding: 0,
+            }}
+          >
+            View all
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          {loading && (
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Loading recommendations...</div>
+          )}
+          {list.map((job, index) => {
+            const title = typeof job === 'string' ? job : job.title || job.position || job.role || 'Job opportunity';
+            const company = typeof job === 'string' ? '' : job.company || job.companyName || job.employerName || '';
+            const location = typeof job === 'string' ? '' : job.location || job.city || '';
+            const employmentType = typeof job === 'string' ? '' : job.employmentType || job.jobType || job.type || '';
+            const remoteType = typeof job === 'string' ? '' : job.remoteType || (location.toLowerCase().includes('remote') ? 'Remote' : 'On-site');
+            const logo = typeof job === 'string' ? '' : job.logo || job.companyLogo || job.employerLogo || '';
+            const initials = (company || title).split(' ').slice(0, 2).map((word) => word[0] || '').join('').toUpperCase();
+            const badges = [employmentType, remoteType].filter(Boolean);
+
+            return (
+              <button
+                key={`${title}-${index}`}
+                onClick={() => navigate(`/search?query=${encodeURIComponent(title)}`)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  borderRadius: 18,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                  display: 'grid',
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <div style={{ width: 44, height: 44, minWidth: 44, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-alt)', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)', fontWeight: 800, fontSize: 14 }}>
+                      {logo ? <img src={logo} alt={company || title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-h)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+                      {company ? (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{company}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                    {badges.map((badge) => renderBadge(badge))}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarPromotionCard() {
+  const navigate = useNavigate();
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ borderRadius: 24, background: 'linear-gradient(135deg, #7c3aed 0%, #c084fc 100%)', color: '#fff', padding: 20, boxShadow: '0 16px 40px rgba(124, 58, 237, 0.16)' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>Stand out to employers</div>
+            <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6, opacity: 0.95 }}>Go Premium and get noticed by more employers.</div>
+          </div>
+          <div style={{ width: 60, height: 60, borderRadius: 20, background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 17L7 7l4 5 4-5 3 10H4z" fill="white" />
+              <path d="M6 17h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M7 7L9 11L11 7" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13 7L15 11L17 7" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/ai-premium')}
+          style={{
+            marginTop: 18,
+            width: '100%',
+            padding: '12px 14px',
+            borderRadius: 16,
+            border: 'none',
+            background: '#fff',
+            color: '#6d28d9',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: 13,
+          }}
+        >
+          Upgrade now
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const splitTextIntoListItems = (text) => {
   if (!text) return [];
@@ -470,14 +665,14 @@ export default function BrowseJob() {
   const [locationFilter, setLocationFilter] = useState("All");
   const [companyFilter, setCompanyFilter] = useState("All");
   const [employmentTypes, setEmploymentTypes] = useState(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
-  const [salaryRange, setSalaryRange] = useState([10000, 100000]);
+  const [salaryRange, setSalaryRange] = useState([500, 100000]);
   const [remoteOptions, setRemoteOptions] = useState(["All"]);
   const [appliedSidebarKeyword, setAppliedSidebarKeyword] = useState("");
   const [appliedSelectedCategory, setAppliedSelectedCategory] = useState("All");
   const [appliedLocationFilter, setAppliedLocationFilter] = useState("All");
   const [appliedCompanyFilter, setAppliedCompanyFilter] = useState("All");
   const [appliedEmploymentTypes, setAppliedEmploymentTypes] = useState(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
-  const [appliedSalaryRange, setAppliedSalaryRange] = useState([10000, 100000]);
+  const [appliedSalaryRange, setAppliedSalaryRange] = useState([500, 100000]);
   const [appliedRemoteOptions, setAppliedRemoteOptions] = useState(["All"]);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [resumeMatchEnabled, setResumeMatchEnabled] = useState(true);
@@ -1429,9 +1624,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       setJobError("");
 
       try {
-        const response = await axios.get("http://localhost:8000/api/jobs");
-        const fetched = response.data.data || [];
-        setJobs(fetched);
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+        const endpoint = `${API_BASE}/api/jobs`;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const response = await axios.get(endpoint, { headers });
+        const fetched = response.data.data?.jobs || response.data.data || response.data || [];
+        setJobs(Array.isArray(fetched) ? fetched : []);
 
         // Merge any optimistic jobs created locally (optimistic cache)
         try {
@@ -1460,12 +1659,20 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     const fetchSocialPosts = async () => {
       if (!token) return;
       try {
-        const response = await axios.get("http://localhost:8000/api/posts", {
+        // Use personalized endpoint if user is a jobseeker with profile data
+        let endpoint = "http://localhost:8000/api/posts";
+        
+        if (isJobseeker && effectiveUser?.experience) {
+          // User has profile data, use personalized endpoint
+          endpoint = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/auth/feed/personalized-posts?limit=50`;
+        }
+        
+        const response = await axios.get(endpoint, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        setSocialPosts(response.data.data || []);
+        setSocialPosts(response.data.data?.posts || response.data.data || []);
       } catch (error) {
         console.error("Social posts fetch error", error);
       }
@@ -1473,7 +1680,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
     fetchJobs();
     fetchSocialPosts();
-  }, [token]);
+  }, [token, isJobseeker, effectiveUser?.experience]);
 
   // Listen for optimistic new job events from other parts of the app
   useEffect(() => {
@@ -1633,14 +1840,14 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     setLocationFilter("All");
     setCompanyFilter("All");
     setEmploymentTypes(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
-    setSalaryRange([10000, 100000]);
+    setSalaryRange([500, 100000]);
     setRemoteOptions(["All"]);
     setAppliedSidebarKeyword("");
     setAppliedSelectedCategory("All");
     setAppliedLocationFilter("All");
     setAppliedCompanyFilter("All");
     setAppliedEmploymentTypes(["All Types", "Full-time", "Part-time", "Internship", "Freelance", "Contract"]);
-    setAppliedSalaryRange([10000, 100000]);
+    setAppliedSalaryRange([500, 100000]);
     setAppliedRemoteOptions(["All"]);
   };
 
@@ -1953,9 +2160,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 </div>
                 <input
                   type="range"
-                  min={10000}
+                  min={500}
                   max={100000}
-                  step={5000}
+                  step={500}
                   value={salaryRange[1]}
                   onChange={(e) => setSalaryRange([salaryRange[0], Number(e.target.value)])}
                   style={styles.salarySlider}
@@ -2656,57 +2863,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
         <aside style={styles.sidebarColumn}>
           <div style={styles.sidebarCard}>
-            <div style={styles.sidebarHeader}>
-              <h3 style={styles.sidebarTitle}>Recommended for you</h3>
-              <p style={styles.sidebarSubtitle}>Personalized picks and quick links</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 }}>
-              <button style={styles.recoRow} onClick={() => navigate('/companies') }>
-                <div style={styles.recoIconWrapper}><IconBox color="#dcfce7" /></div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>Top companies hiring</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Check out top companies hiring now</div>
-                </div>
-                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
-              </button>
-
-              <button style={styles.recoRow} onClick={() => navigate('/recommended-jobs') }>
-                <div style={styles.recoIconWrapper}><BriefcaseIcon size={20} /></div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>Jobs you might like</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Personalized picks just for you</div>
-                </div>
-                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
-              </button>
-
-              <button style={styles.recoRow} onClick={() => navigate('/skills') }>
-                <div style={styles.recoIconWrapper}><IconChart color="#fff7ed" /></div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>Skills in demand</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Explore most in-demand skills</div>
-                </div>
-                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
-              </button>
-
-              <button style={styles.recoRow} onClick={() => navigate('/saved-searches') }>
-                <div style={styles.recoIconWrapper}><IconHeart color="#fff0f6" /></div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>Saved searches</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Quick access to your saved searches</div>
-                </div>
-                <div style={styles.recoChevron}><ChevronRightIcon size={16} /></div>
-              </button>
-            </div>
+            <CompanySidebar max={6} />
           </div>
 
-          <div style={styles.sidebarCard}>
-            <h3 style={styles.sidebarTitle}>Mga trending na kumpanya</h3>
-            <ul style={styles.companyList}>
-              <li style={styles.companyItem}>Tech Innovations Inc.</li>
-              <li style={styles.companyItem}>Creative Labs</li>
-              <li style={styles.companyItem}>Analytics Pro</li>
-              <li style={styles.companyItem}>Web Solutions Ltd</li>
-            </ul>
+          <div style={{ ...styles.sidebarCard, marginTop: "24px", padding: "0" }}>
+            <RecommendedJobsSidebar />
+          </div>
+
+          <div style={{ ...styles.sidebarCard, marginTop: "24px", padding: "0" }}>
+            <SidebarPromotionCard />
           </div>
 
           <div style={{ ...styles.sidebarCard, marginTop: "24px" }}>

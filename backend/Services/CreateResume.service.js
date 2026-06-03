@@ -71,6 +71,18 @@ export const createResumeService = async (userId, resumeData = {}) => {
     color = '#1e40af',
   } = resumeData;
 
+  // Enforce free-tier generation policy:
+  // Free users (no premiumAIAccess) may only generate once and only with allowed templates.
+  const freeAllowedTemplates = ['classic-professional', 'creative-minimal'];
+  if (!user.premiumAIAccess) {
+    if (!freeAllowedTemplates.includes(template)) {
+      throw new AppError('This template is reserved for premium users. Upgrade to access more templates.', 403);
+    }
+    if ((user.resumeGenerationCount || 0) >= 1) {
+      throw new AppError('Free plan allows one resume generation. Upgrade to generate more resumes.', 403);
+    }
+  }
+
   // Parse education/experience/skills data
   const educationItems = Array.isArray(education) && education.length ? education : (typeof education === 'string' && education.length ? education.split('\n').filter(e => e.trim()) : []);
   const experienceItems = Array.isArray(experience) && experience.length ? experience : (typeof experience === 'string' && experience.length ? experience.split('\n').filter(e => e.trim()) : []);
@@ -170,12 +182,18 @@ export const createResumeService = async (userId, resumeData = {}) => {
     const publicPath = `/uploads/resumes/${fileName}`;
     user.resume = `${publicUrlBase}${publicPath}`;
 
+    // If user is non-premium, increment their generation count
+    if (!user.premiumAIAccess) {
+      user.resumeGenerationCount = (user.resumeGenerationCount || 0) + 1;
+    }
+
     await user.save();
     return {
       fileName,
       filePath,
       publicUrl: user.resume,
       pdfBuffer,
+      resumeGenerationCount: user.resumeGenerationCount || 0,
     };
 
   } finally {

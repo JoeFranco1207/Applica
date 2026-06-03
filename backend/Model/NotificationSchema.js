@@ -46,7 +46,7 @@ const notificationSchema = new mongoose.Schema(
     attemptedDevice: {
       type: String,
     },
-    currentDevice: {
+    attemptedLocation: {
       type: String,
     },
     read: {

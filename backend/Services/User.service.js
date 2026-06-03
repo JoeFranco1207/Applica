@@ -12,6 +12,48 @@ import { signupValidation, phoneNumberValidation } from '../validator/Validator.
 import {sendVerificationEmail, sendForgotPasswordEmail, sendLoginNotificationEmail} from '../Services/NodeMailer.js';
 import { createSystemNotificationService } from './Notification.service.js';
 
+// Resolve IP to a human-friendly location string. Uses ipapi.co.
+const resolveIpLocation = async (ip) => {
+  if (!ip) return null;
+  try {
+    const url = `https://ipapi.co/${encodeURIComponent(ip)}/json/`;
+    const resp = await fetch(url, { method: 'GET' });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const parts = [];
+    if (data.city) parts.push(data.city);
+    if (data.region) parts.push(data.region);
+    if (data.country_name) parts.push(data.country_name);
+    return parts.length ? parts.join(', ') : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Reverse-geocode coordinates to a human-friendly location using Nominatim (OpenStreetMap).
+const reverseGeocodeCoords = async (lat, lng) => {
+  if (lat == null || lng == null) return null;
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=10&addressdetails=1`;
+    const resp = await fetch(url, { method: 'GET', headers: { 'User-Agent': 'Applica/1.0 (contact@example.com)' } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data && data.address) {
+      const addr = data.address;
+      const parts = [];
+      if (addr.city) parts.push(addr.city);
+      if (addr.town && !addr.city) parts.push(addr.town);
+      if (addr.village && !addr.city && !addr.town) parts.push(addr.village);
+      if (addr.state) parts.push(addr.state);
+      if (addr.country) parts.push(addr.country);
+      return parts.length ? parts.join(', ') : (data.display_name || null);
+    }
+    return data.display_name || null;
+  } catch (e) {
+    return null;
+  }
+};
+
 // Helper to normalize legacy employer_ prefixed plan values
 const normalizePlanFields = (user) => {
   if (user.premiumPlan && typeof user.premiumPlan === 'string' && user.premiumPlan.startsWith('employer_')) {
@@ -211,7 +253,7 @@ export const sendVerificationCodeService = async(email) =>{
   };
 };
 
-export const loginService = async(email, password, deviceInfo) => {
+export const loginService = async(email, password, deviceInfo, ip) => {
       const existingUser = await User.findOne({email}).select('+password +activeSessionToken');
         if(!existingUser){
             throw new AppError("Invalid Email or Password", 400)
@@ -229,6 +271,22 @@ export const loginService = async(email, password, deviceInfo) => {
             return { user: safeUser };
         }
 
+        // determine a friendly device label and prefer client-sent coords for location
+        let resolvedLocation = null;
+        try {
+          if (deviceInfo && typeof deviceInfo === 'object' && deviceInfo.coords) {
+            resolvedLocation = await reverseGeocodeCoords(deviceInfo.coords.lat, deviceInfo.coords.lng);
+          }
+          if (!resolvedLocation) {
+            resolvedLocation = await resolveIpLocation(ip);
+          }
+        } catch (e) {
+          resolvedLocation = null;
+        }
+
+        const deviceLabelBase = typeof deviceInfo === 'string' ? deviceInfo : (deviceInfo && (deviceInfo.device || deviceInfo.deviceName || deviceInfo.name)) || 'Unknown device';
+        const deviceLabel = resolvedLocation ? `${deviceLabelBase} (${resolvedLocation})` : deviceLabelBase;
+
         const now = Date.now();
         const activeToken = existingUser.activeSessionToken;
         const activeExpires = existingUser.activeSessionExpires?.getTime?.() ?? existingUser.activeSessionExpires;
@@ -237,8 +295,8 @@ export const loginService = async(email, password, deviceInfo) => {
         if (hasActiveSession) {
             await sendLoginNotificationEmail(
               existingUser.email,
-              deviceInfo,
-              existingUser.activeSessionDevice
+              deviceLabel,
+              resolvedLocation
             );
 
             await createSystemNotificationService(
@@ -246,15 +304,14 @@ export const loginService = async(email, password, deviceInfo) => {
               `A login attempt was made while your Applica account was already active on another session. If this wasn't you, please secure your account immediately.`,
               'status',
               {
-                attemptedDevice: deviceInfo || 'Unknown device',
-                currentDevice: existingUser.activeSessionDevice || 'Unknown device',
+                attemptedDevice: deviceLabel || 'Unknown device',
+                attemptedLocation: resolvedLocation || null,
               }
             );
 
             return {
               user: safeUser,
               alreadyLoggedIn: true,
-              currentDevice: existingUser.activeSessionDevice || 'Unknown device',
             };
         }
 
@@ -276,14 +333,16 @@ export const loginService = async(email, password, deviceInfo) => {
         const expiresAt = new Date(now + 8 * 60 * 60 * 1000);
 
         existingUser.activeSessionToken = token;
-        existingUser.activeSessionDevice = deviceInfo || "Unknown device";
+        existingUser.activeSessionDevice = deviceLabel || "Unknown device";
+        existingUser.activeSessionLocation = resolvedLocation || "";
         existingUser.activeSessionExpires = expiresAt;
 
         // Push to sessions array for multi-session support
         existingUser.sessions = existingUser.sessions || [];
         existingUser.sessions.push({
           token,
-          device: deviceInfo || 'Unknown device',
+          device: deviceLabel || 'Unknown device',
+          location: resolvedLocation || '',
           createdAt: new Date(now),
           expires: expiresAt,
         });
@@ -522,6 +581,34 @@ export const getRecommendationsService = async (userId) => {
   ]);
   const recommendedCompanies = companiesAgg.map((c) => c._id).filter(Boolean);
 
+  const companyProfiles = await User.find({
+    companyName: { $in: recommendedCompanies },
+    showProfileInSearch: { $ne: false },
+  })
+    .select('companyName companyLogo profilePicture role')
+    .lean();
+
+  const companyProfilesByName = new Map();
+  companyProfiles.forEach((profile) => {
+    const key = (profile.companyName || '').trim().toLowerCase();
+    if (!key) return;
+    const existing = companyProfilesByName.get(key);
+    if (!existing || profile.role === 'employer') {
+      companyProfilesByName.set(key, profile);
+    }
+  });
+
+  const recommendedCompaniesWithProfile = recommendedCompanies.map((companyName) => {
+    const key = (companyName || '').trim().toLowerCase();
+    const profile = companyProfilesByName.get(key);
+    return {
+      name: companyName,
+      logo: profile?.companyLogo || profile?.profilePicture || '',
+      companyId: profile?._id || null,
+      role: profile?.role || null,
+    };
+  });
+
   // Recommended jobs: derive job titles from user's skills or generic popular titles
   let recommendedJobs = [];
   if (user.skills && user.skills.length) {
@@ -535,6 +622,7 @@ export const getRecommendationsService = async (userId) => {
 
   return {
     recommendedCompanies,
+    recommendedCompaniesWithProfile,
     recommendedJobs,
     recommendedSkills,
     savedSearches,

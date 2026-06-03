@@ -1,6 +1,7 @@
 import { registerService, sendVerificationCodeService, verifyCodeService, loginService, chooseRoleService, getProfileService, getUserByIdService, searchUsersByNameService, deleteUserService } from '../Services/User.service.js';
 import { getRecommendationsService } from '../Services/User.service.js';
 import { searchPostsByQueryService } from '../Services/Post.service.js';
+import { getPersonalizedJobsService, getPersonalizedPostsService, getPersonalizedFeedService } from '../Services/RecommendationScoring.service.js';
 import { doHash, doHashValidation } from '../validator/Hashing.js';
 import AppSuccessful from '../Middleware/AppSuccessful.js'
 import AppError from '../Middleware/AppError.js';
@@ -69,7 +70,11 @@ export const Register = async(req,res,next)=>{
     export const Login = async(req,res,next)=>{
    const {email, password, deviceInfo} = req.body;
      try{
-        const response = await loginService(email, password, deviceInfo);
+        // determine client IP (respect X-Forwarded-For when behind proxies)
+        const forwarded = req.headers['x-forwarded-for'] || req.headers['X-Forwarded-For'];
+        const ip = forwarded ? String(forwarded).split(',')[0].trim() : (req.ip || req.connection?.remoteAddress || null);
+
+        const response = await loginService(email, password, deviceInfo, ip);
         const {token, user, alreadyLoggedIn} = response;
 
         if (token) {
@@ -139,13 +144,14 @@ export const Register = async(req,res,next)=>{
         // remove the session entry matching the token
         await User.findByIdAndUpdate(userId, {
           $pull: { sessions: { token } },
-          $set: { activeSessionToken: null, activeSessionDevice: "", activeSessionExpires: null }
+          $set: { activeSessionToken: null, activeSessionDevice: "", activeSessionLocation: "", activeSessionExpires: null }
         });
       } else {
         // no token; clear active session fields
         await User.findByIdAndUpdate(userId, {
           activeSessionToken: null,
           activeSessionDevice: "",
+          activeSessionLocation: "",
           activeSessionExpires: null,
         });
       }
@@ -289,6 +295,48 @@ export const getRecommendations = async (req, res, next) => {
     return res.success(new AppSuccessful('Recommendations retrieved', 200, recommendations));
   } catch (err) {
     console.log('Recommendations error', err);
+    return next(err);
+  }
+};
+
+export const getPersonalizedJobsController = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = Math.max(parseInt(req.query.skip) || 0, 0);
+    
+    const data = await getPersonalizedJobsService(userId, limit, skip);
+    return res.success(new AppSuccessful('Personalized jobs retrieved', 200, data));
+  } catch (err) {
+    console.log('Personalized jobs error', err);
+    return next(err);
+  }
+};
+
+export const getPersonalizedPostsController = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = Math.max(parseInt(req.query.skip) || 0, 0);
+    
+    const data = await getPersonalizedPostsService(userId, limit, skip);
+    return res.success(new AppSuccessful('Personalized posts retrieved', 200, data));
+  } catch (err) {
+    console.log('Personalized posts error', err);
+    return next(err);
+  }
+};
+
+export const getPersonalizedFeedController = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const skip = Math.max(parseInt(req.query.skip) || 0, 0);
+    
+    const data = await getPersonalizedFeedService(userId, limit, skip);
+    return res.success(new AppSuccessful('Personalized feed retrieved', 200, data));
+  } catch (err) {
+    console.log('Personalized feed error', err);
     return next(err);
   }
 };

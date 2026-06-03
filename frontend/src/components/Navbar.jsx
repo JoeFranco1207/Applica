@@ -3,7 +3,6 @@ import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNotification } from "../contexts/NotificationContext";
 import { ThemeContext } from "../contexts/ThemeContext";
-import { useLanguage } from "../contexts/LanguageContext";
 import ThemeSwitch from "./ThemeSwitch";
 import NotificationPanel from "./NotificationPanel";
 import PresenceAvatar from './PresenceAvatar';
@@ -145,7 +144,6 @@ export default function Navbar() {
   const location = useLocation();
   const { notifications, unreadCount, markNotificationAsRead, fetchNotifications } = useNotification();
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { language, setLanguage, translate } = useLanguage();
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -323,24 +321,22 @@ export default function Navbar() {
         </div>
 
         <div style={styles.navLinks}>
-          <button style={styles.linkButton} onClick={() => navigate("/explore")}>
-            {translate("nav.browseJobs")}
-          </button>
-          <button style={styles.linkButton} onClick={() => navigate("/explore")}>{translate("nav.companies")}</button>
+          <button style={styles.linkButton} onClick={() => navigate("/explore")}>Browse Jobs</button>
+          <button style={styles.linkButton} onClick={() => navigate("/explore")}>Companies</button>
           {user?.role === "jobseeker" && (
             <>
               <button
                 style={styles.linkButton}
                 onClick={() => navigate("/resume-designs")}
-                title={translate("nav.resume")}
+                title="Resume"
               >
                 <HeartIcon size={16} />
-                <span style={styles.navIconText}>{translate("nav.resume")}</span>
+                <span style={styles.navIconText}>Resume</span>
               </button>
               <button
                 style={styles.iconButton}
                 onClick={() => navigate("/jobseeker/applications")}
-                title={translate("nav.applications")}
+                title="Applications"
               >
                 <JobIcon size={18} />
               </button>
@@ -365,7 +361,7 @@ export default function Navbar() {
               <button
                 style={styles.iconButton}
                 onClick={() => navigate("/employer/applicants")}
-                title={translate("nav.applicants")}
+                title="Applicants"
               >
                 <JobIcon size={18} />
               </button>
@@ -440,15 +436,6 @@ export default function Navbar() {
         )}
 
         <div style={styles.actions}>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={styles.languageSelect}
-            title={translate("nav.language")}
-          >
-            <option value="en">{translate("nav.english")}</option>
-            <option value="tl">{translate("nav.filipino")}</option>
-          </select>
           <ThemeSwitch isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
           {token ? (
             <>
@@ -603,21 +590,21 @@ const styles = {
   },
   searchContainer: {
     position: "relative",
-    minWidth: 240,
-    maxWidth: 320,
-    flex: "1 1 auto",
+    minWidth: 360,
+    maxWidth: 520,
+    flex: "1 1 420px",
     marginLeft: 12,
   },
   searchInput: {
     width: "100%",
-    borderRadius: 999,
+    borderRadius: 0.5,
     border: "1px solid var(--border)",
     background: "var(--surface)",
     color: "var(--text)",
     padding: "10px 14px",
     fontSize: 14,
     outline: "none",
-    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.08)",
+    boxShadow: "none",
   },
   searchResults: {
     position: "absolute",
@@ -627,8 +614,8 @@ const styles = {
     zIndex: 1002,
     backgroundColor: "var(--surface-strong)",
     border: "1px solid var(--border)",
-    borderRadius: 14,
-    boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
+    borderRadius: 0.5,
+    boxShadow: "none",
     overflow: "hidden",
     maxHeight: 320,
     overflowY: "auto",
@@ -638,9 +625,11 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    padding: "10px 14px",
+    padding: "12px 14px",
+    border: "none",
     borderBottom: "1px solid var(--border)",
-    background: "transparent",
+    borderRadius: 0.5,
+    background: "var(--surface-strong)",
     color: "var(--text)",
     cursor: "pointer",
     textAlign: "left",
@@ -663,6 +652,7 @@ const styles = {
     cursor: "pointer",
     fontSize: 14,
     fontWeight: 700,
+    borderRadius: 0.5,
   },
   searchResultText: {
     display: "flex",
@@ -697,15 +687,6 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 12,
-  },
-  languageSelect: {
-    borderRadius: 999,
-    border: "1px solid var(--border)",
-    background: "var(--surface)",
-    color: "var(--text)",
-    padding: "8px 12px",
-    fontSize: 14,
-    cursor: "pointer",
   },
   createButton: {
     backgroundColor: "var(--primary)",

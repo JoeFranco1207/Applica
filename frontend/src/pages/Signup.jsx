@@ -97,11 +97,41 @@ export default function Signup() {
       password: "",
     });
 
+  const normalizePhoneInput = (value) => {
+    let cleaned = value.replace(/[^0-9+]/g, "");
+
+    const hasPlus = cleaned.startsWith("+");
+    if (hasPlus) {
+      cleaned = "+" + cleaned.slice(1).replace(/\+/g, "");
+    } else {
+      cleaned = cleaned.replace(/\+/g, "");
+    }
+
+    if (hasPlus) {
+      return cleaned.slice(0, 12);
+    }
+
+    return cleaned.slice(0, 11);
+  };
+
+  const isValidPhilippinePhone = (phone) => {
+    return /^(\+63|09)\d{9}$/.test(phone);
+  };
+
   const handleSignupChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "phoneNumber") {
+      setSignupData((prev) => ({
+        ...prev,
+        [name]: normalizePhoneInput(value),
+      }));
+      return;
+    }
+
     setSignupData((prev) => ({
       ...prev,
-      [e.target.name]:
-        e.target.value,
+      [name]: value,
     }));
   };
 
@@ -137,6 +167,14 @@ export default function Signup() {
     ) {
       return showMessage(
         t("signup.passwordsMismatch"),
+        "error"
+      );
+    }
+
+    if (!isValidPhilippinePhone(signupData.phoneNumber)) {
+      return showMessage(
+        t("signup.invalidPhoneNumber") ||
+          "Enter a valid Philippine phone number starting with +63 or 09.",
         "error"
       );
     }
@@ -561,6 +599,17 @@ export default function Signup() {
                 setFocusedField
               }
               autoComplete="tel"
+              inputMode="tel"
+              maxLength={12}
+              pattern="^(\+63|09)\d{9}$"
+              title="Must start with +63 or 09 and be 11 digits long"
+              placeholder="9XX XXX XXXX"
+              prefix={
+                <div style={styles.phonePrefixContent}>
+                  <span style={styles.phonePrefixFlag}>🇵🇭</span>
+                  <span style={styles.phonePrefixCode}>+63</span>
+                </div>
+              }
             />
 
             <PasswordInput
@@ -794,21 +843,29 @@ function Input({
   setFocusedField,
   type = "text",
   autoComplete,
+  inputMode,
+  maxLength,
+  pattern,
+  title,
+  prefix,
+  placeholder,
 }) {
+  const hasPrefix = Boolean(prefix);
+  const showPrefix = hasPrefix && (value || focusedField === name);
+
   return (
     <div style={styles.inputGroup}>
       <div style={styles.inputWrapper}>
         <label
           style={{
             ...styles.floatingLabel,
+            left: showPrefix ? "120px" : "16px",
             top:
-              value ||
-              focusedField === name
+              value || focusedField === name
                 ? "-8px"
                 : "14px",
             fontSize:
-              value ||
-              focusedField === name
+              value || focusedField === name
                 ? "12px"
                 : "15px",
             color:
@@ -820,12 +877,22 @@ function Input({
           {label}
         </label>
 
+        {showPrefix && (
+          <div style={styles.inputPrefix}>
+            {prefix}
+          </div>
+        )}
+
         <input
           type={type}
           name={name}
           value={value}
-          placeholder={label}
+          placeholder={placeholder || label}
           autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          pattern={pattern}
+          title={title}
           onChange={onChange}
           required
           onFocus={() =>
@@ -836,6 +903,9 @@ function Input({
           }
           style={{
             ...styles.input,
+            paddingLeft: showPrefix
+              ? "144px"
+              : "16px",
             borderColor:
               focusedField === name
                 ? "#1892aa"
@@ -1098,6 +1168,50 @@ const styles = {
     boxSizing: "border-box",
     backgroundColor: "var(--surface-alt)",
     color: "var(--text)",
+  },
+
+  inputPrefix: {
+    position: "absolute",
+    left: "0",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: "100px",
+    minWidth: "100px",
+    height: "44px",
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    padding: "0 14px",
+    borderTopLeftRadius: "12px",
+    borderBottomLeftRadius: "12px",
+    borderTopRightRadius: "0",
+    borderBottomRightRadius: "0",
+    backgroundColor: "transparent",
+    border: "none",
+    color: "var(--text)",
+    pointerEvents: "none",
+    fontSize: "14px",
+    fontWeight: "600",
+    boxSizing: "border-box",
+  },
+
+  phonePrefixContent: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+
+  phonePrefixFlag: {
+    fontSize: "18px",
+  },
+
+  phonePrefixCode: {
+    color: "#0b7285",
+  },
+
+  phonePrefixArrow: {
+    fontSize: "12px",
+    color: "#6c757d",
   },
 
   passwordWrapper: {

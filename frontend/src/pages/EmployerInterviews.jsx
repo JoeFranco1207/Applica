@@ -35,6 +35,7 @@ export default function EmployerInterviews() {
   const [showModal, setShowModal] = useState(false);
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
     const fetch = async () => {
@@ -54,6 +55,26 @@ export default function EmployerInterviews() {
 
     fetch();
   }, [showModal]); // refresh when modal closes/opens
+
+  const handleDeleteInterview = async (interviewId) => {
+    if (!confirm('Are you sure you want to delete this interview? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(interviewId);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`http://localhost:8000/api/interviews/${interviewId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setInterviews((prev) => prev.filter((iv) => iv._id !== interviewId));
+    } catch (err) {
+      console.error('Failed to delete interview:', err?.response?.data || err.message || err);
+      alert('Failed to delete interview. Please try again.');
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const storedUser = (() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
@@ -103,13 +124,23 @@ export default function EmployerInterviews() {
                       <div className="not-available">Not available until <Countdown target={scheduledTs} /></div>
                     )}
                   </div>
-                  <button
-                    className="interview-join-button"
-                    onClick={() => navigate(`/interview/${iv.roomId}`)}
-                    disabled={startsIn > 0}
-                  >
-                    Join room
-                  </button>
+                  <div className="interview-card-actions">
+                    <button
+                      className="interview-join-button"
+                      onClick={() => navigate(`/interview/${iv.roomId}`)}
+                      disabled={startsIn > 0}
+                    >
+                      Join room
+                    </button>
+                    <button
+                      className="interview-delete-button"
+                      onClick={() => handleDeleteInterview(iv._id)}
+                      disabled={deleting === iv._id}
+                      title="Delete this interview"
+                    >
+                      {deleting === iv._id ? '...' : '✕'}
+                    </button>
+                  </div>
                 </div>
               );
             })}

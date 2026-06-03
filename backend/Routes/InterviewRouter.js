@@ -6,7 +6,8 @@ import {
   getInterviewRoomByInterview,
   endInterviewRoom,
   getWaitingParticipants,
-  getInterviewWithRoomStatus
+  getInterviewWithRoomStatus,
+  deleteInterview
 } from '../Controller/InterviewController.js';
 import { protection } from '../Controller/ProtectionController.js';
 
@@ -15,6 +16,7 @@ const router = express.Router();
 // Interview management
 router.post('/', protection, createInterview);
 router.get('/user/:userId', getInterviewsForUser);
+router.delete('/:interviewId', protection, deleteInterview);
 
 // Interview room endpoints
 router.get('/room/:roomId', getInterviewRoom);

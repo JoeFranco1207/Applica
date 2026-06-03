@@ -1,8 +1,42 @@
+import mongoose from 'mongoose';
 import Interview from '../Model/InterviewSchema.js';
 import InterviewRoom from '../Model/InterviewRoomSchema.js';
 import InterviewRoomService from '../Services/InterviewRoom.service.js';
 import { sendNotificationToUser, sendInterviewInvite } from '../Services/SocketIO.service.js';
 import { verifyAIPremiumPaymentSource } from '../Services/Payment.service.js';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function resolveInterviewParticipants(participants) {
+  const User = (await import('../Model/UserSchema.js')).default;
+  const resolved = [];
+
+  for (const item of participants) {
+    const rawValue = typeof item === 'string' ? item : item?.user;
+    const value = String(rawValue || '').trim().toLowerCase();
+    if (!value) continue;
+
+    if (mongoose.Types.ObjectId.isValid(value) && value.length === 24) {
+      resolved.push({ user: value });
+      continue;
+    }
+
+    if (!EMAIL_PATTERN.test(value)) {
+      throw new Error(`Invalid participant email: ${value}`);
+    }
+
+    const foundUser = await User.findOne({ email: value }).select('_id');
+    if (!foundUser) {
+      throw new Error(`No user found with email ${value}`);
+    }
+    resolved.push({ user: foundUser._id });
+  }
+
+  if (!resolved.length) {
+    throw new Error('No valid participants provided');
+  }
+  return resolved;
+}
 
 export const createInterview = async (req, res, next) => {
   try {
@@ -55,12 +89,13 @@ export const createInterview = async (req, res, next) => {
       console.log(`Interview trial consumed for user ${user._id} (email=${user.email}) via REST`);
     }
 
+    const resolvedParticipants = await resolveInterviewParticipants(participants);
     const roomId = `interview_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const interview = await Interview.create({
       employer,
       title,
       description,
-      participants,
+      participants: resolvedParticipants,
       scheduledAt: new Date(scheduledAt),
       location,
       roomId,
@@ -68,7 +103,7 @@ export const createInterview = async (req, res, next) => {
     });
 
     // notify participants via socket notifications if possible
-    (participants || []).forEach((p) => {
+    (resolvedParticipants || []).forEach((p) => {
       try {
         const userId = p.user || p;
         // send a dedicated interview invite socket event
@@ -223,6 +258,41 @@ export const getInterviewWithRoomStatus = async (req, res, next) => {
           endedAt: room.endedAt
         } : null
       }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteInterview = async (req, res, next) => {
+  try {
+    const { interviewId } = req.params;
+    const requester = req.user;
+
+    if (!interviewId) {
+      return res.status(400).json({ status: 'error', message: 'interviewId required' });
+    }
+
+    if (!requester) {
+      return res.status(401).json({ status: 'error', message: 'Authentication required' });
+    }
+
+    const interview = await Interview.findById(interviewId);
+    if (!interview) {
+      return res.status(404).json({ status: 'error', message: 'Interview not found' });
+    }
+
+    // Only the employer who created the interview can delete it
+    const requesterId = requester.id || requester._id;
+    if (interview.employer.toString() !== requesterId.toString()) {
+      return res.status(403).json({ status: 'error', message: 'Only the interview creator can delete this interview' });
+    }
+
+    await Interview.findByIdAndDelete(interviewId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Interview deleted successfully'
     });
   } catch (err) {
     next(err);

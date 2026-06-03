@@ -43,6 +43,12 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Job',
     },
+    attemptedDevice: {
+      type: String,
+    },
+    currentDevice: {
+      type: String,
+    },
     read: {
       type: Boolean,
       default: false,

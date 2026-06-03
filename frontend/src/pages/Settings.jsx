@@ -1167,7 +1167,7 @@ const Settings = () => {
   // Language Handler
   const handleLanguageChange = (e) => {
     setLanguage(e.target.value);
-    alert(`Language changed to ${e.target.value === "en" ? "English" : e.target.value === "es" ? "Spanish" : "Filipino"}`);
+    alert(`Language changed to ${e.target.value === "en" ? "English" : e.target.value === "es" ? "Spanish" : "English"}`);
   };
 
   // Connected Accounts Handler
@@ -1933,7 +1933,6 @@ const Settings = () => {
                   >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
-                    <option value="fil">Filipino</option>
                   </select>
                 </div>
               </div>

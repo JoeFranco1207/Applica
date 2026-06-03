@@ -31,6 +31,7 @@ export default function NotificationPanel({ onClose }) {
   const { notifications, markNotificationAsRead, removeNotification, deleteNotification } = useNotification();
   const [tab, setTab] = useState('all');
   const [showAllOverlay, setShowAllOverlay] = useState(false);
+  const [detailNotification, setDetailNotification] = useState(null);
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
@@ -80,11 +81,23 @@ export default function NotificationPanel({ onClose }) {
     return 'User';
   };
 
+  const shouldShowDetailModal = (n) => {
+    if (!n || n.type !== 'status') return false;
+    const message = String(n.message || '').toLowerCase();
+    return /login|session|active on another|another device|secure your account|logged in/.test(message) || n.attemptedDevice || n.currentDevice;
+  };
+
   const handleClick = async (n) => {
     if (!n) return;
     if (!n.read) {
       await markNotificationAsRead(n.id);
     }
+
+    if (shouldShowDetailModal(n)) {
+      setDetailNotification(n);
+      return;
+    }
+
     // If notification points to a post
     if (n.postId) {
       const pid = typeof n.postId === 'string' ? n.postId : n.postId?._id || n.postId?.id || null;
@@ -194,6 +207,29 @@ export default function NotificationPanel({ onClose }) {
           <button className="np-seeall" onClick={() => { setShowAllOverlay(true); }}>See all</button>
         </div>
       </div>
+
+      {detailNotification && (
+        <div className="np-detail-overlay" onClick={() => setDetailNotification(null)}>
+          <div className="np-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="np-detail-header">
+              <div>Login Alert Details</div>
+              <button className="np-close" onClick={() => setDetailNotification(null)}>&times;</button>
+            </div>
+            <div className="np-detail-content">
+              <p>{detailNotification.message}</p>
+              <div className="np-detail-row">
+                <span className="np-detail-label">Attempted device:</span>
+                <span>{detailNotification.attemptedDevice || 'Unknown device'}</span>
+              </div>
+              <div className="np-detail-row">
+                <span className="np-detail-label">Current logged-in device:</span>
+                <span>{detailNotification.currentDevice || 'Unknown device'}</span>
+              </div>
+              <div className="np-detail-note">If this is not you, secure your account immediately and update your password.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAllOverlay && (
         <div className="np-fullscreen-overlay" onClick={() => setShowAllOverlay(false)}>

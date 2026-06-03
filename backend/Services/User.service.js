@@ -89,12 +89,17 @@ export const registerService = async (data) => {
         throw new AppError("email already exists", 400);
          }    
           
-         const {error} = signupValidation.validate({email, password});
+         const {error} = signupValidation.validate({email, password}, { abortEarly: false });
     
          if(error){
-            throw new AppError("Invalid input data", 400)
+            const errorMessage = error.details
+              .map((detail) => detail.message)
+              .join(' ');
+            throw new AppError(errorMessage, 400);
          }
-        
+       if(password.toLowerCase().includes("password")){
+        throw new AppError("Password cannot contain the word 'password'", 400);
+       }
          const hashedPassword = await doHash(password, 10);
           
          const newUser = await User.create({
@@ -239,7 +244,11 @@ export const loginService = async(email, password, deviceInfo) => {
             await createSystemNotificationService(
               existingUser._id,
               `A login attempt was made while your Applica account was already active on another session. If this wasn't you, please secure your account immediately.`,
-              'status'
+              'status',
+              {
+                attemptedDevice: deviceInfo || 'Unknown device',
+                currentDevice: existingUser.activeSessionDevice || 'Unknown device',
+              }
             );
 
             return {
@@ -382,17 +391,27 @@ export const searchUsersByNameService = async (query, requesterId) => {
     });
   }
 
+  const isEmailQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedQuery);
+  if (isEmailQuery) {
+    searchConditions.push({ email: new RegExp(`^${escapedQuery}$`, 'i') });
+  } else if (normalizedQuery.includes('@')) {
+    searchConditions.push({ email: queryRegex });
+  }
+
   const filter = {
-    showProfileInSearch: { $ne: false },
     $or: searchConditions,
   };
+
+  if (!isEmailQuery) {
+    filter.showProfileInSearch = { $ne: false };
+  }
 
   if (requesterId) {
     filter._id = { $ne: requesterId };
   }
 
   const users = await User.find(filter)
-    .select('firstName lastName profilePicture companyLogo role companyName')
+    .select('firstName lastName email profilePicture companyLogo role companyName')
     .limit(12)
     .lean();
 
@@ -400,6 +419,7 @@ export const searchUsersByNameService = async (query, requesterId) => {
     _id: user._id,
     firstName: user.firstName,
     lastName: user.lastName,
+    email: user.email,
     profilePicture: user.profilePicture || user.companyLogo || '',
     role: user.role,
     companyName: user.companyName || '',

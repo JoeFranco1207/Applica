@@ -25,7 +25,7 @@ export const NotificationProvider = ({ children }) => {
     if (!relevantNotificationTypes.includes(notification.type)) return false;
     if (notification.type === 'status') {
       const message = String(notification.message || '').toLowerCase();
-      return /accept|accepted|reject|rejected|rejection/.test(message);
+      return /accept|accepted|reject|rejected|rejection|login|session|active on another|secure your account/.test(message);
     }
     return true;
   };

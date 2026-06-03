@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
+import mongoose from "mongoose";
 import connectDB from "./config/ApplicaDB.js"
 import Router from "./Routes/UserRouter.js"
 import User from "./Model/UserSchema.js";
@@ -389,6 +390,33 @@ io.on('connection', (socket) => {
     try {
       const { employer, title, description, participants = [], scheduledAt, location } = data || {};
       if (!employer || !scheduledAt || !participants.length) return;
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const resolveSocketParticipants = async (items) => {
+        const resolved = [];
+        for (const item of items) {
+          const rawValue = typeof item === 'string' ? item : item?.user;
+          const value = String(rawValue || '').trim().toLowerCase();
+          if (!value) continue;
+          if (mongoose.Types.ObjectId.isValid(value) && value.length === 24) {
+            resolved.push({ user: value });
+            continue;
+          }
+          if (!emailPattern.test(value)) {
+            throw new Error(`Invalid participant email: ${value}`);
+          }
+          const foundUser = await User.findOne({ email: value }).select('_id');
+          if (!foundUser) {
+            throw new Error(`No user found with email ${value}`);
+          }
+          resolved.push({ user: foundUser._id });
+        }
+        if (!resolved.length) {
+          throw new Error('No valid participants provided');
+        }
+        return resolved;
+      };
+
+      const resolvedParticipants = await resolveSocketParticipants(participants);
       // Enforce premium/trial for socket-created interviews
       try {
         const User = (await import('./Model/UserSchema.js')).default;
@@ -428,10 +456,10 @@ io.on('connection', (socket) => {
         console.error('Error checking user premium for socket interview create:', err);
       }
       const roomId = `interview_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-      const interview = await Interview.create({ employer, title, description, participants, scheduledAt: new Date(scheduledAt), location, roomId, status: 'scheduled' });
+      const interview = await Interview.create({ employer, title, description, participants: resolvedParticipants, scheduledAt: new Date(scheduledAt), location, roomId, status: 'scheduled' });
 
       // notify participants via sockets
-      for (const p of participants) {
+      for (const p of resolvedParticipants) {
         const userId = p.user || p;
         const targetSocketId = getSocketIdByUser(userId);
         if (targetSocketId) {

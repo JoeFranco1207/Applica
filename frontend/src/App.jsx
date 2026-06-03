@@ -4,7 +4,6 @@ import axios from "axios";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import GlobalTranslator from "./components/GlobalTranslator";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
 import { NotificationProvider } from "./contexts/NotificationContext";
@@ -74,7 +73,6 @@ function Layout() {
   return (
     <>
       <Navbar />
-      <GlobalTranslator />
       <Outlet />
       <Footer />
     </>

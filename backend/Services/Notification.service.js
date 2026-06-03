@@ -68,10 +68,12 @@ export const createNotificationService = async (notificationData) => {
   return notification;
 };
 
-export const createSystemNotificationService = async (recipient, message, type = 'status') => {
+export const createSystemNotificationService = async (recipient, message, type = 'status', options = {}) => {
   if (!recipient) {
     throw new AppError('Recipient is required', 400);
   }
+
+  const { attemptedDevice, currentDevice } = options;
 
   const notification = await Notification.create({
     type,
@@ -80,6 +82,8 @@ export const createSystemNotificationService = async (recipient, message, type =
     actorName: 'Applica',
     actorAvatar: '',
     message,
+    attemptedDevice,
+    currentDevice,
     read: false,
   });
 

@@ -14,11 +14,14 @@ const getStoredUserId = () => {
   }
 };
 
+const supportedLanguages = ["en", "es"];
+
 const getInitialLanguage = () => {
   if (typeof window === "undefined") return "en";
   const userId = getStoredUserId();
   const storageKey = userId ? `language_${userId}` : "language";
-  return localStorage.getItem(storageKey) || "en";
+  const stored = localStorage.getItem(storageKey);
+  return supportedLanguages.includes(stored) ? stored : "en";
 };
 
 export const LanguageProvider = ({ children }) => {

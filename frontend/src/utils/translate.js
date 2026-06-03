@@ -1,5 +1,5 @@
 // Lightweight client-side translation helper with caching and multiple fallbacks
-export async function translateText(text, target = 'tl') {
+export async function translateText(text, target = 'en') {
   if (!text || text.trim() === '') return text;
   const trimmed = text.trim();
 

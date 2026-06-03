@@ -27,6 +27,9 @@ export const createJob = async (jobData, employerId) => {
     title,
     description,
     requirements,
+    responsibilities,
+    qualifications,
+    benefits,
     location,
     salary,
     salaryMin,
@@ -126,6 +129,9 @@ export const createJob = async (jobData, employerId) => {
     title,
     description,
     requirements,
+    responsibilities,
+    qualifications,
+    benefits,
     companyName: employer.companyName,
     location,
     employmentType: employmentType || "Full-time",
@@ -143,8 +149,22 @@ export const createJob = async (jobData, employerId) => {
     jobPayload.externalLink = externalLink;
   }
 
-  if (media && media.data) {
-    jobPayload.media = media;
+  if (media) {
+    if (Array.isArray(media) && media.length > 0) {
+      const imageItems = media.filter((item) => item?.type === 'image');
+      const videoItems = media.filter((item) => item?.type === 'video');
+
+      if (videoItems.length > 0) {
+        jobPayload.media = videoItems[0];
+      } else if (imageItems.length > 0) {
+        jobPayload.mediaFiles = imageItems;
+        if (imageItems.length === 1) {
+          jobPayload.media = imageItems[0];
+        }
+      }
+    } else if (media.data) {
+      jobPayload.media = media;
+    }
   }
 
   const newJob = await Job.create(jobPayload);

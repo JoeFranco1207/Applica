@@ -59,6 +59,9 @@ const CreateJob = () => {
     title: "",
     description: "",
     requirements: "",
+    responsibilities: "",
+    qualifications: "",
+    benefits: "",
     location: "",
     salary: "",
     salaryMin: "",
@@ -68,8 +71,8 @@ const CreateJob = () => {
     remoteType: "Remote",
     externalLink: "",
   });
-  const [jobMedia, setJobMedia] = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
+  const [jobMedia, setJobMedia] = useState([]);
+  const [mediaPreview, setMediaPreview] = useState([]);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
@@ -234,33 +237,58 @@ const CreateJob = () => {
   const activeJobLimitText = isPremium ? "Unlimited" : "1";
   const activeJobDurationText = isPremium ? "Your premium job stays active for 2 months." : "Free jobs stay active for 2 weeks.";
 
-  const handleMediaUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const readFileAsDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64Data = reader.result;
-      const mediaType = file.type.startsWith("video/") ? "video" : "image";
-      setJobMedia({
-        type: mediaType,
-        data: base64Data,
-        contentType: file.type,
-        fileName: file.name,
-      });
-      setMediaPreview(base64Data);
-    };
-    reader.readAsDataURL(file);
+  const handleMediaUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+
+    if (videoFiles.length > 0) {
+      const file = videoFiles[0];
+      const base64Data = await readFileAsDataUrl(file);
+      setJobMedia([
+        {
+          type: "video",
+          data: base64Data,
+          contentType: file.type,
+          fileName: file.name,
+        },
+      ]);
+      setMediaPreview([base64Data]);
+      return;
+    }
+
+    if (!imageFiles.length) return;
+
+    const previews = await Promise.all(imageFiles.map((file) => readFileAsDataUrl(file)));
+    const mediaItems = imageFiles.map((file, index) => ({
+      type: "image",
+      data: previews[index],
+      contentType: file.type,
+      fileName: file.name,
+    }));
+
+    setJobMedia(mediaItems);
+    setMediaPreview(previews);
   };
 
   const removeMedia = () => {
-    setJobMedia(null);
-    setMediaPreview(null);
+    setJobMedia([]);
+    setMediaPreview([]);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    const formattedValue = ["description", "requirements"].includes(name)
+    const formattedValue = ["description", "requirements", "responsibilities", "qualifications", "benefits"].includes(name)
       ? autoBulletText(value)
       : value;
 
@@ -342,6 +370,9 @@ const CreateJob = () => {
         title: formData.title,
         description: formData.description,
         requirements: formData.requirements,
+        responsibilities: formData.responsibilities,
+        qualifications: formData.qualifications,
+        benefits: formData.benefits,
         location: formData.location,
         salary: salaryMinValue
           ? salaryMinValue
@@ -354,7 +385,7 @@ const CreateJob = () => {
         employmentType: formData.employmentType || "Full-time",
         remoteType: formData.remoteType || "Remote",
         externalLink: normalizedLink || undefined,
-        media: jobMedia || undefined,
+        media: jobMedia.length ? jobMedia : undefined,
       };
 
       const response = await axios.post(
@@ -534,6 +565,39 @@ const CreateJob = () => {
               </div>
             </div>
 
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Responsibilities</label>
+              <textarea
+                name="responsibilities"
+                value={formData.responsibilities}
+                onChange={handleInputChange}
+                placeholder="Describe the main responsibilities of this role..."
+                style={styles.textarea}
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Qualifications</label>
+              <textarea
+                name="qualifications"
+                value={formData.qualifications}
+                onChange={handleInputChange}
+                placeholder="List key qualifications and preferred skills..."
+                style={styles.textarea}
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Benefits</label>
+              <textarea
+                name="benefits"
+                value={formData.benefits}
+                onChange={handleInputChange}
+                placeholder="Mention benefits, perks, or compensation details..."
+                style={styles.textarea}
+              />
+            </div>
+
             <div style={styles.twoColumnGrid}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Location</label>
@@ -674,27 +738,33 @@ const CreateJob = () => {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Job image or video</label>
+              <label style={styles.label}>Job image(s) or video</label>
               <input
                 type="file"
                 accept="image/*,video/*"
+                multiple
                 onChange={handleMediaUpload}
                 style={styles.fileInput}
               />
-              {mediaPreview && (
+              {mediaPreview.length > 0 && (
                 <div style={styles.mediaPreviewContainer}>
-                  {jobMedia?.type === "video" ? (
+                  {jobMedia[0]?.type === "video" ? (
                     <video
-                      src={mediaPreview}
+                      src={mediaPreview[0]}
                       style={styles.mediaPreviewItem}
                       controls
                     />
                   ) : (
-                    <img
-                      src={mediaPreview}
-                      alt="Job media preview"
-                      style={styles.mediaPreviewItem}
-                    />
+                    <div style={styles.mediaGrid}>
+                      {mediaPreview.map((src, index) => (
+                        <img
+                          key={`${src}-${index}`}
+                          src={src}
+                          alt={`Job media preview ${index + 1}`}
+                          style={styles.mediaPreviewItem}
+                        />
+                      ))}
+                    </div>
                   )}
                   <button
                     type="button"
@@ -874,6 +944,11 @@ const styles = {
     borderRadius: "14px",
     overflow: "hidden",
     boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+  },
+  mediaGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gap: "8px",
   },
   mediaPreviewItem: {
     width: "100%",

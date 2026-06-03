@@ -62,7 +62,7 @@ const mergePostData = (existing = {}, updated = {}) => {
   return result;
 };
 
-function RecommendedJobsSidebar() {
+function RecommendedJobsSidebar({ onJobClick }) {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,12 +73,45 @@ function RecommendedJobsSidebar() {
       try {
         const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
         const token = localStorage.getItem('token');
-        const response = await axios.get(`${API_BASE}/api/auth/recommendations`, {
-          headers: { Authorization: token ? `Bearer ${token}` : '' },
-        });
-        const data = response.data?.data || {};
-        const recommendedJobs = Array.isArray(data.recommendedJobs) ? data.recommendedJobs.slice(0, 3) : [];
-        setJobs(recommendedJobs);
+
+        const [recRes, jobsRes] = await Promise.all([
+          axios.get(`${API_BASE}/api/auth/recommendations`, {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+          }),
+          axios.get(`${API_BASE}/api/jobs`),
+        ]);
+
+        const recData = recRes.data?.data || {};
+        const availableJobs = Array.isArray(jobsRes.data?.data)
+          ? jobsRes.data.data
+          : Array.isArray(jobsRes.data)
+          ? jobsRes.data
+          : [];
+
+        const recommendedJobs = Array.isArray(recData.recommendedJobs) ? recData.recommendedJobs : [];
+
+        const mappedJobs = recommendedJobs
+          .map((item) => {
+            if (typeof item === 'object' && item !== null) {
+              return item;
+            }
+            if (typeof item === 'string') {
+              const match = availableJobs.find((job) => {
+                const title = (job.title || job.position || '').toString().toLowerCase();
+                const company = (job.companyName || job.company || '').toString().toLowerCase();
+                const query = item.toString().toLowerCase();
+                return title.includes(query) || company.includes(query) || query.includes(title) || query.includes(company);
+              });
+              return match || null;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .slice(0, 3);
+
+        const finalJobs = mappedJobs.length ? mappedJobs : availableJobs.slice(0, 3);
+
+        setJobs(finalJobs);
       } catch (err) {
         console.error('Failed to load recommended jobs', err);
         setJobs([]);
@@ -86,30 +119,37 @@ function RecommendedJobsSidebar() {
         setLoading(false);
       }
     };
+
     fetchJobs();
   }, []);
 
   const fallbackJobs = [
     {
       title: 'Kitchen Staff',
-      company: "Max's Restaurant",
+      companyName: "Max's Restaurant",
       location: 'San Fernando, Pampanga',
       employmentType: 'Full-time',
       remoteType: 'On-site',
+      salaryText: '₱18,000 - ₱22,000',
+      logo: '',
     },
     {
       title: 'Cashier',
-      company: 'Puregold Price Club',
+      companyName: 'Puregold Price Club',
       location: 'San Fernando, Pampanga',
       employmentType: 'Full-time',
       remoteType: 'On-site',
+      salaryText: '₱16,000 - ₱19,000',
+      logo: '',
     },
     {
       title: 'Barista',
-      company: 'The Coffee Bean & Tea Leaf',
+      companyName: 'The Coffee Bean & Tea Leaf',
       location: 'San Fernando, Pampanga',
       employmentType: 'Part-time',
       remoteType: 'On-site',
+      salaryText: '₱12,000 - ₱15,000',
+      logo: '',
     },
   ];
   const list = jobs.length ? jobs : fallbackJobs;
@@ -160,47 +200,80 @@ function RecommendedJobsSidebar() {
           )}
           {list.map((job, index) => {
             const title = typeof job === 'string' ? job : job.title || job.position || job.role || 'Job opportunity';
-            const company = typeof job === 'string' ? '' : job.company || job.companyName || job.employerName || '';
-            const location = typeof job === 'string' ? '' : job.location || job.city || '';
+            const company = typeof job === 'string' ? '' : job.company || job.companyName || job.employerName || job.createdBy?.companyName || '';
+            const location = typeof job === 'string' ? '' : job.location || job.city || job.address || '';
             const employmentType = typeof job === 'string' ? '' : job.employmentType || job.jobType || job.type || '';
             const remoteType = typeof job === 'string' ? '' : job.remoteType || (location.toLowerCase().includes('remote') ? 'Remote' : 'On-site');
-            const logo = typeof job === 'string' ? '' : job.logo || job.companyLogo || job.employerLogo || '';
+            const logo = typeof job === 'string' ? '' : job.logo || job.companyLogo || job.employerLogo || job.createdBy?.companyLogo || job.createdBy?.profilePicture || job.employerAvatar || '';
+            const salaryText = typeof job === 'string' ? '' : job.salaryText || job.salary || job.salaryRange || '';
             const initials = (company || title).split(' ').slice(0, 2).map((word) => word[0] || '').join('').toUpperCase();
             const badges = [employmentType, remoteType].filter(Boolean);
+            const itemId = typeof job === 'object' && job !== null ? (job.postId || job.post_id || job._id || job.id || job.jobId || job.job_id) : null;
+            const explicitPost = typeof job === 'object' && job !== null && (job.postId || job.post_id);
+            const explicitJob = typeof job === 'object' && job !== null && (job.jobId || job.job_id || job.title || job.companyName || job.position || job.role);
+            const isPostItem = explicitPost || (!explicitJob && typeof job === 'object' && job !== null && (job.content || job.tags || job.media || job.author || job.authorName));
+            const handleClick = () => {
+              if (itemId && isPostItem) {
+                navigate(`/post/${itemId}`);
+                return;
+              }
+              if (itemId && typeof onJobClick === 'function') {
+                onJobClick(itemId);
+                return;
+              }
+              navigate(`/search?query=${encodeURIComponent(title)}`);
+            };
 
             return (
               <button
-                key={`${title}-${index}`}
-                onClick={() => navigate(`/search?query=${encodeURIComponent(title)}`)}
+                type="button"
+                key={itemId ? `${itemId}-${index}` : `${title}-${index}`}
+                onClick={handleClick}
                 style={{
                   width: '100%',
                   textAlign: 'left',
-                  borderRadius: 18,
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg)',
-                  padding: '14px 16px',
+                  borderRadius: 22,
+                  border: '1px solid rgba(56, 125, 255, 0.12)',
+                  background: 'var(--surface)',
+                  padding: '18px 20px',
                   cursor: 'pointer',
                   color: 'var(--text)',
                   display: 'grid',
-                  gap: 10,
+                  gap: 14,
+                  boxShadow: '0 12px 20px rgba(15, 23, 42, 0.06)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 44, height: 44, minWidth: 44, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-alt)', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)', fontWeight: 800, fontSize: 14 }}>
-                      {logo ? <img src={logo} alt={company || title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                    <div style={{ width: 48, height: 48, minWidth: 48, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(56, 125, 255, 0.14)', background: 'rgba(34, 150, 243, 0.06)', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 15 }}>
+                      {logo ? (
+                        <img
+                          src={logo}
+                          alt={company || title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <span>{initials}</span>
+                      )}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-h)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-h)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
                       {company ? (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{company}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{company}</div>
                       ) : null}
                     </div>
                   </div>
+                  <div style={{ width: 30, height: 30, borderRadius: 12, background: 'rgba(34, 150, 243, 0.08)', display: 'grid', placeItems: 'center' }}>
+                    <span style={{ color: 'var(--primary)', fontSize: 14 }}>★</span>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.4, flexWrap: 'wrap' }}>
+                    {location ? <span>{location}</span> : null}
+                    {location && salaryText ? <span style={{ opacity: 0.5 }}>•</span> : null}
+                    {salaryText ? <span>{salaryText}</span> : null}
+                  </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                     {badges.map((badge) => renderBadge(badge))}
                   </div>
@@ -210,6 +283,130 @@ function RecommendedJobsSidebar() {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ApplicantsToYourJobsPanel({ jobs = [], currentUserId }) {
+  const navigate = useNavigate();
+
+  const applicantItems = (jobs || [])
+    .filter((job) => {
+      const ownerId = job.createdBy?._id || job.createdBy;
+      if (!ownerId || !currentUserId) return false;
+      return (ownerId.toString ? ownerId.toString() : ownerId) === (currentUserId.toString ? currentUserId.toString() : currentUserId);
+    })
+    .flatMap((job) => {
+      const applicants = Array.isArray(job.applicants) ? job.applicants : [];
+      return applicants.map((applicant, index) => {
+        const user = applicant.user && typeof applicant.user === 'object' ? applicant.user : { _id: applicant.user };
+        const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || applicant.name || 'Applicant';
+        const avatar = user?.profilePicture || user?.companyLogo || applicant.avatar || '';
+        const appliedAt = applicant.appliedAt || applicant.updatedAt || applicant.createdAt || null;
+        const status = applicant.status || 'pending';
+
+        const summaryBio = typeof user?.bio === 'string' ? user.bio.trim() : '';
+        const profileLabel =
+          user?.profession ||
+          user?.employeeJobTitle ||
+          user?.jobTitle ||
+          applicant.title ||
+          applicant.position ||
+          applicant.profession ||
+          (summaryBio ? summaryBio.split('.').filter(Boolean)[0] : '') ||
+          'Applicant';
+
+        return {
+          id: applicant._id || `${job._id || job.id}-${name}-${index}`,
+          name,
+          avatar,
+          profileLabel,
+          jobTitle: job.title || job.position || 'Your job',
+          appliedAt: appliedAt ? new Date(appliedAt) : null,
+          status,
+        };
+      });
+    })
+    .sort((a, b) => (b.appliedAt?.getTime() || 0) - (a.appliedAt?.getTime() || 0))
+    .slice(0, 4);
+
+  return (
+    <div style={{ width: '100%', padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-h)' }}>Applicants to your jobs</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Recent applicants and when they applied</div>
+        </div>
+        <button
+          onClick={() => navigate('/employer/applicants')}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--brand)',
+            cursor: 'pointer',
+            fontSize: 13,
+            padding: 0,
+            fontWeight: 700,
+          }}
+        >
+          View all
+        </button>
+      </div>
+
+      {applicantItems.length ? (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {applicantItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigate('/employer/applicants')}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                borderRadius: 20,
+                border: '1px solid rgba(56, 125, 255, 0.12)',
+                background: 'var(--surface)',
+                padding: '14px 16px',
+                cursor: 'pointer',
+                display: 'grid',
+                gap: 12,
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, overflow: 'hidden', background: '#eef2ff', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 14 }}>
+                  {item.avatar ? (
+                    <img src={item.avatar} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    item.name.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase()
+                  )}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.profileLabel || 'Applicant'}
+                  </div>
+                  {item.jobTitle ? (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.jobTitle}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  Applied {item.appliedAt ? formatRelativeTimeShort(item.appliedAt) : 'recently'}
+                </div>
+                <div style={{ padding: '4px 10px', borderRadius: 999, background: 'rgba(56, 125, 255, 0.08)', color: 'var(--brand)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {item.status === 'pending' ? 'New' : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>No recent applicants to your jobs yet.</div>
+      )}
     </div>
   );
 }
@@ -525,7 +722,7 @@ const BookmarkIcon = ({ filled = false, size = 18 }) => (
     strokeLinejoin="round"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    <polygon points="12 2 15 8.5 22 9.3 17 14.2 18.5 21.5 12 18 5.5 21.5 7 14.2 2 9.3 9 8.5 12 2" />
   </svg>
 );
 
@@ -682,6 +879,9 @@ export default function BrowseJob() {
     return saved ? JSON.parse(saved) : [];
   });
   const [jobs, setJobs] = useState([]);
+  const [employerJobs, setEmployerJobs] = useState([]);
+  const [employerJobsLoading, setEmployerJobsLoading] = useState(false);
+  const [employerJobsError, setEmployerJobsError] = useState("");
   const [socialPosts, setSocialPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostTags, setNewPostTags] = useState("");
@@ -740,6 +940,41 @@ export default function BrowseJob() {
     }
 
     return 'Negotiable';
+  };
+
+  const getJobMediaItems = (item) => {
+    if (!item) return [];
+    if (Array.isArray(item.media)) return item.media;
+    if (Array.isArray(item.mediaFiles) && item.mediaFiles.length) return item.mediaFiles;
+    if (item.media?.data) return [item.media];
+    return [];
+  };
+
+  const renderJobMediaItems = (mediaItems, options = {}) => {
+    if (!mediaItems?.length) return null;
+    const isVideo = mediaItems[0]?.type === 'video';
+    const containerStyle = { ...styles.jobMediaPreview, ...options.containerStyle };
+
+    if (isVideo) {
+      return (
+        <div style={containerStyle}>
+          <video src={mediaItems[0].data} style={styles.jobMediaItem} controls />
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, ...options.galleryStyle }}>
+        {mediaItems.map((item, index) => (
+          <img
+            key={`${item.fileName || index}-${index}`}
+            src={item.data}
+            alt="Job media"
+            style={{ ...styles.jobMediaItem, ...(options.itemStyle || {}) }}
+          />
+        ))}
+      </div>
+    );
   };
 
   const refreshAuthenticatedUser = async () => {
@@ -1491,10 +1726,28 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       navigate('/auth');
       return;
     }
-    if (!commentText.trim()) return;
-    // Job comments not supported yet — placeholder behavior
-    alert('Hindi pa suportado ang pag-post ng mga sagot sa mga job post.');
-    setCommentText('');
+    if (!commentText.trim() || !modalJob) return;
+
+    setCommentLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/jobs/${modalJob._id}/comment`,
+        { content: commentText.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedJob = response.data.data;
+      setJobs((prev) => prev.map((job) => (job._id === updatedJob._id ? updatedJob : job)));
+      if (modalJob?._id === updatedJob._id) {
+        setModalJob(updatedJob);
+      }
+      setCommentText('');
+    } catch (error) {
+      console.error('Job comment error', error);
+      alert('Nabigong mag-post ng komento sa trabahong ito. Subukan muli.');
+    } finally {
+      setCommentLoading(false);
+    }
   };
 
   const submitReply = async (commentId) => {
@@ -1682,6 +1935,37 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     fetchSocialPosts();
   }, [token, isJobseeker, effectiveUser?.experience]);
 
+  useEffect(() => {
+    if (!isEmployer) {
+      setEmployerJobs([]);
+      setEmployerJobsError("");
+      return;
+    }
+
+    const fetchEmployerJobs = async () => {
+      setEmployerJobsLoading(true);
+      setEmployerJobsError("");
+
+      try {
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+        const endpoint = `${API_BASE}/api/employer/my-jobs`;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const response = await axios.get(endpoint, { headers });
+        const fetched = response.data.data?.jobs || response.data.data || response.data || [];
+        setEmployerJobs(Array.isArray(fetched) ? fetched : []);
+      } catch (error) {
+        console.error("Employer jobs fetch error", error);
+        setEmployerJobsError("Hindi mai-load ang iyong mga trabaho ngayon.");
+        setEmployerJobs([]);
+      } finally {
+        setEmployerJobsLoading(false);
+      }
+    };
+
+    fetchEmployerJobs();
+  }, [token, isEmployer]);
+
   // Listen for optimistic new job events from other parts of the app
   useEffect(() => {
     const onNewJob = (e) => {
@@ -1698,13 +1982,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     return () => window.removeEventListener("applica:newJob", onNewJob);
   }, []);
 
-  const tabs = ["forYou", "following", "job", "post", "saved"];
+  const tabs = ["forYou", "job", "post", "saved", "starred"];
   const [activeTab, setActiveTab] = useState("forYou");
   const [sortMode, setSortMode] = useState("recent"); // 'recent' or 'relevant'
 
   const isForYou = activeTab === "forYou";
-  const showJobSection = ["job", "saved"].includes(activeTab);
-  const showPostSection = ["following", "post"].includes(activeTab);
+  const showJobSection = ["job", "saved", "starred"].includes(activeTab);
+  const showPostSection = ["post"].includes(activeTab);
   const showCombinedForYouFeed = isForYou;
   const showJobFilter = activeTab === "job";
   const showPostComposer = (showCombinedForYouFeed || showPostSection) && currentUser?.role === "jobseeker";
@@ -1734,6 +2018,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       location: job.location || "Remote",
       employmentType: job.employmentType || job.jobType || "Full-time",
       remoteType: job.remoteType || (job.location?.toLowerCase().includes("remote") ? "Remote" : "On-site"),
+      salaryText: formatSalaryText(job),
       salaryValue: job.salaryMax || job.salary || job.salaryMin || 0,
       postedAt: job.createdAt
         ? new Date(job.createdAt).toLocaleDateString("en-US", {
@@ -1758,12 +2043,17 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
       userLiked,
       externalLink: job.externalLink,
       media: job.media,
+      mediaFiles: job.mediaFiles,
+      responsibilities: job.responsibilities,
+      qualifications: job.qualifications,
+      benefits: job.benefits,
       createdBy: job.createdBy,
       createdAt: job.createdAt,
       createdById: job.createdBy?._id,
       employerEmail: job.createdBy?.email,
-      employerAvatar: job.createdBy?.role === 'employer' ? job.createdBy?.companyLogo : job.createdBy?.profilePicture,
-      employerName: `${job.createdBy?.firstName || ""} ${job.createdBy?.lastName || ""}`.trim() || job.createdBy?.email,
+      employerAvatar: job.createdBy?.companyLogo || job.createdBy?.profilePicture || job.logo || '',
+      employerName: `${job.createdBy?.companyName || `${job.createdBy?.firstName || ""} ${job.createdBy?.lastName || ""}`}`.trim() || job.companyName || 'Employer',
+      recommendationScore: typeof job.recommendationScore === 'number' ? job.recommendationScore : null,
       resumeScore: getResumeMatchScore(job, effectiveUser),
     };
   });
@@ -1782,9 +2072,19 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
     }
   };
 
+  const getMatchLabel = (item) => {
+    if (typeof item.recommendationScore === 'number') {
+      return `Recommended ${Math.round(item.recommendationScore)}%`;
+    }
+    if (typeof item.resumeScore === 'number') {
+      return `Resume match ${Math.round(item.resumeScore)}%`;
+    }
+    return null;
+  };
+
   // Helper: compute displayed social posts (extracted from inline IIFE)
   const getDisplayedSocial = () => {
-    const source = activeTab === "following" ? followingPostItems : socialPosts;
+    const source = socialPosts;
     if (!Array.isArray(source)) return [];
 
     if (sortMode === 'recent') {
@@ -1882,7 +2182,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
   const feedItemsToShow = jobs.length ? scoredAndSorted : samplePosts;
   const filteredPosts = feedItemsToShow.filter((post) => {
-    if (activeTab === "saved" && !savedJobIds.includes(post.id)) {
+    if ((activeTab === "saved" || activeTab === "starred") && !savedJobIds.includes(post.id)) {
       return false;
     }
 
@@ -2006,7 +2306,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                 activeTab === tabKey ? styles.activeTab : styles.tab
               }
             >
-              {t(`browse.${tabKey}`)}
+              {tabKey === "starred" ? "Starred" : t(`browse.${tabKey}`)}
             </button>
           ))}
         </div>
@@ -2337,6 +2637,9 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                             {post.employerEmail}
                           </p>
                         )}
+                        {getMatchLabel(post) && (
+                          <span style={styles.scoreBadge}>{getMatchLabel(post)}</span>
+                        )}
                         <p style={{ ...styles.postTagline, textAlign: 'left' }}>{post.location}</p>
                         <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                           {post.employmentType && (
@@ -2358,15 +2661,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                       <p style={styles.postText}>{post.description}</p>
                     </div>
 
-                    {post.media?.data && (
-                      <div style={styles.jobMediaPreview}>
-                        {post.media.type === "video" ? (
-                          <video src={post.media.data} style={styles.jobMediaItem} controls />
-                        ) : (
-                          <img src={post.media.data} alt="Job media" style={styles.jobMediaItem} />
-                        )}
-                      </div>
-                    )}
+                    {renderJobMediaItems(getJobMediaItems(post))}
 
                     <div style={styles.postTags}>
                       {post.tags.map((tag, index) => (
@@ -2395,7 +2690,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
                     <div style={styles.postActionRow}>
                       <button
-                        style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
+                        style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: '#facc15' } : styles.actionButton}
                         onClick={() => handleSave(post.id)}
                         title={savedJobIds.includes(post.id) ? "Alisin mula sa nai-save" : "I-save ang trabaho"}
                       >
@@ -2496,15 +2791,11 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                       )}
                     </div>
 
-                    {post.media?.data && (
-                      <div style={{ marginTop: '12px', borderRadius: '12px', overflow: 'hidden' }}>
-                        {post.media.type === 'video' ? (
-                          <video src={post.media.data} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} controls />
-                        ) : (
-                          <img src={post.media.data} alt="post media" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} />
-                        )}
-                      </div>
-                    )}
+                    {renderJobMediaItems(getJobMediaItems(post), {
+                      containerStyle: { marginTop: '12px', borderRadius: '12px', overflow: 'hidden' },
+                      galleryStyle: { gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' },
+                      itemStyle: { maxHeight: 300, width: '100%' },
+                    })}
 
                     {post.tags?.length > 0 && (
                       <div style={styles.postTags}>
@@ -2577,13 +2868,8 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               {socialPosts.length > 0 && (
                 <div style={styles.socialFeedHeading}>
                   <h3 style={styles.sidebarTitle}>
-                    {activeTab === "following" ? t("browse.followingUpdates") : t("browse.jobseekerUpdates")}
+                    {t("browse.jobseekerUpdates")}
                   </h3>
-                  {activeTab === "following" && !followingPostItems.length && (
-                    <p style={{ marginTop: 8, color: "var(--text-muted)", fontSize: 13 }}>
-                      {t("browse.followUsersHere")}
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -2761,8 +3047,13 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                       {post.employerEmail}
                     </p>
                   )}
-                  <p style={{ ...styles.postTagline, textAlign: 'left' }}>{post.location}</p>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  {post.salaryText && (
+                    <p style={{ ...styles.postMeta, margin: '2px 0 6px 0', color: '#0f766e', fontSize: '12px', fontWeight: '500', textAlign: 'left' }}>
+                      {post.salaryText}
+                    </p>
+                  )}
+                  <p style={{ ...styles.postTagline, textAlign: 'left', marginBottom: 0 }}>{post.location}</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                     {post.employmentType && (
                       <span style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600 }}>
                         {post.employmentType}
@@ -2780,17 +3071,31 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
               <div style={styles.postBody}>
                 <h2 style={styles.postRole}>{post.role}</h2>
                 <p style={styles.postText}>{post.description}</p>
+                {(post.responsibilities || post.qualifications || post.benefits) && (
+                  <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
+                    {post.responsibilities && (
+                      <div>
+                        <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Responsibilities</p>
+                        {renderBulletList(post.responsibilities, { color: 'var(--text)' })}
+                      </div>
+                    )}
+                    {post.qualifications && (
+                      <div>
+                        <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Qualifications</p>
+                        {renderBulletList(post.qualifications, { color: 'var(--text)' })}
+                      </div>
+                    )}
+                    {post.benefits && (
+                      <div>
+                        <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Benefits</p>
+                        {renderBulletList(post.benefits, { color: 'var(--text)' })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {post.media?.data && (
-                <div style={styles.jobMediaPreview}>
-                  {post.media.type === "video" ? (
-                    <video src={post.media.data} style={styles.jobMediaItem} controls />
-                  ) : (
-                    <img src={post.media.data} alt="Job media" style={styles.jobMediaItem} />
-                  )}
-                </div>
-              )}
+              {renderJobMediaItems(getJobMediaItems(post))}
 
               <div style={styles.postTags}>
                 {post.tags.map((tag, index) => (
@@ -2815,11 +3120,12 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   <span style={styles.postStatItem}> {post.applicants} {t('browse.applicants')}</span>
                   <span style={styles.postStatItem}> {post.views} {t('browse.views')}</span>
                   <span style={styles.postStatItem}> {post.likes} {t('browse.likes')}</span>
+                  <span style={styles.postStatItem}> {post.comments?.length || 0} komento</span>
               </div>
 
               <div style={styles.postActionRow}>
                 <button
-                  style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: 'var(--primary)' } : styles.actionButton}
+                  style={savedJobIds.includes(post.id) ? { ...styles.actionButton, color: '#facc15' } : styles.actionButton}
                   onClick={() => handleSave(post.id)}
                   title={savedJobIds.includes(post.id) ? "Alisin mula sa nai-save" : "I-save ang trabaho"}
                 >
@@ -2863,11 +3169,15 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
         <aside style={styles.sidebarColumn}>
           <div style={styles.sidebarCard}>
-            <CompanySidebar max={6} />
+            <CompanySidebar max={6} currentRole={currentRole} />
           </div>
 
           <div style={{ ...styles.sidebarCard, marginTop: "24px", padding: "0" }}>
-            <RecommendedJobsSidebar />
+            {currentRole === 'employer' ? (
+              <ApplicantsToYourJobsPanel jobs={employerJobs} currentUserId={currentUserId} />
+            ) : (
+              <RecommendedJobsSidebar onJobClick={openJobModal} />
+            )}
           </div>
 
           <div style={{ ...styles.sidebarCard, marginTop: "24px", padding: "0" }}>
@@ -2967,15 +3277,33 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
 
             <div style={{ ...styles.modalBody, color: 'var(--text)', textAlign: 'left' }}>
               <p style={{ ...styles.postText, color: 'var(--text)', marginBottom: '18px' }}>{translatingModalDescription ? modalJob.description : (translatedModalDescription || modalJob.description)}</p>
-              {modalJob.media?.data && (
-                <div style={{ marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  {modalJob.media.type === 'video' ? (
-                    <video src={modalJob.media.data} style={{ width: '100%', maxHeight: 360, objectFit: 'cover' }} controls />
-                  ) : (
-                    <img src={modalJob.media.data} alt="Job media" style={{ width: '100%', maxHeight: 360, objectFit: 'cover' }} />
+              {(modalJob.responsibilities || modalJob.qualifications || modalJob.benefits) && (
+                <div style={{ display: 'grid', gap: 18, marginBottom: 18 }}>
+                  {modalJob.responsibilities && (
+                    <div>
+                      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Responsibilities</p>
+                      {renderBulletList(modalJob.responsibilities, { color: 'var(--text)' })}
+                    </div>
+                  )}
+                  {modalJob.qualifications && (
+                    <div>
+                      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Qualifications</p>
+                      {renderBulletList(modalJob.qualifications, { color: 'var(--text)' })}
+                    </div>
+                  )}
+                  {modalJob.benefits && (
+                    <div>
+                      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--text-h)' }}>Benefits</p>
+                      {renderBulletList(modalJob.benefits, { color: 'var(--text)' })}
+                    </div>
                   )}
                 </div>
               )}
+              {renderJobMediaItems(getJobMediaItems(modalJob), {
+                containerStyle: { marginBottom: 18, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' },
+                galleryStyle: { gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 },
+                itemStyle: { maxHeight: 360, width: '100%' },
+              })}
               {modalJob.externalLink && (
                 <div style={{ marginBottom: 18 }}>
                   <a
@@ -3032,8 +3360,35 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   <span>{modalJob.views?.length || 0} tingin</span>
                   <span> {modalJob.likes?.length || 0} gusto</span>
                   <span>{modalJob.applicants?.length || 0} aplikante</span>
+                  <span>{modalJob.comments?.length || 0} komento</span>
                 </div>
               </div>
+
+              {modalJob.comments?.length ? (
+                <div style={{ padding: '0 18px 16px', display: 'grid', gap: 12 }}>
+                  <h4 style={{ color: 'var(--text-h)', margin: 0 }}>Mga Komento</h4>
+                  {modalJob.comments.map((comment) => (
+                    <div key={comment._id || comment.createdAt} style={styles.commentRow}>
+                      <div style={styles.commentAvatar}>
+                        {comment.authorAvatar ? (
+                          <img src={comment.authorAvatar} alt={comment.authorName || 'User'} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                        ) : (
+                          <span>{(comment.authorName || 'U').charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div style={styles.commentBody}>
+                        <p style={styles.commentAuthor}>{comment.authorName || 'Anonymous'}</p>
+                        <p style={styles.commentTime}>{formatDateMonthDay(comment.createdAt)}</p>
+                        <p style={styles.commentText}>{comment.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '0 18px 16px', color: 'var(--text)', fontSize: 14 }}>
+                  Walang komento pa ang trabahong ito.
+                </div>
+              )}
             </div>
 
             <div style={styles.modalActions}>
@@ -3162,6 +3517,28 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                       <p style={{ margin: 0, lineHeight: 1.8, color: 'var(--text)' }}>{applyJobInfo.details?.join(', ') || t('browse.noRequirementsProvided')}</p>
                     )}
                   </div>
+                  {(applyJobInfo.responsibilities || applyJobInfo.qualifications || applyJobInfo.benefits) && (
+                    <div style={{ background: 'var(--surface-alt)', borderRadius: '14px', padding: '20px', border: '1px solid var(--border)', display: 'grid', gap: 18 }}>
+                      {applyJobInfo.responsibilities && (
+                        <div>
+                          <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>Responsibilities</p>
+                          {renderBulletList(applyJobInfo.responsibilities, { color: 'var(--text)' })}
+                        </div>
+                      )}
+                      {applyJobInfo.qualifications && (
+                        <div>
+                          <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>Qualifications</p>
+                          {renderBulletList(applyJobInfo.qualifications, { color: 'var(--text)' })}
+                        </div>
+                      )}
+                      {applyJobInfo.benefits && (
+                        <div>
+                          <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-h)' }}>Benefits</p>
+                          {renderBulletList(applyJobInfo.benefits, { color: 'var(--text)' })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div style={{
                     background: 'var(--surface-alt)',
@@ -3331,7 +3708,7 @@ alert("Hindi ma-load ang detalye ng trabaho ngayon.");
                   borderRadius: '8px',
                   border: 'none',
                   background: 'var(--primary)',
-                  color: '#ffffff',
+                  color: 'var(--text-h)',
                   padding: '12px 32px',
                   fontWeight: '700',
                   cursor: jobActionLoading ? 'not-allowed' : 'pointer',
@@ -4096,6 +4473,19 @@ composerTextarea: {
     color: "var(--primary)",
     fontWeight: "700",
     fontSize: "12px",
+  },
+  scoreBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px 8px',
+    borderRadius: '999px',
+    background: 'rgba(16, 185, 129, 0.12)',
+    color: '#10b981',
+    fontSize: '12px',
+    fontWeight: 700,
+    marginBottom: '6px',
+    border: '1px solid rgba(16, 185, 129, 0.18)',
   },
   commentRow: {
     display: "flex",

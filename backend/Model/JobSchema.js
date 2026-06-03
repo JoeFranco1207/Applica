@@ -44,6 +44,9 @@ export const jobSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    responsibilities: String,
+    qualifications: String,
+    benefits: String,
     companyName:{
          type: String,
          required: true
@@ -77,6 +80,20 @@ export const jobSchema = new mongoose.Schema({
       contentType: String,
       fileName: String,
     },
+    mediaFiles: {
+      type: [
+        {
+          type: {
+            type: String,
+            enum: ["image", "video"],
+          },
+          data: String,
+          contentType: String,
+          fileName: String,
+        },
+      ],
+      default: [],
+    },
     views: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: "User",
@@ -89,6 +106,18 @@ export const jobSchema = new mongoose.Schema({
     },
     applicants: {
       type: [applicantSchema],
+      default: [],
+    },
+    comments: {
+      type: [
+        {
+          author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+          authorName: String,
+          authorAvatar: String,
+          content: { type: String, required: true, trim: true },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
       default: [],
     },
     expiresAt: {

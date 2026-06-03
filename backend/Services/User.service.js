@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import { signupValidation, phoneNumberValidation } from '../validator/Validator.js';
 import {sendVerificationEmail, sendForgotPasswordEmail, sendLoginNotificationEmail} from '../Services/NodeMailer.js';
 import { createSystemNotificationService } from './Notification.service.js';
+import { getPersonalizedJobsService } from './RecommendationScoring.service.js';
 
 // Resolve IP to a human-friendly location string. Uses ipapi.co.
 const resolveIpLocation = async (ip) => {
@@ -62,6 +63,42 @@ const normalizePlanFields = (user) => {
   if (user.lastAIPaymentPlan && typeof user.lastAIPaymentPlan === 'string' && user.lastAIPaymentPlan.startsWith('employer_')) {
     user.lastAIPaymentPlan = user.lastAIPaymentPlan.replace(/^employer_/, '');
   }
+};
+
+const normalizeText = (value) => {
+  if (!value) return '';
+  return String(value).trim().toLowerCase();
+};
+
+const extractKeywords = (text = '') => {
+  const normalized = normalizeText(text);
+  if (!normalized) return [];
+  const tokens = normalized.match(/\b[a-z0-9]{3,}\b/g) || [];
+  return Array.from(new Set(tokens)).slice(0, 12);
+};
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildRegexArray = (terms = []) => {
+  return terms
+    .filter(Boolean)
+    .map((term) => new RegExp(escapeRegex(term), 'i'));
+};
+
+const dedupeCompanies = (companies = []) => {
+  const seen = new Set();
+  return companies.reduce((result, company) => {
+    const name = normalizeText(typeof company === 'string' ? company : company?.name);
+    if (!name || seen.has(name)) return result;
+    seen.add(name);
+    result.push(typeof company === 'string' ? { name: company } : company);
+    return result;
+  }, []);
+};
+
+const isSameObjectId = (a, b) => {
+  if (!a || !b) return false;
+  return normalizeText(a.toString()) === normalizeText(b.toString());
 };
 
 const getAcceptedJobDataForJobseeker = async (userId) => {
@@ -557,68 +594,130 @@ export const getRecommendationsService = async (userId) => {
   const user = await User.findById(userId).lean();
   if (!user) throw new AppError('User not found', 404);
 
-  // Recommended skills: user's top skills or popular skills in same city
-  let recommendedSkills = (user.skills || []).slice(0, 6);
-  if (!recommendedSkills.length) {
-    const skillsAgg = await User.aggregate([
-      { $match: { 'skills.0': { $exists: true } } },
-      { $unwind: '$skills' },
-      { $group: { _id: '$skills', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 6 },
-    ]);
-    recommendedSkills = skillsAgg.map((s) => s._id);
-  }
-
-  // Recommended companies: companies from connections or popular nearby
-  const match = { companyName: { $exists: true, $ne: '' } };
-  if (user.location?.city) match['location.city'] = user.location.city;
-  const companiesAgg = await User.aggregate([
-    { $match: { ...match, _id: { $ne: user._id } } },
-    { $group: { _id: '$companyName', count: { $sum: 1 } } },
+  const userSkills = Array.isArray(user.skills) ? user.skills.filter(Boolean).slice(0, 6) : [];
+  const savedSearches = Array.isArray(user.savedSearches) ? user.savedSearches.filter(Boolean).slice(0, 6) : [];
+  const recommendedSkills = userSkills.length ? [...userSkills] : (await User.aggregate([
+    { $match: { 'skills.0': { $exists: true } } },
+    { $unwind: '$skills' },
+    { $group: { _id: '$skills', count: { $sum: 1 } } },
     { $sort: { count: -1 } },
-    { $limit: 8 },
-  ]);
-  const recommendedCompanies = companiesAgg.map((c) => c._id).filter(Boolean);
+    { $limit: 6 },
+  ])).map((s) => s._id);
 
-  const companyProfiles = await User.find({
-    companyName: { $in: recommendedCompanies },
-    showProfileInSearch: { $ne: false },
-  })
-    .select('companyName companyLogo profilePicture role')
-    .lean();
+  const locationCity = normalizeText(user.location?.city || user.location?.region || '');
+  const topSearchKeywords = extractKeywords([user.bio, user.experience, user.education, ...userSkills, ...savedSearches].join(' '));
 
-  const companyProfilesByName = new Map();
-  companyProfiles.forEach((profile) => {
-    const key = (profile.companyName || '').trim().toLowerCase();
-    if (!key) return;
-    const existing = companyProfilesByName.get(key);
-    if (!existing || profile.role === 'employer') {
-      companyProfilesByName.set(key, profile);
-    }
-  });
-
-  const recommendedCompaniesWithProfile = recommendedCompanies.map((companyName) => {
-    const key = (companyName || '').trim().toLowerCase();
-    const profile = companyProfilesByName.get(key);
-    return {
-      name: companyName,
-      logo: profile?.companyLogo || profile?.profilePicture || '',
-      companyId: profile?._id || null,
-      role: profile?.role || null,
-    };
-  });
-
-  // Recommended jobs: derive job titles from user's skills or generic popular titles
   let recommendedJobs = [];
-  if (user.skills && user.skills.length) {
-    recommendedJobs = user.skills.slice(0, 6).map((s) => `${s} Specialist`);
-  } else {
-    recommendedJobs = ['Frontend Engineer', 'Backend Engineer', 'Product Designer', 'Data Analyst'];
+  let recommendedCompanies = [];
+  let recommendedCompaniesWithProfile = [];
+  let recommendedProfiles = [];
+
+  const activeJobFilter = {
+    deletedAt: { $exists: false },
+    $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }],
+  };
+
+  if (user.role !== 'employer') {
+    const personalized = await getPersonalizedJobsService(user._id, 8, 0);
+    recommendedJobs = Array.isArray(personalized.jobs) ? personalized.jobs : [];
+
+    const companyCounts = new Map();
+    recommendedJobs.forEach((job) => {
+      const companyName = normalizeText(job.companyName || job.createdBy?.companyName || '');
+      if (!companyName) return;
+      const key = companyName.toLowerCase();
+      const entry = companyCounts.get(key) || { name: job.companyName || job.createdBy?.companyName || '', logo: job.createdBy?.companyLogo || job.createdBy?.profilePicture || '', companyId: job.createdBy?._id || null, openPositions: 0 };
+      entry.openPositions += 1;
+      companyCounts.set(key, entry);
+    });
+
+    if (companyCounts.size) {
+      recommendedCompaniesWithProfile = Array.from(companyCounts.values()).slice(0, 6);
+      recommendedCompanies = recommendedCompaniesWithProfile.map((company) => company.name);
+    } else {
+      const popularCompanies = await Job.aggregate([
+        { $match: activeJobFilter },
+        { $group: { _id: '$companyName', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 8 },
+      ]);
+      recommendedCompanies = popularCompanies.map((item) => item._id).filter(Boolean).slice(0, 6);
+      const companyProfiles = await User.find({
+        companyName: { $in: recommendedCompanies },
+        showProfileInSearch: { $ne: false },
+      })
+        .select('companyName companyLogo profilePicture role')
+        .lean();
+
+      const companyProfilesByName = new Map();
+      companyProfiles.forEach((profile) => {
+        const key = normalizeText(profile.companyName);
+        if (!key) return;
+        const existing = companyProfilesByName.get(key);
+        if (!existing || profile.role === 'employer') {
+          companyProfilesByName.set(key, profile);
+        }
+      });
+
+      recommendedCompaniesWithProfile = recommendedCompanies.map((companyName) => {
+        const key = normalizeText(companyName);
+        const profile = companyProfilesByName.get(key);
+        return {
+          name: companyName,
+          logo: profile?.companyLogo || profile?.profilePicture || '',
+          companyId: profile?._id || null,
+          openPositions: popularCompanies.find((item) => normalizeText(item._id) === key)?.count || 0,
+        };
+      });
+    }
   }
 
-  // Saved searches: use stored savedSearches or derive from skills
-  const savedSearches = (user.savedSearches && user.savedSearches.length) ? user.savedSearches.slice(0,6) : (user.skills || []).slice(0,6).map(s => `${s}`);
+  if (user.role === 'employer') {
+    const employerJobs = await Job.find({ createdBy: user._id }).lean();
+    const employerKeywords = extractKeywords(employerJobs.map((job) => [job.title, job.description, job.requirements, job.responsibilities, job.qualifications, job.benefits].filter(Boolean).join(' ')).join(' '));
+    const searchRegex = buildRegexArray(employerKeywords.length ? employerKeywords : [user.companyName, user.bio, user.location?.city, user.location?.region].filter(Boolean));
+
+    const profileMatch = {
+      role: 'jobseeker',
+      showProfileInSearch: { $ne: false },
+    };
+    const orCriteria = [];
+
+    if (searchRegex.length) {
+      orCriteria.push({ skills: { $in: employerKeywords } });
+      orCriteria.push({ experience: { $in: searchRegex } });
+      orCriteria.push({ bio: { $in: searchRegex } });
+      orCriteria.push({ education: { $in: searchRegex } });
+    }
+
+    if (locationCity) {
+      const locationRegex = new RegExp(escapeRegex(locationCity), 'i');
+      orCriteria.push({ 'location.city': locationRegex });
+      orCriteria.push({ 'location.region': locationRegex });
+    }
+
+    if (orCriteria.length) {
+      profileMatch.$or = orCriteria;
+    }
+
+    recommendedProfiles = await User.find(profileMatch)
+      .select('firstName lastName profilePicture companyName role skills bio location')
+      .sort({ premiumAIAccess: -1, lastActive: -1, createdAt: -1 })
+      .limit(6)
+      .lean();
+
+    if (!recommendedProfiles.length) {
+      recommendedProfiles = await User.find({ role: 'jobseeker', showProfileInSearch: { $ne: false } })
+        .select('firstName lastName profilePicture companyName role skills bio location')
+        .sort({ premiumAIAccess: -1, lastActive: -1, createdAt: -1 })
+        .limit(6)
+        .lean();
+    }
+
+    const candidateCompanyNames = employerJobs.map((job) => normalizeText(job.companyName)).filter(Boolean);
+    recommendedCompanies = dedupeCompanies(candidateCompanyNames).slice(0, 6).map((company) => company.name);
+    recommendedCompaniesWithProfile = [];
+  }
 
   return {
     recommendedCompanies,
@@ -626,5 +725,6 @@ export const getRecommendationsService = async (userId) => {
     recommendedJobs,
     recommendedSkills,
     savedSearches,
+    recommendedProfiles,
   };
 };

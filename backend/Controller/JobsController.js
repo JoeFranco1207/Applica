@@ -2,6 +2,7 @@ import AppSuccessful from "../Middleware/AppSuccessful.js";
 import {
   getAllJobs,
   addJobView,
+  addJobComment,
   toggleJobLike,
   applyToJob,
   getJobseekerApplications,
@@ -61,6 +62,17 @@ export const addJobViewController = async (req, res, next) => {
     const jobId = req.params.jobId;
     const updatedJob = await addJobView(jobId, req.user.id);
     return res.success(new AppSuccessful("Job view recorded", 200, updatedJob));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const addJobCommentController = async (req, res, next) => {
+  try {
+    const jobId = req.params.jobId;
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    const updatedJob = await addJobComment(jobId, req.user.id, content);
+    return res.success(new AppSuccessful("Comment added", 201, updatedJob));
   } catch (err) {
     next(err);
   }

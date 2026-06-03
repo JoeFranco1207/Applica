@@ -25,6 +25,44 @@ const calculateKeywordOverlapScore = (sourceKeywords = [], targetKeywords = []) 
   return Math.round(similarity * 100);
 };
 
+const extractJobText = (job = {}) => {
+  return [
+    job.title,
+    job.description,
+    job.requirements,
+    job.responsibilities,
+    job.qualifications,
+    job.benefits,
+    job.companyName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+};
+
+const scoreSkillMatch = (job, userSkills = []) => {
+  if (!job || !Array.isArray(userSkills)) return 0;
+  if (!userSkills.length) return 50;
+  
+  const jobText = extractJobText(job);
+  if (!jobText) return 0;
+  
+  const normalizedSkills = Array.from(new Set(
+    userSkills
+      .filter(Boolean)
+      .map((skill) => String(skill).toLowerCase().trim())
+      .flatMap((skill) => skill.split(/[,\/\s]+/))
+      .filter(Boolean)
+  ));
+  if (!normalizedSkills.length) return 50;
+  
+  const matches = normalizedSkills.reduce((count, skill) => {
+    return count + (jobText.includes(skill) ? 1 : 0);
+  }, 0);
+  
+  return Math.round((matches / normalizedSkills.length) * 100);
+};
+
 /**
  * Score experience match (0-100)
  * Matches job title/description against user's stated experience
@@ -32,10 +70,7 @@ const calculateKeywordOverlapScore = (sourceKeywords = [], targetKeywords = []) 
 const scoreExperienceMatch = (job, userExperience = '') => {
   if (!userExperience || !job) return 0;
   
-  const jobText = [job.title, job.description, job.requirements]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  const jobText = extractJobText(job);
   
   const expKeywords = extractKeywords(userExperience);
   if (!expKeywords.length) return 0;
@@ -58,10 +93,7 @@ const scoreExperienceMatch = (job, userExperience = '') => {
 const scoreEducationMatch = (job, userEducation = '') => {
   if (!userEducation || !job) return 0;
   
-  const jobText = [job.title, job.requirements, job.description]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  const jobText = extractJobText(job);
   
   const educationKeywords = extractKeywords(userEducation);
   if (!educationKeywords.length) return 0;
@@ -162,10 +194,12 @@ export const scoreJobRecommendation = (job, userProfile = {}) => {
     location = {},
     expectedSalary = null,
     preferredEmploymentTypes = [],
+    skills = [],
   } = userProfile;
   
   const scores = {
     experience: scoreExperienceMatch(job, experience),
+    skills: scoreSkillMatch(job, skills),
     education: scoreEducationMatch(job, education),
     location: scoreLocationMatch(job, location),
     salary: scoreSalaryMatch(job, expectedSalary),
@@ -174,11 +208,12 @@ export const scoreJobRecommendation = (job, userProfile = {}) => {
   
   // Weighted average
   const totalScore = 
-    (scores.experience * 0.30) +
-    (scores.location * 0.25) +
-    (scores.education * 0.20) +
-    (scores.salary * 0.15) +
-    (scores.employment * 0.10);
+    (scores.experience * 0.25) +
+    (scores.skills * 0.25) +
+    (scores.location * 0.20) +
+    (scores.education * 0.15) +
+    (scores.salary * 0.10) +
+    (scores.employment * 0.05);
   
   return {
     score: Math.round(totalScore),
@@ -193,7 +228,7 @@ export const scoreJobRecommendation = (job, userProfile = {}) => {
 export const scorePostRecommendation = (post, userProfile = {}) => {
   if (!post) return 0;
   
-  const { experience = '', education = '' } = userProfile;
+  const { experience = '', education = '', skills = [], bio = '' } = userProfile;
   
   const postContent = [
     post.content,
@@ -204,7 +239,7 @@ export const scorePostRecommendation = (post, userProfile = {}) => {
     .filter(Boolean)
     .join(' ');
   
-  const userKeywords = extractKeywords([experience, education].join(' '));
+  const userKeywords = extractKeywords([experience, education, bio, ...skills].join(' '));
   
   if (!userKeywords.length) return 50; // Neutral score for incomplete profiles
   
@@ -237,6 +272,7 @@ export const getPersonalizedJobsService = async (userId, limit = 20, skip = 0) =
     location: user.location || {},
     expectedSalary: user.expectedSalary || null,
     preferredEmploymentTypes: user.preferredEmploymentTypes || [],
+    skills: Array.isArray(user.skills) ? user.skills : [],
   };
   
   // Fetch all active jobs
@@ -280,6 +316,7 @@ export const getPersonalizedJobsService = async (userId, limit = 20, skip = 0) =
       experience: userProfile.experience,
       education: userProfile.education,
       location: userProfile.location,
+      skills: userProfile.skills,
     },
   };
 };
@@ -299,6 +336,8 @@ export const getPersonalizedPostsService = async (userId, limit = 20, skip = 0, 
   const userProfile = {
     experience: user.experience || '',
     education: user.education || '',
+    skills: Array.isArray(user.skills) ? user.skills : [],
+    bio: user.bio || '',
   };
   
   // Fetch all active, non-restricted posts
@@ -332,6 +371,8 @@ export const getPersonalizedPostsService = async (userId, limit = 20, skip = 0, 
     userProfile: {
       experience: userProfile.experience,
       education: userProfile.education,
+      skills: userProfile.skills,
+      bio: userProfile.bio,
     },
   };
 };

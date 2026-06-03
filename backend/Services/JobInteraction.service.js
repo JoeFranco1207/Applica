@@ -58,6 +58,52 @@ export const addJobView = async (jobId, userId) => {
   return job;
 };
 
+export const addJobComment = async (jobId, userId, commentContent) => {
+  if (!commentContent || !commentContent.trim()) {
+    throw new AppError('Comment content is required', 400);
+  }
+
+  const job = await getJobIfActive(jobId);
+  const user = await User.findById(userId).select('firstName lastName companyName profilePicture companyLogo');
+
+  const authorName = user?.companyName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Anonymous';
+  const authorAvatar = user?.profilePicture || user?.companyLogo || '';
+
+  const comment = {
+    author: userId,
+    authorName,
+    authorAvatar,
+    content: commentContent.trim(),
+    createdAt: new Date(),
+  };
+
+  job.comments.push(comment);
+  await job.save();
+
+  const creatorId = job.createdBy?._id?.toString?.() || job.createdBy?.toString?.();
+  if (creatorId && creatorId !== userId.toString()) {
+    try {
+      await createNotificationService({
+        type: 'comment',
+        recipient: creatorId,
+        actor: userId,
+        message: `commented on your job posting`,
+        jobId: job._id,
+        commentId: job.comments[job.comments.length - 1]._id,
+      });
+    } catch (notificationError) {
+      console.error('Failed to create job comment notification:', notificationError);
+    }
+  }
+
+  await job.populate({
+    path: "createdBy",
+    select: "firstName lastName email companyName role profilePicture companyLogo",
+  });
+
+  return job;
+};
+
 export const toggleJobLike = async (jobId, userId) => {
   const job = await getJobIfActive(jobId);
 

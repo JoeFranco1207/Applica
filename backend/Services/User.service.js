@@ -674,7 +674,7 @@ export const getRecommendationsService = async (userId) => {
 
   if (user.role === 'employer') {
     const employerJobs = await Job.find({ createdBy: user._id }).lean();
-    const employerKeywords = extractKeywords(employerJobs.map((job) => [job.title, job.description, job.requirements, job.responsibilities, job.qualifications, job.benefits].filter(Boolean).join(' ')).join(' '));
+    const employerKeywords = extractKeywords(employerJobs.map((job) => [job.title, job.description, job.requirements].filter(Boolean).join(' ')).join(' '));
     const searchRegex = buildRegexArray(employerKeywords.length ? employerKeywords : [user.companyName, user.bio, user.location?.city, user.location?.region].filter(Boolean));
 
     const profileMatch = {

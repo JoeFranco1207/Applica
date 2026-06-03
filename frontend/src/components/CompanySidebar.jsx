@@ -33,6 +33,14 @@ export default function CompanySidebar({ max = 6, currentRole }) {
           });
           const recData = recRes.data?.data || {};
           let profiles = Array.isArray(recData.recommendedProfiles) ? recData.recommendedProfiles : [];
+          profiles = (profiles || []).filter(Boolean);
+
+          // If the backend returned recommendations but they aren't jobseeker profiles,
+          // try to prefer entries that look like jobseekers (have an id or explicit role).
+          if (profiles.length) {
+            const jobseekerCandidates = profiles.filter((p) => p && (p.role === 'jobseeker' || p._id || p.id));
+            if (jobseekerCandidates.length) profiles = jobseekerCandidates;
+          }
 
           if (!profiles.length) {
             const query = (
@@ -52,15 +60,23 @@ export default function CompanySidebar({ max = 6, currentRole }) {
           }
 
           const maxTopProfiles = Math.min(max, 4);
-          const best = profiles[0] || null;
-          const topProfiles = profiles.slice(1, 1 + maxTopProfiles);
+
+          // Choose a best profile that is an actual existing jobseeker (prefer _id or id and explicit role).
+          let best = null;
+          if (Array.isArray(profiles) && profiles.length) {
+            best = profiles.find((p) => (p && (p.role === 'jobseeker') && (p._id || p.id))) ||
+                   profiles.find((p) => (p && (p._id || p.id))) ||
+                   profiles[0];
+          }
+
+          const topProfiles = (Array.isArray(profiles) ? profiles.filter((p) => p !== best) : []).slice(0, maxTopProfiles);
 
           const mapProfile = (profile) => ({
             name: [profile.firstName || '', profile.lastName || '']
               .filter(Boolean)
               .join(' ') || profile.email || 'Candidate',
             logo: profile.profilePicture || profile.companyLogo || '',
-            profileId: profile._id || null,
+            profileId: profile._id || profile.id || null,
             subtitle: profile.companyName || 'Jobseeker',
             details: profile.role === 'jobseeker' ? 'Recommended for hiring' : profile.role || 'Candidate',
           });
@@ -68,7 +84,48 @@ export default function CompanySidebar({ max = 6, currentRole }) {
           const mappedBest = best ? mapProfile(best) : null;
           let mappedTop = topProfiles.map(mapProfile);
 
-          if (!mappedBest) {
+          // If recommendations are short (e.g. only one best profile), try to
+          // include other available recommended profiles as the top list.
+          if ((!mappedTop || mappedTop.length === 0) && Array.isArray(profiles) && profiles.length > 0) {
+            const candidates = profiles
+              .slice(0, maxTopProfiles + 1)
+              .filter((p) => p !== best)
+              .slice(0, maxTopProfiles);
+            mappedTop = candidates.map(mapProfile);
+          }
+
+          // If still empty, try a final search to fetch real jobseeker profiles
+          if (!mappedTop || mappedTop.length === 0) {
+            try {
+              const searchRes = await axios.get(`${API_BASE}/api/auth/users/search`, {
+                headers: { Authorization: token ? `Bearer ${token}` : '' },
+                params: { query: 'jobseeker', limit: maxTopProfiles + 2 },
+              });
+              const users = Array.isArray(searchRes.data?.data) ? searchRes.data.data : [];
+              const jobseekers = users.filter((u) => u && (u.role === 'jobseeker' || u._id || u.id));
+              const uniq = [];
+              const uniqueJobseekers = jobseekers.filter((u) => {
+                const id = u._id || u.id || u.email || u.emailAddress;
+                if (!id) return false;
+                if (uniq.includes(id)) return false;
+                uniq.push(id);
+                return true;
+              }).slice(0, maxTopProfiles);
+
+              if (uniqueJobseekers.length) {
+                mappedTop = uniqueJobseekers.map(mapProfile);
+                if (!mappedBest) {
+                  const firstReal = uniqueJobseekers.find((u) => u._id || u.id) || uniqueJobseekers[0];
+                  if (firstReal) mappedBest = mapProfile(firstReal);
+                }
+              }
+            } catch (e) {
+              // ignore search error and fall back to placeholders below
+            }
+          }
+
+          // If still empty after real search, provide sample placeholders so the UI isn't blank.
+          if (!mappedTop || mappedTop.length === 0) {
             mappedTop = [
               { name: 'Jane Doe', logo: '', profileId: null, subtitle: 'Software Engineer', details: 'Best candidate' },
               { name: 'Juan Dela Cruz', logo: '', profileId: null, subtitle: 'Customer Success', details: 'Top candidate' },
@@ -172,11 +229,11 @@ export default function CompanySidebar({ max = 6, currentRole }) {
     <div style={{ padding: 12 }}>
       {isEmployer ? (
         <>
-          <div style={{ background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95), #0f172a)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.35)', border: '1px solid rgba(148, 163, 184, 0.16)', marginBottom: 16 }}>
+          <div style={{ background: 'var(--surface-strong)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)', border: '1px solid var(--border)', marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#f8fafc' }}>Best profile to recruit</div>
-                <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h)' }}>Best profile to recruit</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                   The top candidate with the strongest match for your hiring needs.
                 </div>
               </div>
@@ -185,15 +242,15 @@ export default function CompanySidebar({ max = 6, currentRole }) {
             {loading ? (
               <div style={{ color: 'var(--text-secondary)' }}>Loading best profile...</div>
             ) : bestProfile ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 14px', borderRadius: 14, border: '1px solid rgba(148, 163, 184, 0.16)', background: '#111827' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 14px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: 'hidden', background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {bestProfile.logo ? <img src={bestProfile.logo} alt={bestProfile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 18, color: '#94a3b8' }}>{(bestProfile.name || '').slice(0, 1)}</div>}
+                  <div style={{ width: 56, height: 56, borderRadius: 14, overflow: 'hidden', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {bestProfile.logo ? <img src={bestProfile.logo} alt={bestProfile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 18, color: 'var(--text-secondary)' }}>{(bestProfile.name || '').slice(0, 1)}</div>}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{bestProfile.name}</div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{bestProfile.subtitle}</div>
-                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{bestProfile.details}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>{bestProfile.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{bestProfile.subtitle}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{bestProfile.details}</div>
                   </div>
                 </div>
                 <button
@@ -204,7 +261,7 @@ export default function CompanySidebar({ max = 6, currentRole }) {
                       navigate(`/search?query=${encodeURIComponent(bestProfile.name)}`);
                     }
                   }}
-                  style={{ border: 'none', background: '#0f172a', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#60a5fa', fontWeight: 700 }}
+                  style={{ border: 'none', background: 'transparent', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: 'var(--brand)', fontWeight: 700 }}
                 >
                   View profile
                 </button>
@@ -214,11 +271,11 @@ export default function CompanySidebar({ max = 6, currentRole }) {
             )}
           </div>
 
-          <div style={{ background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95), #0f172a)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.35)', border: '1px solid rgba(148, 163, 184, 0.16)' }}>
+          <div style={{ background: 'var(--surface-strong)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#f8fafc' }}>Top profiles to recruit</div>
-                <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h)' }}>Top profiles to recruit</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                   Browse the next best candidates recommended for your hiring.
                 </div>
               </div>
@@ -235,14 +292,14 @@ export default function CompanySidebar({ max = 6, currentRole }) {
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 {companies.map((c) => (
-                  <div key={c.profileId || c.companyId || c.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(148, 163, 184, 0.16)', background: '#111827' }}>
+                  <div key={c.profileId || c.companyId || c.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)' }}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {c.logo ? <img src={c.logo} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 14, color: '#94a3b8' }}>{(c.name || '').slice(0,1)}</div>}
+                      <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {c.logo ? <img src={c.logo} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{(c.name || '').slice(0,1)}</div>}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{c.name}</div>
-                        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{c.subtitle || c.details || ''}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>{c.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{c.subtitle || c.details || ''}</div>
                       </div>
                     </div>
                     <button
@@ -253,7 +310,7 @@ export default function CompanySidebar({ max = 6, currentRole }) {
                           navigate(`/search?query=${encodeURIComponent(c.name)}`);
                         }
                       }}
-                      style={{ border: 'none', background: '#0f172a', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', color: '#60a5fa' }}
+                      style={{ border: 'none', background: 'transparent', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', color: 'var(--brand)' }}
                       aria-label={`View ${c.name}`}
                     >
                       View
@@ -265,11 +322,11 @@ export default function CompanySidebar({ max = 6, currentRole }) {
           </div>
         </>
       ) : (
-        <div style={{ background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95), #0f172a)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.35)', border: '1px solid rgba(148, 163, 184, 0.16)', marginBottom: 16 }}>
+        <div style={{ background: 'var(--surface-strong)', borderRadius: 12, padding: 14, boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)', border: '1px solid var(--border)', marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#f8fafc' }}>Top companies hiring</div>
-              <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h)' }}>Top companies hiring</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                 Check out top companies hiring now
               </div>
             </div>
@@ -286,14 +343,14 @@ export default function CompanySidebar({ max = 6, currentRole }) {
           ) : (
             <div style={{ display: 'grid', gap: 10 }}>
               {companies.map((c) => (
-                <div key={c.profileId || c.companyId || c.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid rgba(148, 163, 184, 0.16)', background: '#111827' }}>
+                <div key={c.profileId || c.companyId || c.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {c.logo ? <img src={c.logo} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 14, color: '#94a3b8' }}>{(c.name || '').slice(0,1)}</div>}
+                    <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {c.logo ? <img src={c.logo} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{(c.name || '').slice(0,1)}</div>}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{c.name}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>{c.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         {c.openPositions != null ? `${c.openPositions}+ open positions` : c.subtitle || c.details || ''}
                       </div>
                     </div>
@@ -306,7 +363,7 @@ export default function CompanySidebar({ max = 6, currentRole }) {
                         navigate(`/search?query=${encodeURIComponent(c.name)}`);
                       }
                     }}
-                    style={{ border: 'none', background: '#0f172a', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', color: '#60a5fa' }}
+                    style={{ border: 'none', background: 'transparent', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', color: 'var(--brand)' }}
                     aria-label={`View ${c.name}`}
                   >
                     View

@@ -18,10 +18,11 @@ const Feed = () => {
       setLoading(true);
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
+      const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
       // Use personalized endpoint if user is a jobseeker with profile data
-      let endpoint = 'http://localhost:8000/api/posts';
+      let endpoint = `${API_BASE}/api/posts`;
       if (token && currentUser?.role === 'jobseeker' && currentUser?.experience) {
-        endpoint = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/auth/feed/personalized-posts?limit=50`;
+        endpoint = `${API_BASE}/api/auth/feed/personalized-posts?limit=50`;
       }
       
       const response = await axios.get(endpoint, {

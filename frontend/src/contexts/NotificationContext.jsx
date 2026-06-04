@@ -30,12 +30,14 @@ export const NotificationProvider = ({ children }) => {
     return true;
   };
 
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
   const fetchUnreadCount = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
       const response = await fetch(
-        'http://localhost:8000/api/notifications/unread/count?types=like,share,repost,comment,reply,apply,status,connection',
+        `${API_BASE}/api/notifications/unread/count?types=like,share,repost,comment,reply,apply,status,connection`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -56,7 +58,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
     try {
       const response = await fetch(
-        'http://localhost:8000/api/notifications?types=like,share,repost,comment,reply,apply,status,connection',
+        `${API_BASE}/api/notifications?types=like,share,repost,comment,reply,apply,status,connection`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -99,7 +101,7 @@ export const NotificationProvider = ({ children }) => {
     if (token && userId) {
       console.log('Initializing Socket.IO connection for user:', userId);
       
-      const newSocket = io('http://localhost:8000', {
+      const newSocket = io(API_BASE, {
         auth: {
           token,
         },

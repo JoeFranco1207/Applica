@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import "./lib/networkPatch";
 import { Routes, Route, Outlet, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 

@@ -1,0 +1,43 @@
+name: Deploy Applica (backend -> Fly, frontend -> Vercel)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  ci-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build backend deps (install only)
+        run: |
+          cd backend
+          npm ci --production
+
+      - name: Deploy backend to Fly
+        uses: superfly/flyctl-action@v0.1.6
+        with:
+          args: deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Install frontend dependencies and build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Deploy frontend to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-args: --prod
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}

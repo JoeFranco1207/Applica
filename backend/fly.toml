@@ -1,0 +1,7 @@
+app = "applica-backend"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8000"

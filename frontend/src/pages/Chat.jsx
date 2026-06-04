@@ -3,6 +3,8 @@ import { useNotification } from '../contexts/NotificationContext';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
 export default function Chat() {
   const { socket } = useNotification();
   const location = useLocation();
@@ -48,7 +50,7 @@ export default function Chat() {
     if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('//')) return url;
     // Otherwise normalize relative paths and prepend backend host
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
-    return `http://localhost:8000${normalizedUrl}`;
+    return `${API_BASE}${normalizedUrl}`;
   };
 
   // Format values for the debug panel: truncate long data URIs and long strings

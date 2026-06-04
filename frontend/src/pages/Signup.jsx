@@ -3,6 +3,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
 export default function Signup() {
   const navigate = useNavigate();
   const { translate: t } = useLanguage();
@@ -183,7 +185,7 @@ export default function Signup() {
       setLoading(true);
 
       const res = await axios.post(
-        "http://localhost:8000/api/auth/Register",
+        `${API_BASE}/api/auth/Register`,
         {
           firstName:
             signupData.firstName,
@@ -261,7 +263,7 @@ export default function Signup() {
       if (adminAccessToken) {
         // Use admin login
         res = await axios.post(
-          "http://localhost:8000/api/admin/login",
+          `${API_BASE}/api/admin/login`,
           {
             email: loginData.email,
             password: loginData.password,
@@ -284,7 +286,7 @@ export default function Signup() {
       } else {
         // Regular user login
         res = await axios.post(
-          "http://localhost:8000/api/auth/Login",
+          `${API_BASE}/api/auth/Login`,
           {
             email: loginData.email,
             password: loginData.password,
@@ -374,11 +376,7 @@ export default function Signup() {
   const handleSendVerificationCode =
     async (email) => {
       try {
-        const res =
-          await axios.post(
-            "http://localhost:8000/api/auth/sendVerificationCode",
-            { email }
-          );
+        const res = await axios.post(`${API_BASE}/api/auth/sendVerificationCode`, { email });
 
         showMessage(
           res.data.message ||
@@ -412,8 +410,7 @@ export default function Signup() {
         true
       );
 
-      const res = await axios.put(
-        "http://localhost:8000/api/auth/verifyCode",
+      const res = await axios.put(`${API_BASE}/api/auth/verifyCode`,
         {
           email:
             verificationEmail,

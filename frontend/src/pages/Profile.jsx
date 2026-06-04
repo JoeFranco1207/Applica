@@ -398,7 +398,8 @@ export default function Profile() {
       const token = localStorage.getItem('token');
       if (!token || !currentUserId) return;
       try {
-        const response = await axios.get('http://localhost:8000/api/auth/profile', {
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const response = await axios.get(`${API_BASE}/api/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const latestUser = response.data?.data;

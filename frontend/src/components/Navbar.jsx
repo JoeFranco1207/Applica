@@ -283,15 +283,8 @@ export default function Navbar() {
     try {
       const token = localStorage.getItem("token");
       if (token) {
-        await axios.post(
-          "http://localhost:8000/api/auth/logout",
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        await axios.post(`${API_BASE}/api/auth/logout`, {}, { headers: { Authorization: `Bearer ${token}` } });
       }
     } catch (error) {
       console.log("Logout failed:", error);

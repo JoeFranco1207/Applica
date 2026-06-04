@@ -33,8 +33,13 @@ const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL || 'https://libretrans
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (FRONTEND_ORIGINS.includes(origin) || FRONTEND_ORIGINS.includes('*')) return callback(null, true);
+    return callback(new Error('CORS policy: origin not allowed'), false);
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -300,9 +305,10 @@ app.use((err, req, res, next) => {
 const httpServer = createServer(app);
 
 // Initialize Socket.IO
+const SOCKET_IO_ORIGINS = FRONTEND_ORIGINS;
 export const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: SOCKET_IO_ORIGINS,
     credentials: true,
   },
 });

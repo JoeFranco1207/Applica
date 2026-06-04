@@ -490,7 +490,7 @@ export default function Signup() {
       >
         <div style={styles.brand}>
           <img
-            src="/src/assets/Applica_Logo.png"
+            src={require('../assets/Applica_Logo.png')}
             alt="Logo"
             style={styles.logo}
           />

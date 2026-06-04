@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PostCard from '../components/PostCard';
+import ApplicaLogo from '../assets/Applica_Logo.png';
 
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,7 +115,7 @@ export default function SearchResults() {
                   >
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                       <img
-                        src={profile.profilePicture || '/src/assets/Applica_Logo.png'}
+                        src={profile.profilePicture || ApplicaLogo}
                         alt={`${profile.firstName} ${profile.lastName}`}
                         style={styles.avatarSmall}
                       />

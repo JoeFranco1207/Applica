@@ -7,6 +7,7 @@ import ThemeSwitch from "./ThemeSwitch";
 import NotificationPanel from "./NotificationPanel";
 import PresenceAvatar from './PresenceAvatar';
 import "./Navbar.css";
+import ApplicaLogo from "../assets/Applica_Logo.png";
 
 const BellIcon = ({ size = 20, count = 0 }) => (
   <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -313,7 +314,7 @@ export default function Navbar() {
       <div style={styles.navContent}>
         <div style={styles.brand} onClick={() => navigate("/")}>
           <img
-            src="/src/assets/Applica_Logo.png"
+            src={ApplicaLogo}
             alt="Applica"
             style={styles.logoImage}
           />
@@ -403,7 +404,7 @@ export default function Navbar() {
                       onMouseDown={() => handleProfileSelect(profile)}
                     >
                       <img
-                        src={profile.profilePicture || '/src/assets/Applica_Logo.png'}
+                        src={profile.profilePicture || ApplicaLogo}
                         alt={`${profile.firstName} ${profile.lastName}`}
                         style={styles.searchResultAvatar}
                       />

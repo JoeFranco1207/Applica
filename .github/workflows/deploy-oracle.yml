@@ -1,0 +1,39 @@
+name: Deploy to Oracle VM
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy to Oracle VM
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -e
+            mkdir -p ~/app
+            cd ~/app
+            if [ -d .git ]; then
+              git fetch --all
+              git reset --hard origin/main
+            else
+              git clone https://github.com/JoeFranco1207/Applica.git .
+            fi
+            # install docker if missing
+            if ! command -v docker >/dev/null 2>&1; then
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sh get-docker.sh
+            fi
+            # make sure docker compose is available
+            if ! docker compose version >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker-compose-plugin
+            fi
+            docker compose -f docker-compose.oracle.yml pull || true
+            docker compose -f docker-compose.oracle.yml up -d --build

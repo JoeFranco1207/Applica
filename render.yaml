@@ -1,0 +1,22 @@
+services:
+  - type: web_service
+    name: Applica Backend
+    env: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    dockerfilePath: backend/Dockerfile
+    buildCommand: npm ci --only=production
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: static_site
+    name: Applica Frontend
+    plan: free
+    branch: main
+    autoDeploy: true
+    root: frontend
+    buildCommand: npm install && npm run build
+    publishPath: dist

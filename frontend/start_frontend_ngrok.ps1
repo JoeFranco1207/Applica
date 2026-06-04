@@ -1,0 +1,1 @@
+Start-Process -FilePath 'C:\Users\Afrea\AppData\Roaming\npm\node_modules\ngrok\bin\ngrok.exe' -ArgumentList @('http','5173','--host-header=localhost:5173','--webaddr=127.0.0.1:4041','--log=stdout') -WindowStyle Hidden -PassThru | Out-File -FilePath 'C:\Users\Afrea\Documents\Coding\Program\Applica\frontend\start_frontend_ngrok.log' -Encoding ascii

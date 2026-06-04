@@ -33,7 +33,7 @@ const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL || 'https://libretrans
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',').map(s => s.trim()).filter(Boolean);
+const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://localhost:5174,https://tabasco-gravitate-helpful.ngrok-free.dev').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);

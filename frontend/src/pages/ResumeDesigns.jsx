@@ -336,7 +336,7 @@ export default function ResumeDesigns() {
       const cleanAchievements = achievements.filter(a => a.trim());
 
       const response = await axios.post(
-        'http://localhost:8000/api/jobseeker/resume',
+        '/api/jobseeker/resume',
         {
           designId: selectedDesign.id,
           designName: selectedDesign.name,

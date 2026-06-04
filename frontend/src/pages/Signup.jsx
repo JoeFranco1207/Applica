@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
+import ApplicaLogo from "../assets/Applica_Logo.png";
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -486,11 +487,7 @@ export default function Signup() {
         }}
       >
         <div style={styles.brand}>
-          <img
-            src={require('../assets/Applica_Logo.png')}
-            alt="Logo"
-            style={styles.logo}
-          />
+          <img src={ApplicaLogo} alt="Logo" style={styles.logo} />
 
           <h1
             style={{

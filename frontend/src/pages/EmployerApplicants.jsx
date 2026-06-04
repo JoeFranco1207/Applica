@@ -201,7 +201,7 @@ export default function EmployerApplicants() {
 
     try {
       await axios.post(
-        `http://localhost:8000/api/employer/my-jobs/${jobId}/applicants/${applicantId}/view-resume`,
+        `/api/employer/my-jobs/${jobId}/applicants/${applicantId}/view-resume`,
         {},
         {
           headers: {

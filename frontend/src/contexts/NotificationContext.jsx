@@ -30,7 +30,7 @@ export const NotificationProvider = ({ children }) => {
     return true;
   };
 
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 
   const fetchUnreadCount = async () => {
     const token = localStorage.getItem('token');
@@ -101,7 +101,8 @@ export const NotificationProvider = ({ children }) => {
     if (token && userId) {
       console.log('Initializing Socket.IO connection for user:', userId);
       
-      const newSocket = io(API_BASE, {
+      const newSocket = io(API_BASE || '/', {
+        path: '/socket.io',
         auth: {
           token,
         },

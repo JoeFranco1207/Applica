@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const RAW_API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const RAW_API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 // Normalize base: remove trailing slashes
 const API_BASE = RAW_API_BASE.replace(/\/+$/,'');
 

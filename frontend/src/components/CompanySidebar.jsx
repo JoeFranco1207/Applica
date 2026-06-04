@@ -81,7 +81,7 @@ export default function CompanySidebar({ max = 6, currentRole }) {
             details: profile.role === 'jobseeker' ? 'Recommended for hiring' : profile.role || 'Candidate',
           });
 
-          const mappedBest = best ? mapProfile(best) : null;
+          let mappedBest = best ? mapProfile(best) : null;
           let mappedTop = topProfiles.map(mapProfile);
 
           // If recommendations are short (e.g. only one best profile), try to

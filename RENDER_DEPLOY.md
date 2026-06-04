@@ -18,12 +18,17 @@
 4. In the Render dashboard, configure required environment variables for the backend, for example:
    - `MONGODB_URI`
    - `JWT_SECRET`
+   - `ADMIN_SECRET`
+   - `TOKEN_SECRET`
    - any other secrets used by your app
-5. Deploy.
+5. For the frontend service, set `VITE_BACKEND_URL` to the backend public URL after the backend deploys.
+   - Example: `https://applica-backend.onrender.com`
+6. Deploy.
 
 ## Notes
 - The backend is the only service requiring WebSockets and Puppeteer.
-- The frontend can remain a Render static site.
+- The frontend is deployed as a Render static site and builds from `frontend/dist`.
+- The frontend build needs `VITE_BACKEND_URL` at build time so API requests target the backend service.
 - If Render does not automatically detect the service names, create them manually using the same settings from `render.yaml`.
 
 ## Alternative
